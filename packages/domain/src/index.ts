@@ -11,3 +11,4 @@ export * from './onboarding';
 export * from './reminders';
 export * from './hero';
 export * from './titles';
+export * from './paths';

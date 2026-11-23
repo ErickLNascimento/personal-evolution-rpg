@@ -38,7 +38,7 @@ import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/ProfileProvider';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 
-const SLOT_KEY: Record<HeroSlot, keyof Omit<HeroLook, 'heroClass' | 'form'>> = {
+const SLOT_KEY: Record<HeroSlot, keyof Omit<HeroLook, 'heroClass' | 'form' | 'kit' | 'tier' | 'race'>> = {
   skin: 'skin',
   eyes: 'eyes',
   hair: 'hair',

@@ -388,7 +388,7 @@ begin
   perform pg_temp.check((select count(*) from public.xp_transactions) = 0, 'B não vê XP de A');
   perform pg_temp.check((select count(*) from public.ai_plans) = 0, 'B não vê planos de A');
   perform pg_temp.check(public.my_total_xp() = 0, 'XP de B = 0');
-  perform pg_temp.check((select count(*) from public.xp_rules) = 4, 'regras de XP são públicas');
+  perform pg_temp.check((select count(*) from public.xp_rules) = 5, 'regras de XP são públicas (inclui o bônus relâmpago)');
 
   -- Perfil (tela Perfil): B edita o próprio consentimento e fuso, nunca o de A
   update public.profiles set ai_consent_at = now(), timezone = 'Europe/Lisbon';
@@ -581,7 +581,7 @@ do $$ begin
 end $$;
 
 -- ── Cristais ─────────────────────────────────────────────────
--- Gil: Guerreiro (classe padrão, +10% em Saúde), com 990 XP (nível 4).
+-- Gil: caminho Marcial (estágio 0, +5% em Saúde), com 990 XP (nível 4).
 reset role;
 insert into auth.users (id, email) values ('88888888-8888-8888-8888-888888888888', 'gil@teste.dev');
 update public.profiles set timezone = 'America/Manaus' where id = '88888888-8888-8888-8888-888888888888';
@@ -600,9 +600,17 @@ set local role authenticated;
 do $$
 declare r jsonb;
 begin
-  -- fácil (5) + 10% em Saúde (arredonda para cima: +1) = 6; e o XP chega a 1000 → nível 5 → +50
+  -- sem caminho ainda; a primeira escolha não inicia a espera de troca
+  r := public.my_hero_path();
+  perform pg_temp.check(r->>'path' is null and (r->>'level')::int = 4, 'sem caminho, nível 4');
+  r := public.choose_path('marcial');
+  perform pg_temp.check((r->>'stage')::int = 0 and (r->>'changed')::boolean, 'escolhe Marcial no estágio 0');
+  perform pg_temp.check((select path_changed_at from public.profiles) is null, 'primeira escolha sem espera');
+
+  -- fácil (5) + 5% em Saúde (arredonda para cima: +1) = 6; e o XP chega a 1000 → nível 5 → +50
   r := public.log_habit('b1000000-0000-0000-0000-000000000001', pg_temp.today());
   perform pg_temp.check((r->>'xp_awarded')::int = 10, 'XP da missão continua igual');
+  perform pg_temp.check((r->>'flash_bonus')::int = 0, 'sem missão relâmpago, sem bônus');
   perform pg_temp.check((r->>'coins_awarded')::int = 56, 'missão (6) + subida para o nível 5 (50)');
   perform pg_temp.check((r->>'coin_balance')::int = 56, 'saldo 56');
   perform pg_temp.check(public.my_coin_balance() = 56, 'my_coin_balance bate');
@@ -621,15 +629,15 @@ begin
   r := public.log_habit('b1000000-0000-0000-0000-000000000002', pg_temp.today());
   perform pg_temp.check((r->>'coin_balance')::int = 81, 'registrar de novo devolve 25');
 
-  -- missão de ontem rende metade: ceil(5/2)=3, +10% Saúde = 4
+  -- missão de ontem rende metade: ceil(5/2)=3, +5% Saúde = 4
   r := public.log_habit('b1000000-0000-0000-0000-000000000001', pg_temp.today() - 1);
   perform pg_temp.check((r->>'coins_awarded')::int = 4, 'ontem rende metade');
 
-  -- compra: saldo insuficiente
+  -- a loja de classes acabou: a classe vem do caminho
   begin
     perform public.buy_item('paladino');
-    raise exception 'FALHOU: comprou sem Cristais';
-  exception when sqlstate 'PR004' then null;
+    raise exception 'FALHOU: comprou classe';
+  exception when insufficient_privilege then null;
   end;
 
   -- o app não grava Cristais nem desbloqueios direto
@@ -644,66 +652,25 @@ begin
     raise exception 'FALHOU: desbloqueou classe direto';
   exception when insufficient_privilege then null;
   end;
+
+  -- caminho, ramo e estágio não se editam direto; raça e aparência sim
   begin
-    update public.profiles set hero = '{"heroClass":"paladino"}';
-    raise exception 'FALHOU: equipou classe sem comprar';
-  exception when sqlstate 'PR005' then null;
-  end;
-end $$;
-
--- Mais Cristais para testar a loja (só o backend grava)
-reset role;
-insert into public.coin_transactions (user_id, amount, source_type, local_date, idempotency_key)
-values ('88888888-8888-8888-8888-888888888888', 500, 'level_up', pg_temp.today(), 'seed:gil-coins');
-set local role authenticated;
-
-do $$
-declare r jsonb; v_coin int;
-begin
-  begin
-    perform public.buy_item('necromante');
-    raise exception 'FALHOU: comprou classe de nível 10 no nível 5';
-  exception when sqlstate 'PR003' then null;
-  end;
-
-  r := public.buy_item('paladino');
-  perform pg_temp.check((r->>'coin_balance')::int = 285, 'compra desconta 300 (585 → 285)');
-  perform pg_temp.check(public.my_coin_balance() = 285, 'saldo após a compra');
-  perform pg_temp.check(exists (select 1 from public.user_unlocks where item_id = 'paladino'), 'paladino adquirido');
-
-  begin
-    perform public.buy_item('paladino');
-    raise exception 'FALHOU: comprou duas vezes';
-  exception when sqlstate 'PR002' then null;
+    update public.profiles set stage = 5;
+    raise exception 'FALHOU: pulou de estágio direto';
+  exception when sqlstate 'PR010' then null;
   end;
   begin
-    perform public.buy_item('guerreiro');
-    raise exception 'FALHOU: comprou classe grátis';
-  exception when invalid_parameter_value then null;
+    update public.profiles set path = 'arcano';
+    raise exception 'FALHOU: trocou de caminho direto';
+  exception when sqlstate 'PR010' then null;
   end;
+  update public.profiles set race = 'elfo', hero = '{"heroClass":"paladino"}';
+  perform pg_temp.check((select race from public.profiles) = 'elfo', 'raça é escolha livre');
   begin
-    perform public.buy_item('dragao-inexistente');
-    raise exception 'FALHOU: comprou item inexistente';
-  exception when no_data_found then null;
+    update public.profiles set race = 'vampiro';
+    raise exception 'FALHOU: aceitou raça desconhecida';
+  exception when check_violation then null;
   end;
-
-  -- equipar o que comprou é permitido; o que não comprou, não
-  update public.profiles set hero = '{"heroClass":"paladino"}';
-  perform pg_temp.check((select hero->>'heroClass' from public.profiles) = 'paladino', 'equipa a classe comprada');
-  begin
-    update public.profiles set hero = '{"heroClass":"necromante"}';
-    raise exception 'FALHOU: equipou necromante sem comprar';
-  exception when sqlstate 'PR005' then null;
-  end;
-
-  -- Paladino: +15% em Crescimento pessoal (hábito sem objetivo conta como essa área): 10 + 2 = 12
-  perform public.undo_habit_log('b1000000-0000-0000-0000-000000000002', pg_temp.today());
-  perform public.log_habit('b1000000-0000-0000-0000-000000000002', pg_temp.today());
-  select t.amount into v_coin
-  from public.coin_transactions t
-  join public.habit_logs l on l.id = t.source_id
-  where t.source_type = 'habit' and l.habit_id = 'b1000000-0000-0000-0000-000000000002';
-  perform pg_temp.check(v_coin = 12, 'bônus de área da classe equipada');
 end $$;
 
 -- ── Títulos ──────────────────────────────────────────────────
@@ -804,6 +771,205 @@ begin
   end;
   update public.profiles set equipped_title = 'conquista-health';
   perform pg_temp.check((select equipped_title from public.profiles) = 'conquista-health', 'exibe o título épico');
+end $$;
+
+-- ── Caminho, promoções e missão relâmpago ────────────────────
+-- Gil: nível 5, Marcial estágio 0, 2 missões em Saúde.
+select set_config('request.jwt.claim.sub', '88888888-8888-8888-8888-888888888888', true);
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.my_hero_path();
+  perform pg_temp.check((r->>'area_missions')::int = 2, '2 missões em Saúde');
+  perform pg_temp.check(not (r->>'can_promote')::boolean, 'estágio 1 pede 10 missões');
+  begin
+    perform public.promote_hero();
+    raise exception 'FALHOU: promoveu sem os requisitos';
+  exception when sqlstate 'PR014' then null;
+  end;
+end $$;
+
+-- mais 8 missões antigas em Saúde (10 no total)
+reset role;
+insert into public.habits (id, user_id, objective_id, title, difficulty, start_date) values
+  ('b1000000-0000-0000-0000-000000000003', '88888888-8888-8888-8888-888888888888',
+   'b0000000-0000-0000-0000-000000000001', 'Treino antigo', 'hard', pg_temp.today() - 200);
+insert into public.habit_logs (user_id, habit_id, local_date)
+select '88888888-8888-8888-8888-888888888888', 'b1000000-0000-0000-0000-000000000003', pg_temp.today() - d
+from generate_series(2, 9) d;
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.my_hero_path();
+  perform pg_temp.check((r->>'can_promote')::boolean, 'nível 5 + 10 missões: promoção liberada');
+  r := public.promote_hero();
+  perform pg_temp.check((r->>'stage')::int = 1, 'promovido ao estágio 1');
+  perform pg_temp.check(
+    (select count(*) from public.hero_history where event = 'promote' and stage = 1) = 1, 'promoção no histórico');
+  begin
+    perform public.promote_hero();
+    raise exception 'FALHOU: promoveu ao estágio 2 no nível 5';
+  exception when sqlstate 'PR014' then null;
+  end;
+end $$;
+
+-- nível 20 e 120 missões em Saúde (só o backend grava XP)
+reset role;
+insert into public.xp_transactions (user_id, amount, source_type, local_date, idempotency_key)
+values ('88888888-8888-8888-8888-888888888888', 18000, 'habit', pg_temp.today() - 30, 'seed:gil-nivel-20');
+insert into public.habit_logs (user_id, habit_id, local_date)
+select '88888888-8888-8888-8888-888888888888', 'b1000000-0000-0000-0000-000000000003', pg_temp.today() - d
+from generate_series(10, 119) d;
+-- arquivado ontem: os registros continuam contando, mas ele sai da agenda de hoje
+update public.habits set archived_on = pg_temp.today() - 1 where id = 'b1000000-0000-0000-0000-000000000003';
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.promote_hero();
+  perform pg_temp.check((r->>'stage')::int = 2, 'estágio 2');
+  r := public.my_hero_path();
+  perform pg_temp.check((r->>'needs_branch')::boolean, 'o estágio 3 pede o ramo');
+  begin
+    perform public.promote_hero();
+    raise exception 'FALHOU: promoveu ao estágio 3 sem ramo';
+  exception when sqlstate 'PR015' then null;
+  end;
+  r := public.promote_hero('B');
+  perform pg_temp.check((r->>'stage')::int = 3 and r->>'branch' = 'B', 'estágio 3 no ramo B');
+  begin
+    perform public.promote_hero();
+    raise exception 'FALHOU: promoveu ao estágio 4 no nível 20';
+  exception when sqlstate 'PR014' then null;
+  end;
+
+  -- trocar de ramo mantém o estágio e inicia a espera de 14 dias
+  r := public.choose_path('marcial', 'A');
+  perform pg_temp.check((r->>'stage')::int = 3 and r->>'branch' = 'A', 'troca para o ramo A no mesmo estágio');
+  perform pg_temp.check((select path_changed_at from public.profiles) is not null, 'troca inicia a espera');
+  r := public.choose_path('marcial', 'A');
+  perform pg_temp.check(not (r->>'changed')::boolean, 'escolher o mesmo não conta como troca');
+  begin
+    perform public.choose_path('arcano');
+    raise exception 'FALHOU: trocou de caminho durante a espera';
+  exception when sqlstate 'PR011' then null;
+  end;
+  begin
+    perform public.choose_path('pirata');
+    raise exception 'FALHOU: aceitou caminho inexistente';
+  exception when no_data_found then null;
+  end;
+end $$;
+
+-- passaram 15 dias desde a troca
+reset role;
+select set_config('per.hero_progress', 'on', true);
+update public.profiles set path_changed_at = now() - interval '15 days'
+where id = '88888888-8888-8888-8888-888888888888';
+select set_config('per.hero_progress', 'off', true);
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  -- Arcano: nenhuma missão em Conhecimento → recomeça no estágio 0 (o nível continua 20)
+  r := public.choose_path('arcano');
+  perform pg_temp.check((r->>'stage')::int = 0 and r->>'branch' is null, 'novo caminho recalcula o estágio');
+  r := public.my_hero_path();
+  perform pg_temp.check((r->>'level')::int = 20, 'o nível não muda');
+  perform pg_temp.check(r->>'change_available_at' is not null, 'nova espera após a troca');
+end $$;
+
+-- vantagens do caminho (lidas pelo backend em log_habit)
+reset role;
+select set_config('per.hero_progress', 'on', true);
+update public.profiles set path = 'destreza', branch = 'B', stage = 2
+where id = '88888888-8888-8888-8888-888888888888';
+do $$ begin
+  perform pg_temp.check(not (select yesterday_full from public.hero_perks('88888888-8888-8888-8888-888888888888')),
+    'Destreza B: Cristais cheios de ontem só a partir do estágio 3');
+end $$;
+update public.profiles set stage = 3 where id = '88888888-8888-8888-8888-888888888888';
+do $$ begin
+  perform pg_temp.check((select yesterday_full from public.hero_perks('88888888-8888-8888-8888-888888888888')),
+    'Destreza B no estágio 3: Cristais cheios de ontem');
+  perform pg_temp.check((select area_pct from public.hero_perks('88888888-8888-8888-8888-888888888888')) = 12,
+    'estágio 3: +12% na área');
+end $$;
+update public.profiles set path = 'natureza', branch = null, stage = 0
+where id = '88888888-8888-8888-8888-888888888888';
+do $$ begin
+  perform pg_temp.check((select easy_extra from public.hero_perks('88888888-8888-8888-8888-888888888888')) = 2,
+    'Natureza: +2 Cristais por missão fácil');
+end $$;
+select set_config('per.hero_progress', 'off', true);
+
+-- Missão relâmpago: Gil ganha um hábito novo; é a única missão de hoje ainda não feita
+insert into public.habits (id, user_id, title, difficulty, start_date) values
+  ('b1000000-0000-0000-0000-000000000004', '88888888-8888-8888-8888-888888888888', 'Meditar', 'medium', pg_temp.today() - 1);
+set local role authenticated;
+
+do $$
+declare r jsonb; v_log uuid;
+begin
+  r := public.my_flash_mission();
+  perform pg_temp.check(r->>'habit_id' = 'b1000000-0000-0000-0000-000000000004', 'sorteia a missão ainda não feita');
+  perform pg_temp.check(not (r->>'done')::boolean, 'ainda não feita');
+  perform pg_temp.check((r->>'deadline')::timestamptz between now() and now() + interval '4 hours', 'prazo de até 4 horas (sem passar da meia-noite)');
+  perform pg_temp.check(public.my_flash_mission()->>'habit_id' = r->>'habit_id', 'o sorteio fica fixo no dia');
+
+  -- média (20 XP) dentro do prazo: +50% = 10 XP e +10 Cristais
+  r := public.log_habit('b1000000-0000-0000-0000-000000000004', pg_temp.today());
+  perform pg_temp.check((r->>'flash_bonus')::int = 10, 'relâmpago: +50% do XP');
+  select id into v_log from public.habit_logs
+  where habit_id = 'b1000000-0000-0000-0000-000000000004' and local_date = pg_temp.today();
+  perform pg_temp.check(exists (select 1 from public.coin_transactions where idempotency_key = 'coins:flash:' || v_log),
+    'relâmpago: +10 Cristais');
+  perform pg_temp.check((public.my_flash_mission()->>'done')::boolean, 'relâmpago concluída');
+  perform pg_temp.check((public.my_flash_mission()->>'awarded')::boolean, 'bônus relâmpago concedido');
+
+  -- desfazer estorna o bônus relâmpago (XP e Cristais)
+  perform public.undo_habit_log('b1000000-0000-0000-0000-000000000004', pg_temp.today());
+  perform pg_temp.check(exists (select 1 from public.xp_transactions where idempotency_key = 'reversal:flash:' || v_log),
+    'estorna o XP relâmpago');
+  perform pg_temp.check(exists (select 1 from public.coin_transactions where idempotency_key = 'reversal:coins:flash:' || v_log),
+    'estorna os Cristais relâmpago');
+
+  -- o app não grava a missão relâmpago direto
+  begin
+    update public.flash_missions set deadline = now() + interval '1 day';
+    raise exception 'FALHOU: estendeu o prazo direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- prazo vencido: concluir não dá bônus
+reset role;
+update public.flash_missions set deadline = now() - interval '1 minute'
+where user_id = '88888888-8888-8888-8888-888888888888';
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.log_habit('b1000000-0000-0000-0000-000000000004', pg_temp.today());
+  perform pg_temp.check((r->>'flash_bonus')::int = 0, 'fora do prazo, sem bônus');
+  perform pg_temp.check(
+    (public.my_flash_mission()->>'done')::boolean and not (public.my_flash_mission()->>'awarded')::boolean,
+    'concluída fora do prazo: feita, mas sem bônus');
+end $$;
+
+-- Bia não vê o caminho nem a missão relâmpago de Gil
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.hero_history) = 0, 'B não vê o histórico do herói de Gil');
+  perform pg_temp.check((select count(*) from public.flash_missions) = 0, 'B não vê a missão relâmpago de Gil');
+  perform pg_temp.check((public.my_hero_path()->>'path') is null, 'B ainda não escolheu caminho');
 end $$;
 
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros

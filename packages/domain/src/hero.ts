@@ -3,6 +3,7 @@
  * títulos e atributos. O nível vem do XP total (level.ts); nada aqui gasta XP.
  */
 import type { ObjectiveCategory } from './habits';
+import type { Race, VisualKit } from './paths';
 
 // ─────────────────────────────────────────────────────────────
 // Classes
@@ -108,6 +109,13 @@ export const SKIN_TONES: readonly HeroItem[] = [
   { id: 'pele4', label: 'Tom 4', level: 1, color: '#A26B47' },
   { id: 'pele5', label: 'Tom 5', level: 1, color: '#7A4B2F' },
   { id: 'pele6', label: 'Tom 6', level: 1, color: '#4E2F1E' },
+  // Tons de orc e de escamas de draconato (livres para qualquer raça)
+  { id: 'verde-claro', label: 'Verde claro', level: 1, color: '#8DBF6A' },
+  { id: 'verde', label: 'Verde', level: 1, color: '#5E8C3A' },
+  { id: 'cinza', label: 'Cinza', level: 1, color: '#8A8F98' },
+  { id: 'escama-vermelha', label: 'Escama vermelha', level: 1, color: '#C2453A' },
+  { id: 'escama-azul', label: 'Escama azul', level: 1, color: '#3E6FC4' },
+  { id: 'escama-dourada', label: 'Escama dourada', level: 1, color: '#D9A63C' },
 ];
 
 export const HAIR_STYLES: readonly HeroItem[] = [
@@ -180,7 +188,14 @@ export const HERO_SLOTS: Record<HeroSlot, { label: string; items: readonly HeroI
 };
 
 export interface HeroLook {
+  /** Corpo desenhado (uma das 9 classes de base). */
   heroClass: HeroClass;
+  /** Visual do estágio (arma, cabeça, costas). Ausente = o da própria classe. */
+  kit?: VisualKit;
+  /** Estágio do caminho (0–5): muda o material do equipamento. */
+  tier?: number;
+  /** Raça (só visual). */
+  race?: Race;
   form: HeroForm;
   skin: string;
   eyes: string;
@@ -221,7 +236,7 @@ export function sanitizeHero(raw: unknown, level: number, owned: ReadonlySet<str
   // Classe paga sem compra (ou desconhecida) volta à inicial padrão.
   const heroClass = known && ownsClass(known, owned) ? known : DEFAULT_HERO.heroClass;
   const form = HERO_FORMS.includes(obj.form as HeroForm) ? (obj.form as HeroForm) : DEFAULT_HERO.form;
-  const pick = (slot: HeroSlot, key: keyof Omit<HeroLook, 'heroClass' | 'form'>) => {
+  const pick = (slot: HeroSlot, key: keyof Omit<HeroLook, 'heroClass' | 'form' | 'kit' | 'tier' | 'race'>) => {
     const item = typeof obj[key] === 'string' ? findItem(slot, obj[key] as string) : undefined;
     return item && isUnlocked(item, level) ? item.id : DEFAULT_HERO[key];
   };
