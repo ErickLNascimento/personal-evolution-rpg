@@ -3,6 +3,7 @@ import {
   attributeLevel,
   CLASS_CATALOG,
   DEFAULT_HERO,
+  estimateMissionCrystals,
   HERO_CLASSES,
   ownsClass,
   purchaseStatus,
@@ -138,5 +139,15 @@ describe('atributos', () => {
     expect(ficha).toHaveLength(OBJECTIVE_CATEGORIES.length);
     expect(ficha.find((a) => a.category === 'health')).toMatchObject({ label: 'Vigor', xp: 40, level: 2 });
     expect(ficha.find((a) => a.category === 'finance')?.xp).toBe(0);
+  });
+});
+
+describe('Cristais estimados de uma missão', () => {
+  it('base + bônus da área (para cima) + extra da classe', () => {
+    expect(estimateMissionCrystals('easy', 'health', 'guerreiro')).toBe(6); // 5 + ceil(0,5)
+    expect(estimateMissionCrystals('medium', null, 'guerreiro')).toBe(10); // fora da área
+    expect(estimateMissionCrystals('medium', null, 'paladino')).toBe(12); // sem área = Crescimento pessoal
+    expect(estimateMissionCrystals('easy', 'wellbeing', 'druida')).toBe(8); // 5 + 1 + 2
+    expect(estimateMissionCrystals('hard', 'knowledge', 'necromante')).toBe(18); // 15 + 3
   });
 });

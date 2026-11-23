@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
@@ -25,9 +26,19 @@ import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 import { createObjective, listObjectives, type ObjectiveRecord } from './api';
 
 const WEEKDAY_FULL = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-const DAY_OPTIONS = WEEKDAY_SHORT.map((label, value) => ({ value, label, accessibilityLabel: WEEKDAY_FULL[value] }));
-const DIFFICULTY_OPTIONS = DIFFICULTIES.map((d) => ({ value: d, label: `${DIFFICULTY_LABEL[d]} · ${xpForHabit(d)} XP` }));
-const CATEGORY_OPTIONS = OBJECTIVE_CATEGORIES.map((c) => ({ value: c, label: OBJECTIVE_CATEGORY_LABEL[c] }));
+const DAY_OPTIONS = WEEKDAY_SHORT.map((label, value) => ({
+  value,
+  label,
+  accessibilityLabel: WEEKDAY_FULL[value],
+}));
+const DIFFICULTY_OPTIONS = DIFFICULTIES.map((d) => ({
+  value: d,
+  label: `${DIFFICULTY_LABEL[d]} · ${xpForHabit(d)} XP`,
+}));
+const CATEGORY_OPTIONS = OBJECTIVE_CATEGORIES.map((c) => ({
+  value: c,
+  label: OBJECTIVE_CATEGORY_LABEL[c],
+}));
 const NO_OBJECTIVE = '__none__';
 
 export const EMPTY_DRAFT: HabitDraft = {
@@ -44,18 +55,24 @@ export function HabitForm({
   initial,
   submitLabel,
   onSubmit,
+  onConsultOracle,
 }: {
   initial: HabitDraft;
   submitLabel: string;
   /** Devolve mensagem de erro, ou `null` se salvou. */
   onSubmit: (input: HabitInput) => Promise<string | null>;
+  /** Se presente, mostra o atalho sutil para pedir ajuda ao Oráculo (com o que já foi escrito). */
+  onConsultOracle?: (title: string) => void;
 }) {
   const [draft, setDraft] = useState<HabitDraft>(initial);
+  // Meta diária fica escondida até a pessoa pedir (ou se o hábito já tiver uma).
+  const [showTarget, setShowTarget] = useState(Boolean(initial.targetQty || initial.unit));
   const [errors, setErrors] = useState<HabitDraftErrors>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const set = <K extends keyof HabitDraft>(key: K, value: HabitDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
+  const set = <K extends keyof HabitDraft>(key: K, value: HabitDraft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
   async function submit() {
     const result = validateHabitDraft(draft);
@@ -72,17 +89,33 @@ export function HabitForm({
   return (
     <View style={styles.form}>
       <Field
-        label="Nome do hábito"
+        label="Nome da missão"
         value={draft.title}
         onChangeText={(v) => set('title', v)}
-        placeholder="Ex.: Ler 10 páginas"
+        placeholder="O que você quer fazer?"
         maxLength={120}
         error={errors.title}
       />
+      {onConsultOracle && (
+        <Pressable
+          onPress={() => onConsultOracle(draft.title)}
+          accessibilityRole="button"
+          accessibilityLabel="Consultar o Oráculo para montar esta missão"
+          style={({ pressed }) => [styles.oracle, pressed && styles.pressed]}
+        >
+          <Text style={styles.oracleText}>
+            ✦ Não sabe como montar esta missão? Consulte o Oráculo
+          </Text>
+        </Pressable>
+      )}
 
       <View style={styles.group}>
         <Text style={typography.label}>DIFICULDADE</Text>
-        <Chips options={DIFFICULTY_OPTIONS} selected={[draft.difficulty]} onToggle={(v) => set('difficulty', v)} />
+        <Chips
+          options={DIFFICULTY_OPTIONS}
+          selected={[draft.difficulty]}
+          onToggle={(v) => set('difficulty', v)}
+        />
       </View>
 
       <View style={styles.group}>
@@ -96,30 +129,57 @@ export function HabitForm({
         {errors.scheduleDays ? <Text style={styles.error}>{errors.scheduleDays}</Text> : null}
       </View>
 
-      <View style={styles.row}>
-        <View style={styles.flex}>
-          <Field
-            label="Meta por dia"
-            value={draft.targetQty}
-            onChangeText={(v) => set('targetQty', v)}
-            placeholder="Opcional"
-            keyboardType="decimal-pad"
-            error={errors.targetQty}
-          />
-        </View>
-        <View style={styles.flex}>
-          <Field
-            label="Unidade"
-            value={draft.unit}
-            onChangeText={(v) => set('unit', v)}
-            placeholder="páginas, km…"
-            maxLength={20}
-            error={errors.unit}
-          />
-        </View>
-      </View>
+      <ReminderField
+        value={draft.reminderTime ?? null}
+        onChange={(v) => set('reminderTime', v)}
+        error={errors.reminderTime}
+      />
 
-      <ReminderField value={draft.reminderTime ?? null} onChange={(v) => set('reminderTime', v)} error={errors.reminderTime} />
+      {showTarget ? (
+        <View style={styles.group}>
+          <View style={styles.row}>
+            <View style={styles.flex}>
+              <Field
+                label="Meta por dia"
+                value={draft.targetQty}
+                onChangeText={(v) => set('targetQty', v)}
+                placeholder="quantidade"
+                keyboardType="decimal-pad"
+                error={errors.targetQty}
+              />
+            </View>
+            <View style={styles.flex}>
+              <Field
+                label="Unidade"
+                value={draft.unit}
+                onChangeText={(v) => set('unit', v)}
+                placeholder="unidade"
+                maxLength={20}
+                error={errors.unit}
+              />
+            </View>
+          </View>
+          <Pressable
+            onPress={() => {
+              set('targetQty', '');
+              set('unit', '');
+              setShowTarget(false);
+            }}
+            accessibilityRole="button"
+            style={styles.linkButton}
+          >
+            <Text style={typography.caption}>Remover meta</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => setShowTarget(true)}
+          accessibilityRole="button"
+          style={styles.linkButton}
+        >
+          <Text style={styles.linkText}>＋ Definir meta diária (opcional)</Text>
+        </Pressable>
+      )}
 
       <ObjectivePicker value={draft.objectiveId} onChange={(id) => set('objectiveId', id)} />
 
@@ -165,6 +225,11 @@ function ReminderField({
   return (
     <View style={styles.group}>
       <View style={styles.switchRow}>
+        <Ionicons
+          name="notifications-outline"
+          size={18}
+          color={time ? colors.primary : colors.textSecondary}
+        />
         <Text style={[typography.label, styles.flex]}>LEMBRETE</Text>
         <Switch
           value={time !== null}
@@ -219,7 +284,13 @@ function ReminderField({
   );
 }
 
-function ObjectivePicker({ value, onChange }: { value: string | null; onChange: (id: string | null) => void }) {
+function ObjectivePicker({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
   const [objectives, setObjectives] = useState<ObjectiveRecord[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -268,7 +339,9 @@ function ObjectivePicker({ value, onChange }: { value: string | null; onChange: 
   return (
     <View style={styles.group}>
       <Text style={typography.label}>OBJETIVO</Text>
-      <Text style={typography.caption}>Ligue o hábito a um objetivo para ver o que cada missão ajuda a conquistar.</Text>
+      <Text style={typography.caption}>
+        Ligue o hábito a um objetivo para ver o que cada missão ajuda a conquistar.
+      </Text>
       <Chips
         options={options}
         selected={[value ?? NO_OBJECTIVE]}
@@ -289,7 +362,12 @@ function ObjectivePicker({ value, onChange }: { value: string | null; onChange: 
           <Text style={typography.label}>CATEGORIA</Text>
           <Chips options={CATEGORY_OPTIONS} selected={[category]} onToggle={setCategory} />
           <Button title="Criar objetivo" onPress={create} loading={saving} />
-          <Button title="Cancelar" onPress={() => setCreating(false)} variant="secondary" disabled={saving} />
+          <Button
+            title="Cancelar"
+            onPress={() => setCreating(false)}
+            variant="secondary"
+            disabled={saving}
+          />
         </View>
       ) : (
         <Button title="Novo objetivo" onPress={() => setCreating(true)} variant="secondary" />
@@ -303,6 +381,11 @@ const styles = StyleSheet.create({
   group: { gap: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.md },
   flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  oracle: { minHeight: MIN_TOUCH - 8, justifyContent: 'center' },
+  oracleText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  linkButton: { minHeight: MIN_TOUCH - 8, justifyContent: 'center' },
+  linkText: { fontSize: 14, fontWeight: '600', color: colors.primary },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: MIN_TOUCH },
   timeButton: {
     minHeight: MIN_TOUCH,

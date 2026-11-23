@@ -51,8 +51,7 @@ function HabitList() {
 
   return (
     <Screen title="Hábitos" onRefresh={refresh} refreshing={refreshing}>
-      <Button title="Novo hábito" onPress={() => router.push('/habit/new')} />
-      <Button title="Sugestões da IA" onPress={() => router.push('/ai-plan')} variant="secondary" />
+      <Button title="Nova missão" onPress={() => router.push('/habit/new')} />
       <FormMessage text={error} />
 
       {habits === null && !error ? <ActivityIndicator color={colors.primary} /> : null}

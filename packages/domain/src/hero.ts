@@ -33,7 +33,16 @@ export const HERO_CLASS_INFO: Record<HeroClass, { label: Record<HeroForm, string
  */
 export const CLASS_CATALOG: Record<
   HeroClass,
-  { tier: number; minLevel: number; price: number; area: ObjectiveCategory; areaPct: number; perk: string | null }
+  {
+    tier: number;
+    minLevel: number;
+    price: number;
+    area: ObjectiveCategory;
+    areaPct: number;
+    perk: string | null;
+    /** Cristais extras por missão fácil (espelha `easy_extra`). */
+    easyExtra?: number;
+  }
 > = {
   guerreiro: { tier: 1, minLevel: 1, price: 0, area: 'health', areaPct: 10, perk: null },
   mago: { tier: 1, minLevel: 1, price: 0, area: 'knowledge', areaPct: 10, perk: null },
@@ -42,7 +51,7 @@ export const CLASS_CATALOG: Record<
   paladino: { tier: 2, minLevel: 5, price: 300, area: 'personal_growth', areaPct: 15, perk: null },
   ladino: { tier: 2, minLevel: 5, price: 300, area: 'productivity', areaPct: 15, perk: 'Missão registrada em "Ontem" rende Cristais cheios' },
   bardo: { tier: 2, minLevel: 5, price: 300, area: 'relationships', areaPct: 15, perk: '+5 Cristais no dia perfeito' },
-  druida: { tier: 2, minLevel: 5, price: 300, area: 'wellbeing', areaPct: 15, perk: '+2 Cristais por missão fácil' },
+  druida: { tier: 2, minLevel: 5, price: 300, area: 'wellbeing', areaPct: 15, perk: '+2 Cristais por missão fácil', easyExtra: 2 },
   necromante: { tier: 3, minLevel: 10, price: 800, area: 'knowledge', areaPct: 20, perk: '+3 Cristais por missão concluída depois das 20h' },
 };
 
@@ -335,4 +344,24 @@ export function heroAttributes(
     const xp = sums.get(category) ?? 0;
     return { category, label: HERO_ATTRIBUTES[category].label, xp, ...attributeLevel(xp) };
   });
+}
+
+/** Cristais base por dificuldade (espelha `coin_rules`; o banco é quem concede). */
+export const DEFAULT_CRYSTALS: Record<'easy' | 'medium' | 'hard', number> = { easy: 5, medium: 10, hard: 15 };
+
+/**
+ * Cristais que uma missão concluída hoje rende com a classe equipada (mesma conta de `log_habit`:
+ * base + bônus da área arredondado para cima + extra da classe). Hábito sem área conta como Crescimento pessoal.
+ * Não inclui a vantagem noturna do Necromante, que depende do horário.
+ */
+export function estimateMissionCrystals(
+  difficulty: 'easy' | 'medium' | 'hard',
+  category: ObjectiveCategory | null,
+  heroClass: HeroClass,
+): number {
+  const c = CLASS_CATALOG[heroClass];
+  let coins = DEFAULT_CRYSTALS[difficulty];
+  if ((category ?? 'personal_growth') === c.area) coins += Math.ceil((coins * c.areaPct) / 100);
+  if (difficulty === 'easy') coins += c.easyExtra ?? 0;
+  return coins;
 }

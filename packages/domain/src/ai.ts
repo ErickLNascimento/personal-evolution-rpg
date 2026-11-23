@@ -73,3 +73,62 @@ export function parseAiPlan(payload: unknown): AiPlanContent {
 export function canDecide(status: AiPlanStatus): boolean {
   return status === 'proposed';
 }
+
+// ─────────────────────────────────────────────────────────────
+// Pedido do plano: o que a pessoa conta antes de gerar
+// ─────────────────────────────────────────────────────────────
+export const PLAN_GOAL_MAX = 300;
+export const PLAN_PAST_MAX = 200;
+export const PLAN_MINUTES_OPTIONS = [10, 20, 30, 60] as const;
+export type PlanMinutes = (typeof PLAN_MINUTES_OPTIONS)[number];
+
+export interface PlanRequestDraft {
+  goal: string;
+  minutesPerDay: PlanMinutes | null;
+  freeDays: readonly number[];
+  pastAttempts: string;
+}
+
+export interface PlanRequest {
+  goal: string | null;
+  minutes_per_day: PlanMinutes | null;
+  free_days: number[];
+  past_attempts: string | null;
+}
+
+/** Valida e limpa o formulário do pedido. Tudo é opcional, mas precisa de pelo menos um dia livre. */
+export function normalizePlanRequest(draft: PlanRequestDraft): { value: PlanRequest | null; error: string | null } {
+  const goal = draft.goal.trim().replace(/\s+/g, ' ');
+  const past = draft.pastAttempts.trim().replace(/\s+/g, ' ');
+  if (goal.length > PLAN_GOAL_MAX) return { value: null, error: `Use até ${PLAN_GOAL_MAX} caracteres no objetivo.` };
+  if (past.length > PLAN_PAST_MAX) return { value: null, error: `Use até ${PLAN_PAST_MAX} caracteres no que já tentou.` };
+  const days = normalizeScheduleDays(draft.freeDays);
+  if (days.length === 0) return { value: null, error: 'Escolha pelo menos um dia livre.' };
+  return {
+    value: { goal: goal || null, minutes_per_day: draft.minutesPerDay, free_days: days, past_attempts: past || null },
+    error: null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Ajustes que a pessoa faz numa sugestão antes de aceitar
+// ─────────────────────────────────────────────────────────────
+export interface SuggestionEdit {
+  index: number;
+  title: string;
+  difficulty: Difficulty;
+  schedule_days: number[];
+}
+
+/** Ajuste de uma sugestão no formato de `decide_ai_plan`, ou a mensagem de erro. */
+export function validateSuggestionEdit(
+  index: number,
+  edit: { title: string; difficulty: Difficulty; scheduleDays: readonly number[] },
+): { value: SuggestionEdit | null; error: string | null } {
+  const title = edit.title.trim().replace(/\s+/g, ' ');
+  if (!title) return { value: null, error: 'Dê um nome ao hábito.' };
+  if (title.length > HABIT_TITLE_MAX) return { value: null, error: `Use no máximo ${HABIT_TITLE_MAX} caracteres.` };
+  const days = normalizeScheduleDays(edit.scheduleDays);
+  if (days.length === 0) return { value: null, error: 'Escolha pelo menos um dia da semana.' };
+  return { value: { index, title, difficulty: edit.difficulty, schedule_days: days }, error: null };
+}

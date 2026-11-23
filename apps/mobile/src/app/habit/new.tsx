@@ -22,7 +22,10 @@ export default function NewHabitScreen() {
     <StackScreen>
       <HabitForm
         initial={EMPTY_DRAFT}
-        submitLabel="Criar hábito"
+        submitLabel="Criar missão"
+        onConsultOracle={(title) =>
+          router.push({ pathname: '/ai-plan', params: title.trim() ? { goal: title.trim() } : {} })
+        }
         onSubmit={async (input) => {
           // Começa hoje, no fuso do perfil: entra nas missões de hoje se o dia estiver na agenda.
           const r = await createHabit(input, today);

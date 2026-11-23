@@ -57,9 +57,9 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Protected guard={signedIn && onboarded}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="habit/new" options={{ ...formHeader, title: 'Novo hábito', presentation: 'modal' }} />
+        <Stack.Screen name="habit/new" options={{ ...formHeader, title: 'Nova missão' }} />
         <Stack.Screen name="habit/[id]" options={{ ...formHeader, title: 'Hábito' }} />
-        <Stack.Screen name="ai-plan" options={{ ...formHeader, title: 'Sugestões da IA', presentation: 'modal' }} />
+        <Stack.Screen name="ai-plan" options={{ ...formHeader, title: 'Oráculo' }} />
         <Stack.Screen name="delete-account" options={{ ...formHeader, title: 'Excluir conta', presentation: 'modal' }} />
         <Stack.Screen name="hero" options={{ ...formHeader, title: 'Seu herói', presentation: 'modal' }} />
         <Stack.Screen name="shop" options={{ ...formHeader, title: 'Loja' }} />

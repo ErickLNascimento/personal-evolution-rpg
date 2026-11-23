@@ -86,7 +86,11 @@ function RealProgress() {
         name={profile?.displayName ?? null}
         unset={isHeroUnset(profile?.hero)}
         onPress={() => router.push('/hero')}
-        titleId={displayedTitle(profile?.equippedTitle, level.level, profile?.earnedTitles ?? new Set())}
+        titleId={displayedTitle(
+          profile?.equippedTitle,
+          level.level,
+          profile?.earnedTitles ?? new Set(),
+        )}
       />
 
       <Card title="OBJETIVOS">
@@ -98,12 +102,18 @@ function RealProgress() {
       </Card>
 
       <Card title="STREAK">
-        <View style={styles.hero} accessible accessibilityLabel={`Streak de ${streak.current} dias`}>
+        <View
+          style={styles.hero}
+          accessible
+          accessibilityLabel={`Streak de ${streak.current} dias`}
+        >
           <Text style={styles.heroNumber}>
             {streak.current}
             {streak.capped ? '+' : ''}
           </Text>
-          <Text style={typography.body}>{streak.current === 1 ? 'dia completo seguido' : 'dias completos seguidos'}</Text>
+          <Text style={typography.body}>
+            {streak.current === 1 ? 'dia completo seguido' : 'dias completos seguidos'}
+          </Text>
         </View>
         <Text style={typography.caption}>
           Um dia conta quando todas as missões dele são feitas. Uma falta por semana é perdoada
@@ -124,7 +134,11 @@ function RealProgress() {
         <WeekRow label="Semana passada" week={lastWeek} />
         <View style={styles.divider} />
         <AiReview review={data.review} />
-        <Button title="Abrir sugestões da IA" onPress={() => router.push('/ai-plan')} variant="secondary" />
+        <Button
+          title="✦ Consultar o Oráculo"
+          onPress={() => router.push('/ai-plan')}
+          variant="secondary"
+        />
       </Card>
     </Screen>
   );
@@ -189,14 +203,15 @@ function AiReview({ review }: { review: WeeklyReview | null }) {
   if (!review) {
     return (
       <Text style={typography.caption}>
-        Ainda não há revisão da IA. Peça uma em Sugestões da IA (é preciso permitir a IA no Perfil).
+        O Oráculo ainda não revisou sua semana. Consulte-o quando quiser (é preciso permitir a IA no
+        Perfil).
       </Text>
     );
   }
   const date = new Date(review.createdAt).toLocaleDateString('pt-BR');
   return (
     <View style={styles.week}>
-      <Text style={typography.body}>Revisão da IA de {date}</Text>
+      <Text style={typography.body}>Revisão do Oráculo de {date}</Text>
       {review.summary ? <Text style={typography.body}>{review.summary}</Text> : null}
       <Text style={typography.caption}>Status: {REVIEW_STATUS[review.status]}.</Text>
     </View>
@@ -217,6 +232,11 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: colors.border },
   week: { gap: spacing.xs },
   weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  track: { height: 8, borderRadius: radius.pill, backgroundColor: colors.surfaceRaised, overflow: 'hidden' },
+  track: {
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceRaised,
+    overflow: 'hidden',
+  },
   fill: { height: '100%', backgroundColor: colors.accent, borderRadius: radius.pill },
 });

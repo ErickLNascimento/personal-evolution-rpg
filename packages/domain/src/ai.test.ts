@@ -1,4 +1,4 @@
-import { canDecide, parseAiPlan } from './ai';
+import { canDecide, normalizePlanRequest, parseAiPlan, validateSuggestionEdit } from './ai';
 
 const valid = {
   title: '  Ler   10 páginas ',
@@ -49,5 +49,37 @@ describe('plano da IA', () => {
     expect(canDecide('proposed')).toBe(true);
     expect(canDecide('accepted')).toBe(false);
     expect(canDecide('rejected')).toBe(false);
+  });
+});
+
+describe('pedido do plano', () => {
+  const draft = { goal: '  voltar a   correr ', minutesPerDay: 20 as const, freeDays: [5, 1, 1, 3], pastAttempts: '' };
+
+  it('limpa os textos e normaliza os dias', () => {
+    expect(normalizePlanRequest(draft)).toEqual({
+      value: { goal: 'voltar a correr', minutes_per_day: 20, free_days: [1, 3, 5], past_attempts: null },
+      error: null,
+    });
+  });
+
+  it('tudo opcional, mas precisa de um dia livre e respeita os tamanhos', () => {
+    expect(normalizePlanRequest({ ...draft, goal: '', minutesPerDay: null }).value?.goal).toBeNull();
+    expect(normalizePlanRequest({ ...draft, freeDays: [] }).error).not.toBeNull();
+    expect(normalizePlanRequest({ ...draft, goal: 'a'.repeat(301) }).error).not.toBeNull();
+    expect(normalizePlanRequest({ ...draft, pastAttempts: 'a'.repeat(201) }).error).not.toBeNull();
+  });
+});
+
+describe('ajuste de sugestão', () => {
+  it('aceita e limpa o ajuste', () => {
+    expect(validateSuggestionEdit(2, { title: ' Ler  3 páginas ', difficulty: 'easy', scheduleDays: [3, 1] })).toEqual({
+      value: { index: 2, title: 'Ler 3 páginas', difficulty: 'easy', schedule_days: [1, 3] },
+      error: null,
+    });
+  });
+
+  it('recusa sem nome ou sem dias', () => {
+    expect(validateSuggestionEdit(0, { title: ' ', difficulty: 'easy', scheduleDays: [1] }).error).not.toBeNull();
+    expect(validateSuggestionEdit(0, { title: 'Ler', difficulty: 'easy', scheduleDays: [] }).error).not.toBeNull();
   });
 });

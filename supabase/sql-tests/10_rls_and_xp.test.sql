@@ -284,6 +284,45 @@ begin
   end;
 end $$;
 
+-- Ajustes nas sugestões antes de aceitar
+reset role;
+insert into public.ai_plans (id, user_id, kind, payload, prompt_version) values
+  ('c0000000-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'initial',
+   '{"summary":"Ajustes","habits":[
+      {"title":"Ler 10 páginas","difficulty":"easy","schedule_days":[1],"objective_title":"Estudos","objective_category":"knowledge","rationale":"r"},
+      {"title":"Correr","difficulty":"easy","schedule_days":[1],"objective_title":"Estudos","objective_category":"knowledge","rationale":"r"}]}', 'plan-v1'),
+  ('c0000000-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', 'initial',
+   '{"summary":"Ajuste inválido","habits":[
+      {"title":"Algo","difficulty":"easy","schedule_days":[1],"objective_title":null,"objective_category":"health","rationale":"r"}]}', 'plan-v1');
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  r := public.decide_ai_plan('c0000000-0000-0000-0000-000000000004', true, array[0, 1],
+    '[{"index":0,"title":"Ler 3 páginas","difficulty":"hard","schedule_days":[4,2,4]},
+      {"index":7,"title":"ignorado","difficulty":"easy","schedule_days":[1]}]');
+  perform pg_temp.check((r->>'habits_created')::int = 2, 'aceita com ajustes');
+  perform pg_temp.check(
+    (select difficulty = 'hard' and schedule_days = '{2,4}' from public.habits where title = 'Ler 3 páginas'),
+    'usa nome, dificuldade e dias ajustados');
+  perform pg_temp.check(not exists (select 1 from public.habits where title = 'Ler 10 páginas'), 'nome original substituído');
+  perform pg_temp.check(exists (select 1 from public.habits where title = 'Correr' and difficulty = 'easy'), 'sem ajuste, fica como veio');
+
+  begin
+    perform public.decide_ai_plan('c0000000-0000-0000-0000-000000000005', true, array[0],
+      '[{"index":0,"title":"","difficulty":"easy","schedule_days":[1]}]');
+    raise exception 'FALHOU: aceitou ajuste sem nome';
+  exception when check_violation then null;
+  end;
+  perform pg_temp.check((select status from public.ai_plans where id = 'c0000000-0000-0000-0000-000000000005') = 'proposed', 'ajuste inválido não decide o plano');
+
+  begin
+    update public.ai_plans set swaps = 3 where id = 'c0000000-0000-0000-0000-000000000005';
+    raise exception 'FALHOU: app alterou o contador de trocas';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
 -- Limite de pedidos à IA (consultado pela Edge Function com service role)
 reset role;
 -- A Edge Function ai-plan roda como service_role: precisa checar o limite e gravar o plano.
@@ -293,6 +332,16 @@ do $$ begin
   perform public.ai_plan_block_reason('11111111-1111-1111-1111-111111111111', 'initial');
   insert into public.ai_plans (user_id, kind, payload, prompt_version)
   values ('11111111-1111-1111-1111-111111111111', 'weekly', '{"summary":"service","habits":[]}', 'plan-v1');
+  -- "Trocar esta": a função troca o conteúdo e conta a troca
+  update public.ai_plans set payload = '{"summary":"trocado","habits":[]}', swaps = swaps + 1
+  where id = 'c0000000-0000-0000-0000-000000000005';
+end $$;
+do $$ begin
+  begin
+    update public.ai_plans set status = 'accepted' where id = 'c0000000-0000-0000-0000-000000000005';
+    raise exception 'FALHOU: service_role decidiu um plano';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
 -- e não pode ir além de ler e inserir
 do $$ begin
@@ -304,6 +353,8 @@ do $$ begin
 end $$;
 reset role;
 delete from public.ai_plans where payload = '{"summary":"service","habits":[]}'::jsonb;
+-- os planos de teste dos ajustes não devem contar no limite diário testado a seguir
+delete from public.ai_plans where id in ('c0000000-0000-0000-0000-000000000004', 'c0000000-0000-0000-0000-000000000005');
 reset role;
 do $$ begin
   update public.profiles set ai_consent_at = null where id = '11111111-1111-1111-1111-111111111111';

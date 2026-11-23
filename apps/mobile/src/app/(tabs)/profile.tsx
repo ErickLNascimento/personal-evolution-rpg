@@ -79,7 +79,7 @@ function AccountProfile() {
         <TimeZoneForm key={profile.timezone} current={profile.timezone} onSave={(tz) => update({ timezone: tz })} />
       </Section>
 
-      <Section title="INTELIGÊNCIA ARTIFICIAL">
+      <Section title="ORÁCULO (INTELIGÊNCIA ARTIFICIAL)">
         <AiConsent
           consentAt={profile.aiConsentAt}
           onChange={(on) => update({ ai_consent_at: on ? new Date().toISOString() : null })}
@@ -125,7 +125,7 @@ function FocusForm({
   return (
     <>
       <Text style={typography.caption}>
-        Áreas onde você quer evoluir (até {FOCUS_AREAS_MAX}) e o ritmo preferido. A IA usa isso para sugerir hábitos.
+        Áreas onde você quer evoluir (até {FOCUS_AREAS_MAX}) e o ritmo preferido. O Oráculo usa isso para sugerir missões.
       </Text>
       <Chips multiple options={AREA_OPTIONS} selected={areas} onToggle={(a) => setAreas((cur) => toggleFocusArea(cur, a))} />
       <Text style={typography.label}>RITMO</Text>
