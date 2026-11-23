@@ -26,9 +26,14 @@ function client() {
 }
 
 function rpcFailure(error: PostgrestError, fallback: string): { data: null; error: string } {
-  if (error.code === '22023') return { data: null, error: 'Só dá para registrar hoje ou ontem, nos dias da agenda do hábito.' };
+  if (error.code === '22023')
+    return {
+      data: null,
+      error: 'Só dá para registrar hoje ou ontem, nos dias da agenda do hábito.',
+    };
   if (error.code === 'P0002') return { data: null, error: 'Hábito não encontrado.' };
-  if (/network|fetch/i.test(error.message)) return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+  if (/network|fetch/i.test(error.message))
+    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
   return { data: null, error: fallback };
 }
 
@@ -89,6 +94,8 @@ export interface LogOutcome {
   /** XP do hábito ganho (registro), ou total estornado ao desfazer, já com o bônus. */
   xp: number;
   perfectDayBonus: number;
+  /** XP extra da missão relâmpago (só no registro, dentro do prazo). */
+  flashBonus: number;
   totalXp: number;
   /** Cristais ganhos (registro) ou estornados (desfazer) nesta ação. */
   crystals: number;
@@ -98,12 +105,16 @@ export interface LogOutcome {
 }
 
 export async function logHabit(habitId: string, date: LocalDate): Promise<Result<LogOutcome>> {
-  const { data, error } = await client().rpc('log_habit', { p_habit_id: habitId, p_local_date: date });
+  const { data, error } = await client().rpc('log_habit', {
+    p_habit_id: habitId,
+    p_local_date: date,
+  });
   if (error) return rpcFailure(error, 'Não foi possível registrar. Tente de novo.');
   const r = data as {
     logged: boolean;
     xp_awarded: number;
     perfect_day_bonus: number;
+    flash_bonus?: number;
     total_xp: number;
     coins_awarded?: number;
     coin_balance?: number;
@@ -114,6 +125,7 @@ export async function logHabit(habitId: string, date: LocalDate): Promise<Result
       changed: r.logged,
       xp: r.xp_awarded,
       perfectDayBonus: r.perfect_day_bonus,
+      flashBonus: Number(r.flash_bonus ?? 0),
       totalXp: Number(r.total_xp),
       crystals: Number(r.coins_awarded ?? 0),
       crystalBalance: Number(r.coin_balance ?? 0),
@@ -124,14 +136,24 @@ export async function logHabit(habitId: string, date: LocalDate): Promise<Result
 }
 
 export async function undoHabitLog(habitId: string, date: LocalDate): Promise<Result<LogOutcome>> {
-  const { data, error } = await client().rpc('undo_habit_log', { p_habit_id: habitId, p_local_date: date });
+  const { data, error } = await client().rpc('undo_habit_log', {
+    p_habit_id: habitId,
+    p_local_date: date,
+  });
   if (error) return rpcFailure(error, 'Não foi possível desfazer. Tente de novo.');
-  const r = data as { undone: boolean; xp_reverted: number; total_xp: number; coins_reverted?: number; coin_balance?: number };
+  const r = data as {
+    undone: boolean;
+    xp_reverted: number;
+    total_xp: number;
+    coins_reverted?: number;
+    coin_balance?: number;
+  };
   return {
     data: {
       changed: r.undone,
       xp: r.xp_reverted,
       perfectDayBonus: 0,
+      flashBonus: 0,
       totalXp: Number(r.total_xp),
       crystals: Number(r.coins_reverted ?? 0),
       crystalBalance: Number(r.coin_balance ?? 0),

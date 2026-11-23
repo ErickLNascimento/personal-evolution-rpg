@@ -1,4 +1,4 @@
-import { DEFAULT_HERO, isHeroUnset, levelFromXp, sanitizeHero, type HeroLook, type LevelProgress } from '@per/domain';
+import { DEFAULT_HERO, heroLook, isHeroUnset, levelFromXp, type HeroLook, type LevelProgress } from '@per/domain';
 import { useCallback } from 'react';
 import type { Result } from '@/features/habits/api';
 import { useProfile } from '@/features/profile/ProfileProvider';
@@ -18,7 +18,7 @@ export function useHero() {
   const load = useCallback(() => fetchTotalXp(), []);
   const xp = useFocusLoad<number>(load, Boolean(profile));
   const level: LevelProgress = levelFromXp(xp.data ?? 0);
-  const hero: HeroLook = profile ? sanitizeHero(profile.hero, level.level, profile.owned) : DEFAULT_HERO;
+  const hero: HeroLook = profile ? heroLook(profile.hero, level.level, profile.heroPath, profile.race) : DEFAULT_HERO;
 
   return {
     hero,

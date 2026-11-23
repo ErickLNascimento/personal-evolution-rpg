@@ -1,16 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  CLASS_CATALOG,
-  HERO_CLASS_INFO,
-  ownsClass,
-  heroClassLabel,
   HERO_FORM_LABEL,
   HERO_FORMS,
-  HERO_CLASSES,
   HERO_SLOTS,
   isUnlocked,
-  type HeroClass,
+  PATH_INFO,
+  RACES,
+  RACE_INFO,
+  stageName,
   type HeroForm,
+  type Race,
   type HeroItem,
   type HeroLook,
   type HeroSlot,
@@ -29,8 +28,10 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Chips } from '@/components/Chips';
 import { Button, FormMessage } from '@/components/Form';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
+import { PathTree } from '@/components/hero/PathTree';
 import { tierColor } from '@/components/hero/HeroCard';
 import { StackScreen } from '@/components/Screen';
 import { useCelebration } from '@/features/celebration/CelebrationProvider';
@@ -64,7 +65,9 @@ export default function HeroScreen() {
 function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
   const { save } = useHero();
   const { profile, update } = useProfile();
-  const owned = profile?.owned ?? new Set<string>();
+  const heroPath = profile?.heroPath;
+  const initialRace: Race = profile?.race ?? 'humano';
+  const [race, setRace] = useState<Race>(initialRace);
   const earned = profile?.earnedTitles ?? new Set<string>();
   const initialTitle = displayedTitle(profile?.equippedTitle, level, earned);
   const [title, setTitle] = useState<TitleId>(initialTitle);
@@ -74,7 +77,8 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
   const [error, setError] = useState<string | null>(null);
   const frame = tierColor(level);
   const titleChanged = title !== initialTitle;
-  const dirty = JSON.stringify(look) !== JSON.stringify(initial) || titleChanged;
+  const raceChanged = race !== initialRace;
+  const dirty = JSON.stringify(look) !== JSON.stringify(initial) || titleChanged || raceChanged;
 
   function choose(next: Partial<HeroLook>) {
     void Haptics.selectionAsync();
@@ -84,9 +88,10 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
   async function submit() {
     setSaving(true);
     // Título e aparência são salvos juntos; o banco confere se o título foi conquistado.
-    const err = titleChanged
-      ? await update({ hero: look, equipped_title: title })
-      : await save(look);
+    const err =
+      titleChanged || raceChanged
+        ? await update({ hero: look, race, ...(titleChanged ? { equipped_title: title } : {}) })
+        : await save(look);
     setSaving(false);
     if (err) {
       setError(err);
@@ -101,15 +106,23 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
       {/* Herói fixo no topo: cada escolha aparece nele na hora, enquanto as opções rolam embaixo. */}
       <View style={[styles.stage, { borderColor: frame }]}>
         <View style={styles.portrait}>
-          <HeroAvatar hero={look} size={112} animated />
+          <HeroAvatar hero={{ ...look, race }} size={112} animated />
         </View>
         <View style={styles.stageInfo}>
           <Text style={[styles.title, { color: RARITY_COLOR[titleInfo(title).rarity] }]}>
             {titleName(title, look.form).toUpperCase()}
           </Text>
-          <Text style={typography.heading}>{heroClassLabel(look.heroClass, look.form)}</Text>
-          <Text style={typography.caption}>Nível {level}</Text>
-          <Text style={typography.caption}>{HERO_CLASS_INFO[look.heroClass].motto}</Text>
+          <Text style={typography.heading}>
+            {heroPath?.path
+              ? stageName(heroPath.path, heroPath.branch, heroPath.stage, look.form)
+              : 'Sem caminho'}
+          </Text>
+          <Text style={typography.caption}>
+            {RACE_INFO[race].label[look.form]} · Nível {level}
+          </Text>
+          {heroPath?.path && (
+            <Text style={typography.caption}>{PATH_INFO[heroPath.path].motto}</Text>
+          )}
         </View>
       </View>
 
@@ -154,48 +167,36 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
           })}
         </View>
 
-        <Text style={typography.label}>CLASSE</Text>
-        <View style={styles.classes}>
-          {HERO_CLASSES.map((c: HeroClass) => {
-            const active = look.heroClass === c;
-            // Classe paga ainda não comprada: cadeado e atalho para a Loja.
-            const usable = ownsClass(c, owned);
-            return (
-              <Pressable
-                key={c}
-                onPress={() => (usable ? choose({ heroClass: c }) : router.push('/shop'))}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: active, disabled: !usable }}
-                accessibilityLabel={
-                  usable
-                    ? `${heroClassLabel(c, look.form)}. ${HERO_CLASS_INFO[c].motto}`
-                    : `${heroClassLabel(c, look.form)}, bloqueada. Toque para ver na Loja.`
-                }
-                style={({ pressed }) => [
-                  styles.classCard,
-                  active && { borderColor: colors.primary },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={!usable && styles.locked}>
-                  <HeroAvatar hero={{ ...look, heroClass: c, aura: 'nenhuma' }} size={56} />
-                </View>
-                <Text style={typography.body}>{heroClassLabel(c, look.form)}</Text>
-                {usable ? (
-                  <Text style={[typography.caption, styles.center]}>
-                    {HERO_CLASS_INFO[c].motto}
-                  </Text>
-                ) : (
-                  <View style={styles.classLock}>
-                    <Ionicons name="lock-closed" size={11} color={colors.textSecondary} />
-                    <Text style={typography.caption}>
-                      Nv {CLASS_CATALOG[c].minLevel} · {CLASS_CATALOG[c].price} Cristais
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
+        <View style={styles.slot}>
+          <Text style={typography.label}>RAÇA</Text>
+          <Chips
+            options={RACES.map((r) => ({ value: r, label: RACE_INFO[r].label[look.form] }))}
+            selected={[race]}
+            onToggle={(r) => {
+              void Haptics.selectionAsync();
+              setRace(r);
+            }}
+          />
+          <Text style={typography.caption}>
+            {RACE_INFO[race].description} A raça muda só a aparência.
+          </Text>
+        </View>
+
+        <View style={styles.slot}>
+          <Text style={typography.label}>CAMINHO</Text>
+          {heroPath?.path ? (
+            <>
+              <Text style={typography.heading}>{PATH_INFO[heroPath.path].label}</Text>
+              <PathTree state={{ ...heroPath, path: heroPath.path }} form={look.form} />
+            </>
+          ) : (
+            <Text style={typography.body}>Você ainda não escolheu um caminho.</Text>
+          )}
+          <Button
+            title={heroPath?.path ? 'Trocar caminho ou ramo' : 'Escolher caminho'}
+            onPress={() => router.push('/path')}
+            variant="secondary"
+          />
         </View>
 
         {(Object.keys(HERO_SLOTS) as HeroSlot[]).map((slot) => (
@@ -421,9 +422,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   title: { fontSize: 13, fontWeight: '800', letterSpacing: 1.4 },
-  classes: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   forms: { flexDirection: 'row', gap: spacing.sm },
-  classLock: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   titleActive: { borderWidth: 3 },
   lockedToggle: {
     flexDirection: 'row',
@@ -449,17 +448,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  classCard: {
-    width: '48%',
-    alignItems: 'center',
-    gap: 2,
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  center: { textAlign: 'center' },
   slot: { gap: spacing.sm },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   swatch: {

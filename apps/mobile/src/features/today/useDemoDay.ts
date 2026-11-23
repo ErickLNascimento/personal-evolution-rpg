@@ -23,9 +23,27 @@ const DEMO_USER = 'demo';
 const TIME_ZONE = 'America/Manaus';
 
 const DEMO_HABITS: Habit[] = [
-  { id: 'treino', title: 'Treinar', difficulty: 'hard', scheduleDays: [1, 2, 3, 4, 5], startDate: '2026-01-01' },
-  { id: 'espanhol', title: 'Estudar espanhol 10 min', difficulty: 'medium', scheduleDays: ALL_DAYS, startDate: '2026-01-01' },
-  { id: 'leitura', title: 'Ler 10 páginas', difficulty: 'easy', scheduleDays: ALL_DAYS, startDate: '2026-01-01' },
+  {
+    id: 'treino',
+    title: 'Treinar',
+    difficulty: 'hard',
+    scheduleDays: [1, 2, 3, 4, 5],
+    startDate: '2026-01-01',
+  },
+  {
+    id: 'espanhol',
+    title: 'Estudar espanhol 10 min',
+    difficulty: 'medium',
+    scheduleDays: ALL_DAYS,
+    startDate: '2026-01-01',
+  },
+  {
+    id: 'leitura',
+    title: 'Ler 10 páginas',
+    difficulty: 'easy',
+    scheduleDays: ALL_DAYS,
+    startDate: '2026-01-01',
+  },
 ];
 
 interface DemoLog {
@@ -52,6 +70,9 @@ export function useDemoDay() {
       .reduce((sum, t) => sum + t.amount, 0);
   }
 
+  // Sobe a cada missão concluída: o herói do card comemora.
+  const [cheer, setCheer] = useState(0);
+
   function toggle(habitId: string) {
     const habit = DEMO_HABITS.find((h) => h.id === habitId);
     if (!habit) return;
@@ -77,13 +98,16 @@ export function useDemoDay() {
     }
 
     const logId = `log-${counter + 1}`;
+    setCheer((n) => n + 1);
     setCounter(counter + 1);
     const nextLogs = [...logs, { id: logId, habitId }];
     const next: XpTransaction[] = [
       ...transactions,
       { amount: xpForHabit(habit.difficulty), idempotencyKey: habitLogXpKey(logId) },
     ];
-    const nowPerfect = dayProgress(missionsForDay(DEMO_HABITS, new Set(nextLogs.map((l) => l.habitId)), today)).perfect;
+    const nowPerfect = dayProgress(
+      missionsForDay(DEMO_HABITS, new Set(nextLogs.map((l) => l.habitId)), today),
+    ).perfect;
     if (nowPerfect && perfectDayNet(next) === 0) {
       const occurrence = next.filter((t) => t.idempotencyKey.startsWith('perfect-day:')).length + 1;
       next.push({
@@ -95,5 +119,5 @@ export function useDemoDay() {
     setTransactions(next);
   }
 
-  return { today, missions, progress, level, toggle };
+  return { today, missions, progress, level, toggle, cheer };
 }

@@ -1,0 +1,427 @@
+{
+  "image": "hero_celebrate.png",
+  "frameWidth": 48,
+  "frameHeight": 48,
+  "frameCount": 8,
+  "fps": 12,
+  "loop": false,
+  "indexStep": 9,
+  "layers": {
+    "shadow": [
+      0,
+      0
+    ],
+    "aura/feminino": [
+      0,
+      1
+    ],
+    "aura/masculino": [
+      0,
+      2
+    ],
+    "cape": [
+      0,
+      3
+    ],
+    "hairback/longo/masculino": [
+      0,
+      4
+    ],
+    "hairback/longo/feminino": [
+      0,
+      5
+    ],
+    "classback/arqueiro": [
+      0,
+      6
+    ],
+    "classback/ladino": [
+      0,
+      7
+    ],
+    "classback/bardo": [
+      0,
+      8
+    ],
+    "classback/necromante": [
+      0,
+      9
+    ],
+    "body/guerreiro/masculino": [
+      0,
+      10
+    ],
+    "body/guerreiro/feminino": [
+      0,
+      11
+    ],
+    "body/mago/masculino": [
+      0,
+      12
+    ],
+    "body/mago/feminino": [
+      0,
+      13
+    ],
+    "body/arqueiro/masculino": [
+      0,
+      14
+    ],
+    "body/arqueiro/feminino": [
+      0,
+      15
+    ],
+    "body/monge/masculino": [
+      0,
+      16
+    ],
+    "body/monge/feminino": [
+      0,
+      17
+    ],
+    "body/paladino/masculino": [
+      0,
+      18
+    ],
+    "body/paladino/feminino": [
+      0,
+      19
+    ],
+    "body/ladino/masculino": [
+      0,
+      20
+    ],
+    "body/ladino/feminino": [
+      0,
+      21
+    ],
+    "body/bardo/masculino": [
+      0,
+      22
+    ],
+    "body/bardo/feminino": [
+      0,
+      23
+    ],
+    "body/druida/masculino": [
+      0,
+      24
+    ],
+    "body/druida/feminino": [
+      0,
+      25
+    ],
+    "body/necromante/masculino": [
+      0,
+      26
+    ],
+    "body/necromante/feminino": [
+      0,
+      27
+    ],
+    "hair/curto/masculino": [
+      0,
+      28
+    ],
+    "hair/curto/feminino": [
+      0,
+      29
+    ],
+    "hair/longo/masculino": [
+      0,
+      30
+    ],
+    "hair/longo/feminino": [
+      0,
+      31
+    ],
+    "hair/raspado/masculino": [
+      0,
+      32
+    ],
+    "hair/raspado/feminino": [
+      0,
+      33
+    ],
+    "hair/moicano/masculino": [
+      0,
+      34
+    ],
+    "hair/moicano/feminino": [
+      0,
+      35
+    ],
+    "hair/coque/masculino": [
+      0,
+      36
+    ],
+    "hair/coque/feminino": [
+      0,
+      37
+    ],
+    "hair/espetado/masculino": [
+      0,
+      38
+    ],
+    "hair/espetado/feminino": [
+      0,
+      39
+    ],
+    "hair/tranca/masculino": [
+      0,
+      40
+    ],
+    "hair/tranca/feminino": [
+      0,
+      41
+    ],
+    "race/elfo/masculino": [
+      0,
+      42
+    ],
+    "race/elfo/feminino": [
+      0,
+      43
+    ],
+    "race/anao/masculino": [
+      0,
+      44
+    ],
+    "race/anao/feminino": [
+      0,
+      45
+    ],
+    "race/orc/masculino": [
+      0,
+      46
+    ],
+    "race/orc/feminino": [
+      0,
+      47
+    ],
+    "race/halfling/masculino": [
+      0,
+      48
+    ],
+    "race/halfling/feminino": [
+      0,
+      49
+    ],
+    "race/draconato/masculino": [
+      0,
+      50
+    ],
+    "race/draconato/feminino": [
+      0,
+      51
+    ],
+    "headgear/ladino": [
+      0,
+      52
+    ],
+    "headgear/bardo": [
+      0,
+      53
+    ],
+    "headgear/druida": [
+      0,
+      54
+    ],
+    "headgear/necromante": [
+      0,
+      55
+    ],
+    "headgear/feiticeiro": [
+      0,
+      56
+    ],
+    "headgear/xama": [
+      0,
+      57
+    ],
+    "headgear/metamorfo": [
+      0,
+      58
+    ],
+    "headgear/cronista": [
+      0,
+      59
+    ],
+    "headgear/skald": [
+      1,
+      0
+    ],
+    "headgear/inventor": [
+      1,
+      1
+    ],
+    "headgear/mercador": [
+      1,
+      2
+    ],
+    "accessory/faixa": [
+      1,
+      3
+    ],
+    "accessory/elmo": [
+      1,
+      4
+    ],
+    "accessory/coroa": [
+      1,
+      5
+    ],
+    "weapon/guerreiro/masculino": [
+      1,
+      6
+    ],
+    "weapon/guerreiro/feminino": [
+      1,
+      7
+    ],
+    "weapon/mago/masculino": [
+      1,
+      8
+    ],
+    "weapon/mago/feminino": [
+      1,
+      9
+    ],
+    "weapon/arqueiro/masculino": [
+      1,
+      10
+    ],
+    "weapon/arqueiro/feminino": [
+      1,
+      11
+    ],
+    "weapon/monge/masculino": [
+      1,
+      12
+    ],
+    "weapon/monge/feminino": [
+      1,
+      13
+    ],
+    "weapon/paladino/masculino": [
+      1,
+      14
+    ],
+    "weapon/paladino/feminino": [
+      1,
+      15
+    ],
+    "weapon/ladino/masculino": [
+      1,
+      16
+    ],
+    "weapon/ladino/feminino": [
+      1,
+      17
+    ],
+    "weapon/bardo/masculino": [
+      1,
+      18
+    ],
+    "weapon/bardo/feminino": [
+      1,
+      19
+    ],
+    "weapon/druida/masculino": [
+      1,
+      20
+    ],
+    "weapon/druida/feminino": [
+      1,
+      21
+    ],
+    "weapon/necromante/masculino": [
+      1,
+      22
+    ],
+    "weapon/necromante/feminino": [
+      1,
+      23
+    ],
+    "weapon/barbaro/masculino": [
+      1,
+      24
+    ],
+    "weapon/barbaro/feminino": [
+      1,
+      25
+    ],
+    "weapon/feiticeiro/masculino": [
+      1,
+      26
+    ],
+    "weapon/feiticeiro/feminino": [
+      1,
+      27
+    ],
+    "weapon/clerigo/masculino": [
+      1,
+      28
+    ],
+    "weapon/clerigo/feminino": [
+      1,
+      29
+    ],
+    "weapon/xama/masculino": [
+      1,
+      30
+    ],
+    "weapon/xama/feminino": [
+      1,
+      31
+    ],
+    "weapon/metamorfo/masculino": [
+      1,
+      32
+    ],
+    "weapon/metamorfo/feminino": [
+      1,
+      33
+    ],
+    "weapon/cronista/masculino": [
+      1,
+      34
+    ],
+    "weapon/cronista/feminino": [
+      1,
+      35
+    ],
+    "weapon/skald/masculino": [
+      1,
+      36
+    ],
+    "weapon/skald/feminino": [
+      1,
+      37
+    ],
+    "weapon/artesao/masculino": [
+      1,
+      38
+    ],
+    "weapon/artesao/feminino": [
+      1,
+      39
+    ],
+    "weapon/inventor/masculino": [
+      1,
+      40
+    ],
+    "weapon/inventor/feminino": [
+      1,
+      41
+    ],
+    "weapon/mercador/masculino": [
+      1,
+      42
+    ],
+    "weapon/mercador/feminino": [
+      1,
+      43
+    ]
+  }
+}

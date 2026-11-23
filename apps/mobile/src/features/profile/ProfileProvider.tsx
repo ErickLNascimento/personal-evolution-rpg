@@ -1,4 +1,16 @@
-import type { Difficulty, HeroLook, ObjectiveCategory, OnboardingHabit } from '@per/domain';
+import {
+  isPathId,
+  isRace,
+  type Branch,
+  type Difficulty,
+  type HeroLook,
+  type HeroPathState,
+  type ObjectiveCategory,
+  type OnboardingHabit,
+  type PathId,
+  type Race,
+  type Tier,
+} from '@per/domain';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
@@ -11,10 +23,14 @@ export interface Profile {
   difficulty: Difficulty;
   focusAreas: ObjectiveCategory[];
   onboardingDone: boolean;
-  /** Aparência do herói como salva (jsonb); leia com `sanitizeHero` do domínio. */
+  /** Aparência do herói como salva (jsonb); leia com `heroLook` do domínio. */
   hero: unknown;
-  /** Classes compradas na loja (as iniciais são grátis e não aparecem aqui). */
-  owned: ReadonlySet<string>;
+  /** Raça (só visual). */
+  race: Race;
+  /** Caminho, ramo e estágio: só mudam pelas funções do banco (promoção e troca). */
+  heroPath: HeroPathState;
+  /** Última troca de caminho ou ramo (início da espera de 14 dias). */
+  pathChangedAt: Date | null;
   /** Título escolhido para exibir (null = o de nível atual). */
   equippedTitle: string | null;
   /** Títulos especiais já concedidos pelo banco. */
@@ -23,7 +39,6 @@ export interface Profile {
 
 /** O que vem de outras tabelas além de `profiles`. */
 interface ProfileExtras {
-  owned: ReadonlySet<string>;
   earnedTitles: ReadonlySet<string>;
 }
 
@@ -37,6 +52,11 @@ interface ProfileRow {
   onboarding_done: boolean;
   hero: unknown;
   equipped_title: string | null;
+  race: string;
+  path: string | null;
+  branch: string | null;
+  stage: number;
+  path_changed_at: string | null;
 }
 
 export type ProfileChanges = Partial<{
@@ -47,6 +67,7 @@ export type ProfileChanges = Partial<{
   difficulty: Difficulty;
   hero: HeroLook;
   equipped_title: string | null;
+  race: Race;
 }>;
 
 export interface OnboardingInput {
@@ -57,7 +78,8 @@ export interface OnboardingInput {
   habits: OnboardingHabit[];
 }
 
-const COLUMNS = 'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero, equipped_title';
+const COLUMNS =
+  'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero, equipped_title, race, path, branch, stage, path_changed_at';
 
 function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
   return {
@@ -71,20 +93,27 @@ function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
     focusAreas: row.focus_areas,
     onboardingDone: row.onboarding_done,
     hero: row.hero,
+    race: isRace(row.race) ? row.race : 'humano',
+    heroPath: {
+      path: isPathId(row.path) ? (row.path as PathId) : null,
+      branch: row.branch === 'A' || row.branch === 'B' ? (row.branch as Branch) : null,
+      stage: Math.max(0, Math.min(5, row.stage ?? 0)) as Tier,
+    },
+    pathChangedAt: row.path_changed_at ? new Date(row.path_changed_at) : null,
   };
 }
 
-async function fetchProfile(userId: string): Promise<{ profile: Profile | null; error: string | null }> {
+async function fetchProfile(
+  userId: string,
+): Promise<{ profile: Profile | null; error: string | null }> {
   if (!supabase) return { profile: null, error: 'Supabase não configurado.' };
-  const [profile, unlocks, titles] = await Promise.all([
+  const [profile, titles] = await Promise.all([
     supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>(),
-    supabase.from('user_unlocks').select('item_id').returns<{ item_id: string }[]>(),
     supabase.from('user_titles').select('title_id').returns<{ title_id: string }[]>(),
   ]);
   if (profile.error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
   return {
     profile: fromRow(profile.data, {
-      owned: new Set((unlocks.data ?? []).map((u) => u.item_id)),
       earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
     }),
     error: null,
@@ -114,7 +143,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   // Guarda de quem é o perfil carregado, para nunca mostrar o de outra conta após trocar de login.
-  const [loaded, setLoaded] = useState<{ userId: string; profile: Profile | null; error: string | null } | null>(null);
+  const [loaded, setLoaded] = useState<{
+    userId: string;
+    profile: Profile | null;
+    error: string | null;
+  } | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -138,16 +171,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const update = useCallback(
     async (changes: ProfileChanges) => {
       if (!supabase || !userId) return 'Você precisa estar conectado.';
+      // kit, estágio e raça da aparência são calculados (caminho e perfil): não vão para o jsonb.
+      const row = changes.hero
+        ? { ...changes, hero: { ...changes.hero, kit: undefined, tier: undefined, race: undefined } }
+        : changes;
       const { data, error } = await supabase
         .from('profiles')
-        .update(changes)
+        .update(row)
         .eq('id', userId)
         .select(COLUMNS)
         .single<ProfileRow>();
       if (error) {
         if (error.code === '22023') return 'Fuso horário inválido.';
         if (error.code === '23514') return 'Valor inválido. Confira os campos.';
-        if (error.code === 'PR005') return 'Essa classe ainda não foi comprada na Loja.';
+        if (error.code === 'PR010') return 'O caminho só muda por promoção ou troca de caminho.';
         if (error.code === 'PR007') return 'Esse título ainda não foi conquistado.';
         return 'Não foi possível salvar. Tente de novo.';
       }
@@ -156,8 +193,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         profile: fromRow(
           data,
           prev?.userId === userId && prev.profile
-            ? { owned: prev.profile.owned, earnedTitles: prev.profile.earnedTitles }
-            : { owned: new Set(), earnedTitles: new Set() },
+            ? { earnedTitles: prev.profile.earnedTitles }
+            : { earnedTitles: new Set() },
         ),
         error: null,
       }));

@@ -160,7 +160,7 @@ export function LevelUpOverlay({
           <View style={styles.heroWrap}>
             <Animated.View style={[styles.glow, { backgroundColor: color, shadowColor: color }, glowStyle]} />
             <Animated.View style={heroStyle}>
-              <HeroAvatar hero={hero} size={190} animated />
+              <HeroAvatar hero={hero} size={190} animated entrance="levelup" />
             </Animated.View>
           </View>
 

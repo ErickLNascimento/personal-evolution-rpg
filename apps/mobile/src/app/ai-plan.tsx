@@ -12,7 +12,7 @@ import {
   PLAN_GOAL_MAX,
   PLAN_MINUTES_OPTIONS,
   PLAN_PAST_MAX,
-  sanitizeHero,
+  heroLook,
   toggleScheduleDay,
   validateSuggestionEdit,
   WEEKDAY_SHORT,
@@ -123,7 +123,7 @@ export default function AiPlanScreen() {
   }
 
   // Classe equipada (para mostrar os Cristais com o bônus dela)
-  const heroClass: HeroClass = sanitizeHero(profile.hero, 999, profile.owned).heroClass;
+  const heroClass: HeroClass = heroLook(profile.hero, 999, profile.heroPath).heroClass;
 
   async function generate(kind: AiPlanKind) {
     const req = normalizePlanRequest({

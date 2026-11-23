@@ -6,7 +6,7 @@ import { OBJECTIVE_CATEGORY_LABEL, type ObjectiveCategory } from './habits';
 import type { Difficulty } from './xp';
 
 export const FOCUS_AREAS_MAX = 3;
-export const ONBOARDING_STEPS = 4;
+export const ONBOARDING_STEPS = 6;
 
 export interface HabitTemplate {
   /** Identificador estável do modelo (categoria + posição). */

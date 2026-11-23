@@ -29,7 +29,11 @@ function Loading() {
 function RootNavigator() {
   const { session, isLoading, isDemo } = useAuth();
   const { profile, loading: profileLoading, error: profileError, reload } = useProfile();
-  useReminderSync(isDemo ? null : (session?.user.id ?? null), Boolean(profile?.onboardingDone), isLoading);
+  useReminderSync(
+    isDemo ? null : (session?.user.id ?? null),
+    Boolean(profile?.onboardingDone),
+    isLoading,
+  );
   useReminderTapOpensToday();
 
   // Espera ler a sessão salva para não piscar a tela de login.
@@ -43,9 +47,15 @@ function RootNavigator() {
     if (!profile) {
       return (
         <View style={styles.center}>
-          <Text style={typography.body}>{profileError ?? 'Não foi possível carregar o seu perfil.'}</Text>
+          <Text style={typography.body}>
+            {profileError ?? 'Não foi possível carregar o seu perfil.'}
+          </Text>
           <Button title="Tentar de novo" onPress={reload} />
-          <Button title="Sair" onPress={() => void supabase?.auth.signOut({ scope: 'local' })} variant="secondary" />
+          <Button
+            title="Sair"
+            onPress={() => void supabase?.auth.signOut({ scope: 'local' })}
+            variant="secondary"
+          />
         </View>
       );
     }
@@ -54,15 +64,27 @@ function RootNavigator() {
   const onboarded = isDemo || Boolean(profile?.onboardingDone);
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
+    >
       <Stack.Protected guard={signedIn && onboarded}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="habit/new" options={{ ...formHeader, title: 'Nova missão' }} />
         <Stack.Screen name="habit/[id]" options={{ ...formHeader, title: 'Hábito' }} />
         <Stack.Screen name="ai-plan" options={{ ...formHeader, title: 'Oráculo' }} />
-        <Stack.Screen name="delete-account" options={{ ...formHeader, title: 'Excluir conta', presentation: 'modal' }} />
-        <Stack.Screen name="hero" options={{ ...formHeader, title: 'Seu herói', presentation: 'modal' }} />
-        <Stack.Screen name="shop" options={{ ...formHeader, title: 'Loja' }} />
+        <Stack.Screen
+          name="delete-account"
+          options={{ ...formHeader, title: 'Excluir conta', presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="hero"
+          options={{ ...formHeader, title: 'Seu herói', presentation: 'modal' }}
+        />
+        <Stack.Screen name="path" options={{ ...formHeader, title: 'Caminho' }} />
+        <Stack.Screen
+          name="promotion"
+          options={{ ...formHeader, title: 'Promoção', presentation: 'modal' }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !onboarded}>
         <Stack.Screen name="onboarding" />

@@ -5,7 +5,8 @@ import {
   heroAttributes,
   isHeroUnset,
   OBJECTIVE_CATEGORIES,
-  sanitizeHero,
+  heroLook,
+  NO_PATH,
   levelFromXp,
   startOfWeek,
   streakFrom,
@@ -81,7 +82,8 @@ function RealProgress() {
       <FormMessage text={error} />
 
       <HeroCard
-        hero={sanitizeHero(profile?.hero, level.level, profile?.owned)}
+        hero={heroLook(profile?.hero, level.level, profile?.heroPath ?? NO_PATH, profile?.race)}
+        heroPath={profile?.heroPath}
         level={level}
         name={profile?.displayName ?? null}
         unset={isHeroUnset(profile?.hero)}

@@ -1,6 +1,7 @@
 import {
-  heroClassLabel,
   heroTier,
+  stageName,
+  type HeroPathState,
   levelTitleId,
   nextUnlock,
   RARITY_COLOR,
@@ -10,8 +11,8 @@ import {
   type LevelProgress,
   type TitleId,
 } from '@per/domain';
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { CrystalBadge } from '@/components/crystals/Crystals';
 import { XpBar } from '@/components/XpBar';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -32,19 +33,26 @@ export function HeroCard({
   unset,
   onPress,
   crystals,
-  onShop,
+  heroPath,
   titleId,
+  cheer,
+  aside,
 }: {
   hero: HeroLook;
   level: LevelProgress;
   name: string | null;
   unset: boolean;
   onPress: () => void;
-  /** Saldo de Cristais; com `onShop`, mostra também o botão da Loja. */
+  /** Saldo de Cristais. */
   crystals?: number;
-  onShop?: () => void;
+  /** Caminho e estágio: dão o nome da classe (ex.: "Lutadora"). */
+  heroPath?: HeroPathState;
   /** Título exibido (escolhido ou o de nível); padrão: o de nível. */
   titleId?: TitleId;
+  /** Sobe a cada missão concluída: o herói comemora. */
+  cheer?: number;
+  /** Conteúdo à direita do retrato e do nome (ex.: o anel do dia). */
+  aside?: ReactNode;
 }) {
   const shownTitle = titleId ?? levelTitleId(level.level);
   const titleColor = RARITY_COLOR[titleInfo(shownTitle).rarity];
@@ -63,7 +71,7 @@ export function HeroCard({
     >
       <View style={styles.row}>
         <View style={[styles.portrait, { borderColor: frame }]}>
-          <HeroAvatar hero={hero} size={84} animated />
+          <HeroAvatar hero={hero} size={84} animated cheer={cheer} />
         </View>
         <View style={styles.info}>
           <Text style={[styles.title, { color: titleColor }]}>
@@ -72,26 +80,19 @@ export function HeroCard({
           <Text style={typography.heading} numberOfLines={1}>
             {name ?? 'Herói sem nome'}
           </Text>
-          <Text style={typography.caption}>{heroClassLabel(hero.heroClass, hero.form)}</Text>
+          <Text style={typography.caption}>
+            {heroPath?.path
+              ? stageName(heroPath.path, heroPath.branch, heroPath.stage, hero.form)
+              : 'Sem caminho'}
+          </Text>
           {unset && <Text style={styles.cta}>Toque para criar seu herói ›</Text>}
           {crystals !== undefined && (
             <View style={styles.wallet}>
               <CrystalBadge amount={crystals} />
-              {onShop && (
-                <Pressable
-                  onPress={onShop}
-                  accessibilityRole="button"
-                  accessibilityLabel="Abrir a Loja"
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.shop, pressed && styles.pressed]}
-                >
-                  <Ionicons name="storefront" size={14} color={colors.text} />
-                  <Text style={styles.shopText}>Loja</Text>
-                </Pressable>
-              )}
             </View>
           )}
         </View>
+        {aside}
       </View>
       <XpBar progress={level} />
       {next && (
@@ -126,15 +127,5 @@ const styles = StyleSheet.create({
   info: { flex: 1, gap: 2 },
   title: { fontSize: 12, fontWeight: '800', letterSpacing: 1.2 },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
-  shop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-  },
-  shopText: { fontSize: 13, fontWeight: '800', color: colors.text },
   cta: { ...typography.caption, color: colors.primary, marginTop: spacing.xs },
 });
