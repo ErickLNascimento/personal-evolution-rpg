@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme/tokens';
 
@@ -14,10 +14,29 @@ const keyboardAware: ScrollViewProps = {
   keyboardDismissMode: 'interactive',
 };
 
-export function Screen({ title, children }: { title: string; children?: ReactNode }) {
+export function Screen({
+  title,
+  children,
+  onRefresh,
+  refreshing = false,
+}: {
+  title: string;
+  children?: ReactNode;
+  /** Com isto, puxar a tela para baixo recarrega os dados. */
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView {...keyboardAware} contentContainerStyle={styles.content}>
+      <ScrollView
+        {...keyboardAware}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+          ) : undefined
+        }
+      >
         <Text style={typography.title} accessibilityRole="header">
           {title}
         </Text>

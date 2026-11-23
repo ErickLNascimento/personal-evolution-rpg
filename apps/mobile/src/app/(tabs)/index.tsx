@@ -1,4 +1,4 @@
-import type { DayProgress, LevelProgress, Mission, XpTable } from '@per/domain';
+import { isHeroUnset, sanitizeHero, type DayProgress, type LevelProgress, type Mission, type XpTable } from '@per/domain';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -7,7 +7,11 @@ import { Button, FormMessage } from '@/components/Form';
 import { MissionCard } from '@/components/MissionCard';
 import { Placeholder, Screen } from '@/components/Screen';
 import { XpBar } from '@/components/XpBar';
+import { PerfectDayBanner } from '@/components/celebration/PerfectDayBanner';
+import { CrystalToast } from '@/components/crystals/Crystals';
+import { HeroCard } from '@/components/hero/HeroCard';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useProfile } from '@/features/profile/ProfileProvider';
 import { useDay, type DayChoice } from '@/features/today/useDay';
 import { useDemoDay } from '@/features/today/useDemoDay';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -39,15 +43,17 @@ function DemoToday() {
 function RealToday() {
   const [choice, setChoice] = useState<DayChoice>('today');
   const day = useDay(choice);
+  const { profile } = useProfile();
+  const hero = sanitizeHero(profile?.hero, day.level.level, profile?.owned);
 
   return (
-    <Screen title="Hoje">
+    <Screen title="Hoje" onRefresh={day.refresh} refreshing={day.refreshing}>
       {day.loading ? (
         <ActivityIndicator color={colors.primary} />
       ) : day.failed ? (
         <>
           <FormMessage text={day.error} />
-          <Button title="Tentar de novo" onPress={day.retry} variant="secondary" />
+          <Button title="Tentar de novo" onPress={day.refresh} variant="secondary" />
         </>
       ) : (
         <>
@@ -55,9 +61,21 @@ function RealToday() {
           {choice === 'yesterday' && (
             <Text style={typography.caption}>Esqueceu de marcar algo ontem? Dá para registrar até o fim de hoje.</Text>
           )}
-          <FormMessage text={day.notice} tone="info" />
+          <CrystalToast gain={day.crystalGain} />
+          {day.notice ? <PerfectDayBanner text={day.notice} /> : null}
           <FormMessage text={day.error} />
           <DayView
+            top={
+              <HeroCard
+                hero={hero}
+                level={day.level}
+                name={profile?.displayName ?? null}
+                unset={isHeroUnset(profile?.hero)}
+                onPress={() => router.push('/hero')}
+                crystals={day.crystals}
+                onShop={() => router.push('/shop')}
+              />
+            }
             missions={day.missions}
             progress={day.progress}
             level={day.level}
@@ -93,6 +111,7 @@ function DayView({
   awardedXp,
   onToggle,
   empty,
+  top,
 }: {
   missions: Mission[];
   progress: DayProgress;
@@ -102,13 +121,17 @@ function DayView({
   awardedXp?: (habitId: string) => number | undefined;
   onToggle: (habitId: string) => void;
   empty?: ReactNode;
+  /** Cabeçalho no lugar da barra de XP simples (ex.: o cartão do herói). */
+  top?: ReactNode;
 }) {
   const bonus = xpTable?.perfectDayBonus ?? 20;
   return (
     <>
-      <View style={styles.card}>
-        <XpBar progress={level} />
-      </View>
+      {top ?? (
+        <View style={styles.card}>
+          <XpBar progress={level} />
+        </View>
+      )}
 
       <View style={styles.sectionHeader}>
         <Text style={typography.label}>MISSÕES</Text>

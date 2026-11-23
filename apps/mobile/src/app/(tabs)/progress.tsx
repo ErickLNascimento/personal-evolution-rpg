@@ -1,20 +1,27 @@
 import {
   addDays,
   dailyXp,
+  heroAttributes,
+  isHeroUnset,
+  OBJECTIVE_CATEGORIES,
+  sanitizeHero,
   levelFromXp,
   startOfWeek,
   streakFrom,
   weekSummary,
   type WeekSummary,
 } from '@per/domain';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { router } from 'expo-router';
+import { useCallback, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
-import { XpBar } from '@/components/XpBar';
+import { AttributeSheet } from '@/components/hero/AttributeSheet';
+import { HeroCard } from '@/components/hero/HeroCard';
 import { XpChart } from '@/components/XpChart';
+import { useFocusLoad } from '@/lib/useFocusLoad';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useProfile } from '@/features/profile/ProfileProvider';
 import { useToday } from '@/features/profile/useToday';
 import { fetchProgress, type ProgressData, type WeeklyReview } from '@/features/progress/api';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -38,28 +45,24 @@ export default function ProgressScreen() {
 
 function RealProgress() {
   const { today, ready } = useToday();
-  const [data, setData] = useState<ProgressData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!ready) return;
-      let active = true;
-      fetchProgress(addDays(today, -(STREAK_WINDOW - 1)), addDays(today, -(CHART_DAYS - 1))).then((r) => {
-        if (!active) return;
-        setError(r.error);
-        if (r.data) setData(r.data);
-      });
-      return () => {
-        active = false;
-      };
-    }, [ready, today]),
+  const { profile } = useProfile();
+  const load = useCallback(
+    () => fetchProgress(addDays(today, -(STREAK_WINDOW - 1)), addDays(today, -(CHART_DAYS - 1))),
+    [today],
   );
+  const { data, error, refreshing, refresh } = useFocusLoad<ProgressData>(load, ready);
 
   if (!data) {
     return (
-      <Screen title="Progresso">
-        {error ? <FormMessage text={error} /> : <ActivityIndicator color={colors.primary} />}
+      <Screen title="Progresso" onRefresh={refresh} refreshing={refreshing}>
+        {error ? (
+          <>
+            <FormMessage text={error} />
+            <Button title="Tentar de novo" onPress={refresh} variant="secondary" />
+          </>
+        ) : (
+          <ActivityIndicator color={colors.primary} />
+        )}
       </Screen>
     );
   }
@@ -72,11 +75,19 @@ function RealProgress() {
   const lastWeek = weekSummary(data.habits, data.logs, data.xp, lastWeekDate, lastWeekDate);
 
   return (
-    <Screen title="Progresso">
+    <Screen title="Progresso" onRefresh={refresh} refreshing={refreshing}>
       <FormMessage text={error} />
 
-      <Card title="NÍVEL">
-        <XpBar progress={level} />
+      <HeroCard
+        hero={sanitizeHero(profile?.hero, level.level, profile?.owned)}
+        level={level}
+        name={profile?.displayName ?? null}
+        unset={isHeroUnset(profile?.hero)}
+        onPress={() => router.push('/hero')}
+      />
+
+      <Card title="ATRIBUTOS">
+        <AttributeSheet attributes={heroAttributes(data.attributeXp, OBJECTIVE_CATEGORIES)} />
       </Card>
 
       <Card title="STREAK">

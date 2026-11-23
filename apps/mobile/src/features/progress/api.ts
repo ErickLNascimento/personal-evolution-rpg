@@ -17,6 +17,8 @@ export interface ProgressData {
   xp: XpEntry[];
   totalXp: number;
   review: WeeklyReview | null;
+  /** XP ganho por área (categoria do objetivo), para a ficha de atributos. */
+  attributeXp: { category: string; xp: number }[];
 }
 
 function client() {
@@ -42,7 +44,7 @@ async function fetchAll<T>(
  */
 export async function fetchProgress(logsFrom: LocalDate, xpFrom: LocalDate): Promise<Result<ProgressData>> {
   const db = client();
-  const [habits, logs, xp, total, review] = await Promise.all([
+  const [habits, logs, xp, total, review, attributes] = await Promise.all([
     listHabits(),
     fetchAll<{ habit_id: string; local_date: string }>((a, b) =>
       db.from('habit_logs').select('habit_id, local_date').gte('local_date', logsFrom).order('local_date').order('id').range(a, b),
@@ -58,6 +60,7 @@ export async function fetchProgress(logsFrom: LocalDate, xpFrom: LocalDate): Pro
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle<{ payload: unknown; status: WeeklyReview['status']; created_at: string }>(),
+    db.rpc('my_attribute_xp'),
   ]);
 
   if (habits.error !== null) return habits;
@@ -73,6 +76,11 @@ export async function fetchProgress(logsFrom: LocalDate, xpFrom: LocalDate): Pro
       review: review.data
         ? { createdAt: review.data.created_at, status: review.data.status, summary: parseAiPlan(review.data.payload).summary || null }
         : null,
+      // Sem os atributos, a ficha aparece zerada; o resto da tela continua.
+      attributeXp: ((attributes.data ?? []) as { category: string; xp: number }[]).map((a) => ({
+        category: a.category,
+        xp: Number(a.xp),
+      })),
     },
     error: null,
   };

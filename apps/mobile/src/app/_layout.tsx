@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
+import { CelebrationProvider } from '@/features/celebration/CelebrationProvider';
 import { ProfileProvider, useProfile } from '@/features/profile/ProfileProvider';
 import { useReminderSync, useReminderTapOpensToday } from '@/features/reminders/useReminderSync';
 import { supabase } from '@/lib/supabase';
@@ -60,6 +61,8 @@ function RootNavigator() {
         <Stack.Screen name="habit/[id]" options={{ ...formHeader, title: 'Hábito' }} />
         <Stack.Screen name="ai-plan" options={{ ...formHeader, title: 'Sugestões da IA', presentation: 'modal' }} />
         <Stack.Screen name="delete-account" options={{ ...formHeader, title: 'Excluir conta', presentation: 'modal' }} />
+        <Stack.Screen name="hero" options={{ ...formHeader, title: 'Seu herói', presentation: 'modal' }} />
+        <Stack.Screen name="shop" options={{ ...formHeader, title: 'Loja' }} />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !onboarded}>
         <Stack.Screen name="onboarding" />
@@ -75,8 +78,10 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ProfileProvider>
-        <StatusBar style="light" />
-        <RootNavigator />
+        <CelebrationProvider>
+          <StatusBar style="light" />
+          <RootNavigator />
+        </CelebrationProvider>
       </ProfileProvider>
     </AuthProvider>
   );

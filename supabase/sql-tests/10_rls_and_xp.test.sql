@@ -389,7 +389,8 @@ do $$
 declare t text;
 begin
   -- anon não tem acesso a nenhuma tabela (nem pelo RLS, nem pelos grants)
-  foreach t in array array['profiles', 'objectives', 'habits', 'habit_logs', 'xp_rules', 'xp_transactions', 'ai_plans'] loop
+  foreach t in array array['profiles', 'objectives', 'habits', 'habit_logs', 'xp_rules', 'xp_transactions', 'ai_plans',
+                          'coin_rules', 'class_catalog', 'coin_transactions', 'user_unlocks'] loop
     begin
       execute format('select count(*) from public.%I', t);
       raise exception 'FALHOU: anon leu a tabela %', t;
@@ -454,6 +455,39 @@ begin
   end;
 end $$;
 
+-- Herói e atributos (Eva concluiu o onboarding com "Beber 2 L de água" → Saúde)
+do $$
+declare v_habit uuid;
+begin
+  update public.profiles set hero = '{"heroClass":"mago","hair":"coque"}';
+  perform pg_temp.check((select hero->>'heroClass' from public.profiles) = 'mago', 'salva a aparência do herói');
+  begin
+    update public.profiles set hero = '["não é objeto"]';
+    raise exception 'FALHOU: aceitou herói que não é objeto';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.profiles set hero = jsonb_build_object('x', repeat('a', 3000));
+    raise exception 'FALHOU: aceitou herói enorme';
+  exception when check_violation then null;
+  end;
+
+  perform pg_temp.check(not exists (select 1 from public.my_attribute_xp()), 'sem registros, atributos vazios');
+
+  select id into v_habit from public.habits where title = 'Beber 2 L de água';
+  perform public.log_habit(v_habit, pg_temp.today());
+  perform pg_temp.check(
+    (select xp from public.my_attribute_xp() where category = 'health') = 10, 'XP do hábito vai para a área do objetivo');
+
+  -- mudar a dificuldade depois não altera o que foi ganho
+  update public.habits set difficulty = 'hard' where id = v_habit;
+  perform pg_temp.check((select xp from public.my_attribute_xp() where category = 'health') = 10, 'atributo usa o XP ganho de fato');
+
+  -- desfazer tira o XP do atributo
+  perform public.undo_habit_log(v_habit, pg_temp.today());
+  perform pg_temp.check(not exists (select 1 from public.my_attribute_xp()), 'registro desfeito sai do atributo');
+end $$;
+
 -- pular o onboarding (sem hábitos) também conclui
 reset role;
 insert into auth.users (id, email) values ('77777777-7777-7777-7777-777777777777', 'fabi@teste.dev');
@@ -474,6 +508,132 @@ do $$ begin
     raise exception 'FALHOU: anon concluiu onboarding';
   exception when insufficient_privilege then null;
   end;
+end $$;
+
+-- ── Cristais ─────────────────────────────────────────────────
+-- Gil: Guerreiro (classe padrão, +10% em Saúde), com 990 XP (nível 4).
+reset role;
+insert into auth.users (id, email) values ('88888888-8888-8888-8888-888888888888', 'gil@teste.dev');
+update public.profiles set timezone = 'America/Manaus' where id = '88888888-8888-8888-8888-888888888888';
+insert into public.objectives (id, user_id, title, category)
+values ('b0000000-0000-0000-0000-000000000001', '88888888-8888-8888-8888-888888888888', 'Saúde', 'health');
+insert into public.habits (id, user_id, objective_id, title, difficulty, start_date) values
+  ('b1000000-0000-0000-0000-000000000001', '88888888-8888-8888-8888-888888888888',
+   'b0000000-0000-0000-0000-000000000001', 'Caminhar', 'easy', pg_temp.today() - 1),
+  ('b1000000-0000-0000-0000-000000000002', '88888888-8888-8888-8888-888888888888',
+   null, 'Escrever', 'medium', pg_temp.today() - 1);
+insert into public.xp_transactions (user_id, amount, source_type, local_date, idempotency_key)
+values ('88888888-8888-8888-8888-888888888888', 990, 'habit', pg_temp.today() - 30, 'seed:gil');
+select set_config('request.jwt.claim.sub', '88888888-8888-8888-8888-888888888888', true);
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  -- fácil (5) + 10% em Saúde (arredonda para cima: +1) = 6; e o XP chega a 1000 → nível 5 → +50
+  r := public.log_habit('b1000000-0000-0000-0000-000000000001', pg_temp.today());
+  perform pg_temp.check((r->>'xp_awarded')::int = 10, 'XP da missão continua igual');
+  perform pg_temp.check((r->>'coins_awarded')::int = 56, 'missão (6) + subida para o nível 5 (50)');
+  perform pg_temp.check((r->>'coin_balance')::int = 56, 'saldo 56');
+  perform pg_temp.check(public.my_coin_balance() = 56, 'my_coin_balance bate');
+
+  -- média sem objetivo (fora da área) = 10; dia perfeito = +15 Cristais (e +20 XP)
+  r := public.log_habit('b1000000-0000-0000-0000-000000000002', pg_temp.today());
+  perform pg_temp.check((r->>'perfect_day_bonus')::int = 20, 'bônus de XP do dia perfeito continua');
+  perform pg_temp.check((r->>'coins_awarded')::int = 25, 'missão (10) + dia perfeito (15)');
+  perform pg_temp.check((r->>'coin_balance')::int = 81, 'saldo 81');
+
+  -- desfazer estorna a missão e o dia perfeito; os Cristais de nível ficam
+  r := public.undo_habit_log('b1000000-0000-0000-0000-000000000002', pg_temp.today());
+  perform pg_temp.check((r->>'coins_reverted')::int = 25, 'estorna exatamente 25');
+  perform pg_temp.check((r->>'coin_balance')::int = 56, 'volta a 56; nível não é estornado');
+
+  r := public.log_habit('b1000000-0000-0000-0000-000000000002', pg_temp.today());
+  perform pg_temp.check((r->>'coin_balance')::int = 81, 'registrar de novo devolve 25');
+
+  -- missão de ontem rende metade: ceil(5/2)=3, +10% Saúde = 4
+  r := public.log_habit('b1000000-0000-0000-0000-000000000001', pg_temp.today() - 1);
+  perform pg_temp.check((r->>'coins_awarded')::int = 4, 'ontem rende metade');
+
+  -- compra: saldo insuficiente
+  begin
+    perform public.buy_item('paladino');
+    raise exception 'FALHOU: comprou sem Cristais';
+  exception when sqlstate 'PR004' then null;
+  end;
+
+  -- o app não grava Cristais nem desbloqueios direto
+  begin
+    insert into public.coin_transactions (user_id, amount, source_type, local_date, idempotency_key)
+    values ('88888888-8888-8888-8888-888888888888', 9999, 'habit', pg_temp.today(), 'hack');
+    raise exception 'FALHOU: inseriu Cristais direto';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.user_unlocks (user_id, item_id) values ('88888888-8888-8888-8888-888888888888', 'necromante');
+    raise exception 'FALHOU: desbloqueou classe direto';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.profiles set hero = '{"heroClass":"paladino"}';
+    raise exception 'FALHOU: equipou classe sem comprar';
+  exception when sqlstate 'PR005' then null;
+  end;
+end $$;
+
+-- Mais Cristais para testar a loja (só o backend grava)
+reset role;
+insert into public.coin_transactions (user_id, amount, source_type, local_date, idempotency_key)
+values ('88888888-8888-8888-8888-888888888888', 500, 'level_up', pg_temp.today(), 'seed:gil-coins');
+set local role authenticated;
+
+do $$
+declare r jsonb; v_coin int;
+begin
+  begin
+    perform public.buy_item('necromante');
+    raise exception 'FALHOU: comprou classe de nível 10 no nível 5';
+  exception when sqlstate 'PR003' then null;
+  end;
+
+  r := public.buy_item('paladino');
+  perform pg_temp.check((r->>'coin_balance')::int = 285, 'compra desconta 300 (585 → 285)');
+  perform pg_temp.check(public.my_coin_balance() = 285, 'saldo após a compra');
+  perform pg_temp.check(exists (select 1 from public.user_unlocks where item_id = 'paladino'), 'paladino adquirido');
+
+  begin
+    perform public.buy_item('paladino');
+    raise exception 'FALHOU: comprou duas vezes';
+  exception when sqlstate 'PR002' then null;
+  end;
+  begin
+    perform public.buy_item('guerreiro');
+    raise exception 'FALHOU: comprou classe grátis';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.buy_item('dragao-inexistente');
+    raise exception 'FALHOU: comprou item inexistente';
+  exception when no_data_found then null;
+  end;
+
+  -- equipar o que comprou é permitido; o que não comprou, não
+  update public.profiles set hero = '{"heroClass":"paladino"}';
+  perform pg_temp.check((select hero->>'heroClass' from public.profiles) = 'paladino', 'equipa a classe comprada');
+  begin
+    update public.profiles set hero = '{"heroClass":"necromante"}';
+    raise exception 'FALHOU: equipou necromante sem comprar';
+  exception when sqlstate 'PR005' then null;
+  end;
+
+  -- Paladino: +15% em Crescimento pessoal (hábito sem objetivo conta como essa área): 10 + 2 = 12
+  perform public.undo_habit_log('b1000000-0000-0000-0000-000000000002', pg_temp.today());
+  perform public.log_habit('b1000000-0000-0000-0000-000000000002', pg_temp.today());
+  select t.amount into v_coin
+  from public.coin_transactions t
+  join public.habit_logs l on l.id = t.source_id
+  where t.source_type = 'habit' and l.habit_id = 'b1000000-0000-0000-0000-000000000002';
+  perform pg_temp.check(v_coin = 12, 'bônus de área da classe equipada');
 end $$;
 
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros

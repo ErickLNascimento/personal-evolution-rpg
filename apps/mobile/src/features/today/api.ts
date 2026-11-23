@@ -10,6 +10,8 @@ export interface DayData {
   /** XP ganho em cada registro ativo, por `awardKey(data, hábito)`. */
   awarded: Map<string, number>;
   totalXp: number;
+  /** Saldo de Cristais (só o banco concede ou gasta). */
+  crystals: number;
   xpTable: XpTable;
 }
 
@@ -33,7 +35,7 @@ function rpcFailure(error: PostgrestError, fallback: string): { data: null; erro
 /** Tudo o que a tela Hoje precisa: hábitos, registros das datas, XP total e tabela de XP. */
 export async function fetchDay(dates: readonly LocalDate[]): Promise<Result<DayData>> {
   const db = client();
-  const [habits, logs, grants, xp, rules] = await Promise.all([
+  const [habits, logs, grants, xp, rules, crystals] = await Promise.all([
     listHabits(),
     db
       .from('habit_logs')
@@ -49,6 +51,7 @@ export async function fetchDay(dates: readonly LocalDate[]): Promise<Result<DayD
       .returns<{ source_id: string; amount: number }[]>(),
     db.rpc('my_total_xp'),
     db.from('xp_rules').select('key, amount').returns<{ key: string; amount: number }[]>(),
+    db.rpc('my_coin_balance'),
   ]);
 
   if (habits.error !== null) return habits;
@@ -72,6 +75,7 @@ export async function fetchDay(dates: readonly LocalDate[]): Promise<Result<DayD
       logged,
       awarded,
       totalXp: Number(xp.data ?? 0),
+      crystals: Number(crystals.data ?? 0),
       // Sem as regras, a tela mostra o padrão; o XP real é sempre o que o banco concede.
       xpTable: xpTableFromRules(rules.data ?? []),
     },
@@ -86,14 +90,31 @@ export interface LogOutcome {
   xp: number;
   perfectDayBonus: number;
   totalXp: number;
+  /** Cristais ganhos (registro) ou estornados (desfazer) nesta ação. */
+  crystals: number;
+  crystalBalance: number;
 }
 
 export async function logHabit(habitId: string, date: LocalDate): Promise<Result<LogOutcome>> {
   const { data, error } = await client().rpc('log_habit', { p_habit_id: habitId, p_local_date: date });
   if (error) return rpcFailure(error, 'Não foi possível registrar. Tente de novo.');
-  const r = data as { logged: boolean; xp_awarded: number; perfect_day_bonus: number; total_xp: number };
+  const r = data as {
+    logged: boolean;
+    xp_awarded: number;
+    perfect_day_bonus: number;
+    total_xp: number;
+    coins_awarded?: number;
+    coin_balance?: number;
+  };
   return {
-    data: { changed: r.logged, xp: r.xp_awarded, perfectDayBonus: r.perfect_day_bonus, totalXp: Number(r.total_xp) },
+    data: {
+      changed: r.logged,
+      xp: r.xp_awarded,
+      perfectDayBonus: r.perfect_day_bonus,
+      totalXp: Number(r.total_xp),
+      crystals: Number(r.coins_awarded ?? 0),
+      crystalBalance: Number(r.coin_balance ?? 0),
+    },
     error: null,
   };
 }
@@ -101,6 +122,16 @@ export async function logHabit(habitId: string, date: LocalDate): Promise<Result
 export async function undoHabitLog(habitId: string, date: LocalDate): Promise<Result<LogOutcome>> {
   const { data, error } = await client().rpc('undo_habit_log', { p_habit_id: habitId, p_local_date: date });
   if (error) return rpcFailure(error, 'Não foi possível desfazer. Tente de novo.');
-  const r = data as { undone: boolean; xp_reverted: number; total_xp: number };
-  return { data: { changed: r.undone, xp: r.xp_reverted, perfectDayBonus: 0, totalXp: Number(r.total_xp) }, error: null };
+  const r = data as { undone: boolean; xp_reverted: number; total_xp: number; coins_reverted?: number; coin_balance?: number };
+  return {
+    data: {
+      changed: r.undone,
+      xp: r.xp_reverted,
+      perfectDayBonus: 0,
+      totalXp: Number(r.total_xp),
+      crystals: Number(r.coins_reverted ?? 0),
+      crystalBalance: Number(r.coin_balance ?? 0),
+    },
+    error: null,
+  };
 }

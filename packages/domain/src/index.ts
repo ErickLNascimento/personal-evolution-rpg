@@ -9,3 +9,4 @@ export * from './progress';
 export * from './ai';
 export * from './onboarding';
 export * from './reminders';
+export * from './hero';

@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { describeSchedule, DIFFICULTY_LABEL, formatReminderTime, parseReminderTime, xpForHabit } from '@per/domain';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { listHabits, listObjectives, type HabitRecord, type ObjectiveRecord } from '@/features/habits/api';
+import { listHabits, listObjectives, type HabitRecord, type ObjectiveRecord, type Result } from '@/features/habits/api';
+import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 
 export default function HabitsScreen() {
@@ -21,34 +22,35 @@ export default function HabitsScreen() {
   return <HabitList />;
 }
 
-function HabitList() {
-  const [habits, setHabits] = useState<HabitRecord[] | null>(null);
-  const [objectives, setObjectives] = useState<ObjectiveRecord[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
+async function loadHabitList(): Promise<Result<{ habits: HabitRecord[]; objectives: ObjectiveRecord[] }>> {
+  const [h, o] = await Promise.all([listHabits(), listObjectives()]);
+  if (h.error !== null) return h;
+  // Sem os objetivos, a lista ainda funciona (só não mostra o nome do objetivo).
+  return { data: { habits: h.data, objectives: o.data ?? [] }, error: null };
+}
 
-  // Recarrega ao voltar da tela de criar/editar.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      Promise.all([listHabits(), listObjectives()]).then(([h, o]) => {
-        if (!active) return;
-        setError(h.error ?? o.error);
-        if (h.data) setHabits(h.data);
-        if (o.data) setObjectives(o.data);
-      });
-      return () => {
-        active = false;
-      };
-    }, []),
-  );
+function HabitList() {
+  // Recarrega ao voltar da tela de criar/editar e ao puxar a tela.
+  const { data, error, failed, refreshing, refresh } = useFocusLoad(loadHabitList);
+  const [showArchived, setShowArchived] = useState(false);
+  const habits = data?.habits ?? null;
+  const objectives = data?.objectives ?? [];
+
+  if (failed) {
+    return (
+      <Screen title="Hábitos" onRefresh={refresh} refreshing={refreshing}>
+        <FormMessage text={error} />
+        <Button title="Tentar de novo" onPress={refresh} variant="secondary" />
+      </Screen>
+    );
+  }
 
   const objectiveTitle = new Map(objectives.map((o) => [o.id, o.title]));
   const active = habits?.filter((h) => !h.archivedOn) ?? [];
   const archived = habits?.filter((h) => h.archivedOn) ?? [];
 
   return (
-    <Screen title="Hábitos">
+    <Screen title="Hábitos" onRefresh={refresh} refreshing={refreshing}>
       <Button title="Novo hábito" onPress={() => router.push('/habit/new')} />
       <Button title="Sugestões da IA" onPress={() => router.push('/ai-plan')} variant="secondary" />
       <FormMessage text={error} />

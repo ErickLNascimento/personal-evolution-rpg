@@ -1,4 +1,4 @@
-import type { Difficulty, ObjectiveCategory, OnboardingHabit } from '@per/domain';
+import type { Difficulty, HeroLook, ObjectiveCategory, OnboardingHabit } from '@per/domain';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
@@ -11,6 +11,10 @@ export interface Profile {
   difficulty: Difficulty;
   focusAreas: ObjectiveCategory[];
   onboardingDone: boolean;
+  /** Aparência do herói como salva (jsonb); leia com `sanitizeHero` do domínio. */
+  hero: unknown;
+  /** Classes compradas na loja (as iniciais são grátis e não aparecem aqui). */
+  owned: ReadonlySet<string>;
 }
 
 interface ProfileRow {
@@ -21,6 +25,7 @@ interface ProfileRow {
   difficulty: Difficulty;
   focus_areas: ObjectiveCategory[];
   onboarding_done: boolean;
+  hero: unknown;
 }
 
 export type ProfileChanges = Partial<{
@@ -29,6 +34,7 @@ export type ProfileChanges = Partial<{
   ai_consent_at: string | null;
   focus_areas: ObjectiveCategory[];
   difficulty: Difficulty;
+  hero: HeroLook;
 }>;
 
 export interface OnboardingInput {
@@ -39,10 +45,11 @@ export interface OnboardingInput {
   habits: OnboardingHabit[];
 }
 
-const COLUMNS = 'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done';
+const COLUMNS = 'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero';
 
-function fromRow(row: ProfileRow): Profile {
+function fromRow(row: ProfileRow, owned: ReadonlySet<string>): Profile {
   return {
+    owned,
     id: row.id,
     displayName: row.display_name,
     timezone: row.timezone,
@@ -50,14 +57,19 @@ function fromRow(row: ProfileRow): Profile {
     difficulty: row.difficulty,
     focusAreas: row.focus_areas,
     onboardingDone: row.onboarding_done,
+    hero: row.hero,
   };
 }
 
 async function fetchProfile(userId: string): Promise<{ profile: Profile | null; error: string | null }> {
   if (!supabase) return { profile: null, error: 'Supabase não configurado.' };
-  const { data, error } = await supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>();
-  if (error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
-  return { profile: fromRow(data), error: null };
+  const [profile, unlocks] = await Promise.all([
+    supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>(),
+    supabase.from('user_unlocks').select('item_id').returns<{ item_id: string }[]>(),
+  ]);
+  if (profile.error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
+  const owned = new Set((unlocks.data ?? []).map((u) => u.item_id));
+  return { profile: fromRow(profile.data, owned), error: null };
 }
 
 interface ProfileState {
@@ -69,6 +81,8 @@ interface ProfileState {
   update: (changes: ProfileChanges) => Promise<string | null>;
   /** Conclui o primeiro acesso (perfil + hábitos escolhidos) numa transação. */
   completeOnboarding: (input: OnboardingInput) => Promise<string | null>;
+  /** Recarrega o perfil sem passar pela tela de carregamento (ex.: depois de uma compra). */
+  refresh: () => Promise<void>;
 }
 
 const ProfileContext = createContext<ProfileState | null>(null);
@@ -114,9 +128,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (error) {
         if (error.code === '22023') return 'Fuso horário inválido.';
         if (error.code === '23514') return 'Valor inválido. Confira os campos.';
+        if (error.code === 'PR005') return 'Essa classe ainda não foi comprada na Loja.';
         return 'Não foi possível salvar. Tente de novo.';
       }
-      setLoaded({ userId, profile: fromRow(data), error: null });
+      setLoaded((prev) => ({
+        userId,
+        profile: fromRow(data, prev?.userId === userId && prev.profile ? prev.profile.owned : new Set()),
+        error: null,
+      }));
       return null;
     },
     [userId],
@@ -148,7 +167,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     [userId, reload],
   );
 
+  const refresh = useCallback(async () => {
+    if (!userId) return;
+    const r = await fetchProfile(userId);
+    if (r.profile) setLoaded({ userId, profile: r.profile, error: null });
+  }, [userId]);
+
   const value: ProfileState = {
+    refresh,
     profile: current?.profile ?? null,
     loading: Boolean(userId) && !current,
     error: current?.error ?? null,

@@ -7,9 +7,10 @@ import {
   type LocalDate,
   type XpTable,
 } from '@per/domain';
-import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
+import { useCelebration } from '@/features/celebration/CelebrationProvider';
 import { useToday } from '@/features/profile/useToday';
+import { useFocusLoad } from '@/lib/useFocusLoad';
 import { awardKey, fetchDay, logHabit, undoHabitLog, type DayData } from './api';
 
 export type DayChoice = 'today' | 'yesterday';
@@ -24,29 +25,14 @@ export function useDay(choice: DayChoice) {
   const yesterday = addDays(today, -1);
   const date: LocalDate = choice === 'today' ? today : yesterday;
 
-  const [data, setData] = useState<DayData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => fetchDay([yesterday, today]), [yesterday, today]);
+  const { data, setData, error, setError, loading, failed, refreshing, refresh } = useFocusLoad<DayData>(load, ready);
+  const { celebrateLevelUp } = useCelebration();
   const [notice, setNotice] = useState<string | null>(null);
+  // Aviso rápido "+N Cristais"; `key` muda a cada ganho para reanimar.
+  const [crystalGain, setCrystalGain] = useState<{ amount: number; key: number } | null>(null);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const pendingRef = useRef(new Set<string>());
-  const [attempt, setAttempt] = useState(0);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!ready) return;
-      let active = true;
-      // `attempt` muda quando o usuário toca em "Tentar de novo" e força uma nova busca.
-      void attempt;
-      fetchDay([yesterday, today]).then((r) => {
-        if (!active) return;
-        setError(r.error);
-        if (r.data) setData(r.data);
-      });
-      return () => {
-        active = false;
-      };
-    }, [ready, today, yesterday, attempt]),
-  );
 
   const xpTable: XpTable = data?.xpTable ?? DEFAULT_XP_TABLE;
   const completed = data?.logged.get(date) ?? new Set<string>();
@@ -83,6 +69,10 @@ export function useDay(choice: DayChoice) {
       setError(r.error);
     } else {
       const outcome = r.data;
+      // O XP total vem do banco: se cruzou um nível, dispara a cena de evolução.
+      const before = levelFromXp(data.totalXp).level;
+      const after = levelFromXp(outcome.totalXp).level;
+      if (after > before) celebrateLevelUp(before, after);
       setData((d) => {
         if (!d) return d;
         // Guarda o XP ganho neste registro (ou o tira, ao desfazer) para o card mostrar o valor real.
@@ -90,9 +80,10 @@ export function useDay(choice: DayChoice) {
         const key = awardKey(date, habitId);
         if (wasDone) awarded.delete(key);
         else if (outcome.changed) awarded.set(key, outcome.xp);
-        return { ...d, totalXp: outcome.totalXp, awarded };
+        return { ...d, totalXp: outcome.totalXp, crystals: outcome.crystalBalance, awarded };
       });
-      if (r.data.perfectDayBonus > 0) setNotice(`Dia perfeito! +${r.data.perfectDayBonus} XP de bônus.`);
+      if (!wasDone && outcome.crystals > 0) setCrystalGain({ amount: outcome.crystals, key: Date.now() });
+      if (r.data.perfectDayBonus > 0) setNotice(`Todas as missões feitas: +${r.data.perfectDayBonus} XP de bônus.`);
     }
 
     pendingRef.current.delete(habitId);
@@ -101,18 +92,18 @@ export function useDay(choice: DayChoice) {
 
   return {
     date,
-    loading: !data && !error,
+    loading,
     /** Falhou antes de carregar qualquer coisa: a tela mostra só o erro e "Tentar de novo". */
-    failed: !data && Boolean(error),
-    retry: () => {
-      setError(null);
-      setAttempt((n) => n + 1);
-    },
+    failed,
+    refreshing,
+    refresh,
     hasHabits: (data?.habits.length ?? 0) > 0,
     missions,
     progress,
     level,
     xpTable,
+    crystals: data?.crystals ?? 0,
+    crystalGain,
     /** XP ganho no registro desta missão na data escolhida, se houver. */
     awardedXp: (habitId: string) => data?.awarded.get(awardKey(date, habitId)),
     pending,
