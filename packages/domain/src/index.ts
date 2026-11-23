@@ -7,3 +7,4 @@ export * from './account';
 export * from './habits';
 export * from './progress';
 export * from './ai';
+export * from './onboarding';

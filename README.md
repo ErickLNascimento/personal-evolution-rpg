@@ -1,7 +1,7 @@
 # Personal Evolution RPG
 
 App mobile de evolução pessoal com gamificação RPG e IA. Expo (iOS e Android) + Supabase.
-O PRD da Fase 1 define o escopo; este repositório está na **Sprint 4 (IA)**. Sprint 1: login e cadastro por e-mail, fuso horário, consentimento da IA e logout. Sprint 2: hábitos (criar, editar, arquivar, agenda, meta e objetivo) e a tela **Hoje** ligada ao banco. Sprint 3: tela **Progresso** com nível, streak, XP por dia e revisão semanal. Sprint 4: **Sugestões da IA** (plano inicial e revisão semanal, com aceite por hábito).
+O PRD da Fase 1 define o escopo; este repositório está na **Sprint 5 (onboarding)**. Sprint 1: login e cadastro por e-mail, fuso horário, consentimento da IA e logout. Sprint 2: hábitos (criar, editar, arquivar, agenda, meta e objetivo) e a tela **Hoje** ligada ao banco. Sprint 3: tela **Progresso** com nível, streak, XP por dia e revisão semanal. Sprint 4: **Sugestões da IA** (plano inicial e revisão semanal, com aceite por hábito; a chave da IA fica para depois). Sprint 5: **onboarding** no primeiro acesso (nome, áreas de foco, ritmo e primeiros hábitos a partir de modelos).
 
 ## Estrutura
 

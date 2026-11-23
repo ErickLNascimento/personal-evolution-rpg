@@ -1,6 +1,20 @@
-import { hasAiConsent, isValidTimeZone, normalizeDisplayName } from '@per/domain';
+import {
+  DIFFICULTIES,
+  DIFFICULTY_LABEL,
+  FOCUS_AREAS_MAX,
+  hasAiConsent,
+  isValidTimeZone,
+  normalizeDisplayName,
+  OBJECTIVE_CATEGORIES,
+  OBJECTIVE_CATEGORY_LABEL,
+  toggleFocusArea,
+  validateFocusAreas,
+  type Difficulty,
+  type ObjectiveCategory,
+} from '@per/domain';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -51,6 +65,15 @@ function AccountProfile() {
         <DisplayNameForm initial={profile.displayName} onSave={(v) => update({ display_name: v })} />
       </Section>
 
+      <Section title="FOCO E RITMO">
+        <FocusForm
+          key={`${profile.focusAreas.join()}|${profile.difficulty}`}
+          areas={profile.focusAreas}
+          difficulty={profile.difficulty}
+          onSave={(focus_areas, difficulty) => update({ focus_areas, difficulty })}
+        />
+      </Section>
+
       <Section title="FUSO HORÁRIO">
         <TimeZoneForm key={profile.timezone} current={profile.timezone} onSave={(tz) => update({ timezone: tz })} />
       </Section>
@@ -64,6 +87,50 @@ function AccountProfile() {
 
       <SignOutButton />
     </Screen>
+  );
+}
+
+const AREA_OPTIONS = OBJECTIVE_CATEGORIES.map((c) => ({ value: c, label: OBJECTIVE_CATEGORY_LABEL[c] }));
+const DIFFICULTY_OPTIONS = DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] }));
+
+function FocusForm({
+  areas: initialAreas,
+  difficulty: initialDifficulty,
+  onSave,
+}: {
+  areas: ObjectiveCategory[];
+  difficulty: Difficulty;
+  onSave: (areas: ObjectiveCategory[], difficulty: Difficulty) => Promise<string | null>;
+}) {
+  const [areas, setAreas] = useState(initialAreas);
+  const [difficulty, setDifficulty] = useState(initialDifficulty);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; tone: 'error' | 'info' } | null>(null);
+  const dirty = areas.join() !== initialAreas.join() || difficulty !== initialDifficulty;
+
+  async function save() {
+    const invalid = validateFocusAreas(areas);
+    if (invalid) {
+      setMessage({ text: invalid, tone: 'error' });
+      return;
+    }
+    setSaving(true);
+    const err = await onSave(areas, difficulty);
+    setSaving(false);
+    setMessage(err ? { text: err, tone: 'error' } : { text: 'Preferências salvas.', tone: 'info' });
+  }
+
+  return (
+    <>
+      <Text style={typography.caption}>
+        Áreas onde você quer evoluir (até {FOCUS_AREAS_MAX}) e o ritmo preferido. A IA usa isso para sugerir hábitos.
+      </Text>
+      <Chips multiple options={AREA_OPTIONS} selected={areas} onToggle={(a) => setAreas((cur) => toggleFocusArea(cur, a))} />
+      <Text style={typography.label}>RITMO</Text>
+      <Chips options={DIFFICULTY_OPTIONS} selected={[difficulty]} onToggle={setDifficulty} />
+      <FormMessage text={message?.text ?? null} tone={message?.tone} />
+      {dirty && <Button title="Salvar preferências" onPress={save} loading={saving} />}
+    </>
   );
 }
 

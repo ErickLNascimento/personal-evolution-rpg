@@ -404,6 +404,78 @@ begin
   end;
 end $$;
 
+-- ── Onboarding ───────────────────────────────────────────────
+reset role;
+insert into auth.users (id, email) values ('66666666-6666-6666-6666-666666666666', 'eva@teste.dev');
+insert into public.objectives (user_id, title, category)
+values ('66666666-6666-6666-6666-666666666666', 'saúde', 'health');
+select set_config('request.jwt.claim.sub', '66666666-6666-6666-6666-666666666666', true);
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  -- áreas fora da lista ou mais de 3 são recusadas, e nada é salvo
+  begin
+    perform public.complete_onboarding('Eva', array['magia'], 'easy', 'America/Manaus');
+    raise exception 'FALHOU: aceitou área inválida';
+  exception when check_violation then null;
+  end;
+  begin
+    perform public.complete_onboarding('Eva', array['health', 'career', 'finance', 'knowledge'], 'easy', 'America/Manaus');
+    raise exception 'FALHOU: aceitou 4 áreas';
+  exception when check_violation then null;
+  end;
+  begin
+    perform public.complete_onboarding('Eva', array['health'], 'easy', 'Lugar/Nenhum');
+    raise exception 'FALHOU: aceitou fuso inválido';
+  exception when invalid_parameter_value then null;
+  end;
+  perform pg_temp.check(not (select onboarding_done from public.profiles), 'falha não conclui o onboarding');
+
+  r := public.complete_onboarding('  Eva  ', array['health', 'knowledge'], 'medium', 'America/Manaus',
+    '[{"title":"Beber 2 L de água","difficulty":"easy","schedule_days":[0,1,2,3,4,5,6],
+       "objective_title":"Saúde","objective_category":"health"},
+      {"title":"Ler 10 páginas","difficulty":"easy","schedule_days":[1,1,3],
+       "objective_title":"Conhecimento","objective_category":"knowledge"}]');
+  perform pg_temp.check((r->>'habits_created')::int = 2, 'onboarding cria os hábitos escolhidos');
+  perform pg_temp.check(
+    (select display_name = 'Eva' and focus_areas = '{health,knowledge}' and difficulty = 'medium'
+            and timezone = 'America/Manaus' and onboarding_done from public.profiles),
+    'onboarding salva o perfil');
+  perform pg_temp.check((select count(*) from public.objectives) = 2, 'reusa "saúde" e cria "Conhecimento"');
+  perform pg_temp.check((select schedule_days from public.habits where title = 'Ler 10 páginas') = '{1,3}', 'agenda sem repetição');
+  perform pg_temp.check((select bool_and(start_date = pg_temp.today()) from public.habits), 'hábitos começam hoje');
+
+  begin
+    perform public.complete_onboarding('Eva', array['health'], 'easy', 'America/Manaus');
+    raise exception 'FALHOU: concluiu o onboarding duas vezes';
+  exception when sqlstate 'PR001' then null;
+  end;
+end $$;
+
+-- pular o onboarding (sem hábitos) também conclui
+reset role;
+insert into auth.users (id, email) values ('77777777-7777-7777-7777-777777777777', 'fabi@teste.dev');
+select set_config('request.jwt.claim.sub', '77777777-7777-7777-7777-777777777777', true);
+set local role authenticated;
+do $$ begin
+  perform public.complete_onboarding('', '{}', 'easy', 'America/Sao_Paulo');
+  perform pg_temp.check((select onboarding_done and display_name is null from public.profiles), 'pular conclui sem dados');
+  perform pg_temp.check((select count(*) from public.habits) = 0, 'pular não cria hábito');
+end $$;
+
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+set local role anon;
+do $$ begin
+  begin
+    perform public.complete_onboarding('x', '{}', 'easy', 'UTC');
+    raise exception 'FALHOU: anon concluiu onboarding';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';
