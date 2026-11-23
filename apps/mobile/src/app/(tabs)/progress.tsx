@@ -7,10 +7,10 @@ import {
   weekSummary,
   type WeekSummary,
 } from '@per/domain';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { FormMessage } from '@/components/Form';
+import { Button, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
 import { XpBar } from '@/components/XpBar';
 import { XpChart } from '@/components/XpChart';
@@ -106,6 +106,7 @@ function RealProgress() {
         <WeekRow label="Semana passada" week={lastWeek} />
         <View style={styles.divider} />
         <AiReview review={data.review} />
+        <Button title="Abrir sugestões da IA" onPress={() => router.push('/ai-plan')} variant="secondary" />
       </Card>
     </Screen>
   );
@@ -170,7 +171,7 @@ function AiReview({ review }: { review: WeeklyReview | null }) {
   if (!review) {
     return (
       <Text style={typography.caption}>
-        Ainda não há revisão da IA. Quando ela estiver ativa (com sua permissão no Perfil), a última revisão aparece aqui.
+        Ainda não há revisão da IA. Peça uma em Sugestões da IA (é preciso permitir a IA no Perfil).
       </Text>
     );
   }

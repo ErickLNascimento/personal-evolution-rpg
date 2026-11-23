@@ -205,24 +205,103 @@ begin
   perform pg_temp.check(n = 1, 'exclui hábito sem registros');
 end $$;
 
--- Plano da IA: o app só muda a decisão
+-- Plano da IA: a Edge Function grava (service role); o app só decide por decide_ai_plan
 reset role;
-insert into public.ai_plans (id, user_id, kind, payload, prompt_version)
-values ('c0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'initial', '{"habits":[]}', 'plan-v1');
+insert into public.ai_plans (id, user_id, kind, payload, prompt_version) values
+  ('c0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'initial',
+   '{"summary":"Plano","habits":[
+      {"title":"Beber 2 L de água","difficulty":"easy","schedule_days":[0,1,2,3,4,5,6],
+       "objective_title":"ter mais saúde","objective_category":"health","rationale":"r"},
+      {"title":"Revisar finanças","difficulty":"medium","schedule_days":[0,0,6],
+       "objective_title":"Organizar o dinheiro","objective_category":"finance","rationale":"r"},
+      {"title":"Não escolhido","difficulty":"hard","schedule_days":[1],
+       "objective_title":null,"objective_category":"health","rationale":"r"}]}', 'plan-v1'),
+  ('c0000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'weekly',
+   '{"summary":"Semana","habits":[{"title":"x","difficulty":"easy","schedule_days":[1],
+     "objective_title":null,"objective_category":"health","rationale":"r"}]}', 'plan-v1'),
+  ('c0000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'weekly',
+   '{"summary":"Inválido","habits":[{"title":"","difficulty":"easy","schedule_days":[1],
+     "objective_title":null,"objective_category":"health","rationale":"r"}]}', 'plan-v1');
 set local role authenticated;
 
 do $$
-declare n int;
+declare r jsonb; n int;
 begin
-  update public.ai_plans set status = 'accepted', decided_at = now() where id = 'c0000000-0000-0000-0000-000000000001';
-  get diagnostics n = row_count;
-  perform pg_temp.check(n = 1, 'aceita o plano');
+  -- aceitar dois de três: cria só os escolhidos, reusa o objetivo de mesmo nome e cria o novo
+  r := public.decide_ai_plan('c0000000-0000-0000-0000-000000000001', true, array[1, 0, 1]);
+  perform pg_temp.check((r->>'habits_created')::int = 2, 'aceita só os escolhidos (sem duplicar)');
+  perform pg_temp.check((select status from public.ai_plans where id = 'c0000000-0000-0000-0000-000000000001') = 'accepted', 'plano aceito');
+  perform pg_temp.check((select count(*) from public.habits where title in ('Beber 2 L de água', 'Revisar finanças')) = 2, 'hábitos criados');
+  perform pg_temp.check(not exists (select 1 from public.habits where title = 'Não escolhido'), 'não escolhido fica de fora');
+  perform pg_temp.check((select count(*) from public.objectives where lower(title) = 'ter mais saúde') = 1, 'reusa objetivo de mesmo nome');
+  perform pg_temp.check(
+    (select o.title from public.habits h join public.objectives o on o.id = h.objective_id where h.title = 'Beber 2 L de água') = 'Ter mais saúde',
+    'hábito ligado ao objetivo existente');
+  perform pg_temp.check(exists (select 1 from public.objectives where title = 'Organizar o dinheiro' and category = 'finance'), 'cria objetivo novo');
+  perform pg_temp.check((select schedule_days from public.habits where title = 'Revisar finanças') = '{0,6}', 'agenda sem dias repetidos');
+  perform pg_temp.check((select start_date from public.habits where title = 'Revisar finanças') = pg_temp.today(), 'começa hoje no fuso do usuário');
+
   begin
-    update public.ai_plans set payload = '{"hack":true}' where id = 'c0000000-0000-0000-0000-000000000001';
-    raise exception 'FALHOU: alterou o conteúdo do plano';
+    perform public.decide_ai_plan('c0000000-0000-0000-0000-000000000001', false);
+    raise exception 'FALHOU: decidiu o mesmo plano duas vezes';
+  exception when invalid_parameter_value then null;
+  end;
+
+  -- sugestão inexistente ou inválida: nada é criado e o plano continua proposto
+  begin
+    perform public.decide_ai_plan('c0000000-0000-0000-0000-000000000002', true, array[5]);
+    raise exception 'FALHOU: aceitou sugestão inexistente';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.decide_ai_plan('c0000000-0000-0000-0000-000000000002', true, array[-1]);
+    raise exception 'FALHOU: aceitou índice negativo';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.decide_ai_plan('c0000000-0000-0000-0000-000000000003', true, array[0]);
+    raise exception 'FALHOU: aceitou hábito sem título';
+  exception when check_violation then null;
+  end;
+  perform pg_temp.check((select status from public.ai_plans where id = 'c0000000-0000-0000-0000-000000000003') = 'proposed', 'falha não decide o plano');
+
+  -- recusar não cria nada
+  select count(*) into n from public.habits;
+  r := public.decide_ai_plan('c0000000-0000-0000-0000-000000000002', false);
+  perform pg_temp.check(r->>'status' = 'rejected', 'plano recusado');
+  perform pg_temp.check((select count(*) from public.habits) = n, 'recusa não cria hábito');
+
+  -- o app não altera planos diretamente nem consulta o limite de uso
+  begin
+    update public.ai_plans set status = 'accepted' where id = 'c0000000-0000-0000-0000-000000000003';
+    raise exception 'FALHOU: alterou o plano direto';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.ai_plan_block_reason('11111111-1111-1111-1111-111111111111', 'initial');
+    raise exception 'FALHOU: app chamou ai_plan_block_reason';
   exception when insufficient_privilege then null;
   end;
 end $$;
+
+-- Limite de pedidos à IA (consultado pela Edge Function com service role)
+reset role;
+do $$ begin
+  update public.profiles set ai_consent_at = null where id = '11111111-1111-1111-1111-111111111111';
+  perform pg_temp.check(
+    public.ai_plan_block_reason('11111111-1111-1111-1111-111111111111', 'initial') like '%permissão%',
+    'sem consentimento, a IA é bloqueada');
+
+  update public.profiles set ai_consent_at = now() where id = '11111111-1111-1111-1111-111111111111';
+  perform pg_temp.check(public.ai_plan_block_reason('11111111-1111-1111-1111-111111111111', 'initial') is null, 'com consentimento, pode pedir');
+
+  insert into public.ai_plans (user_id, kind, payload, prompt_version)
+  select '11111111-1111-1111-1111-111111111111', 'initial', '{"summary":"","habits":[]}', 'plan-v1' from generate_series(1, 2);
+  perform pg_temp.check(public.ai_plan_block_reason('11111111-1111-1111-1111-111111111111', 'initial') is not null, '3 planos iniciais no dia: bloqueia');
+  perform pg_temp.check(public.ai_plan_block_reason('11111111-1111-1111-1111-111111111111', 'weekly') is not null, '2 revisões na semana: bloqueia');
+  perform pg_temp.check(public.ai_plan_block_reason('11111111-1111-1111-1111-111111111111', 'outro') is not null, 'tipo inválido bloqueia');
+end $$;
+set local role authenticated;
 
 -- ── Usuária B não vê nem mexe nos dados de A ─────────────────
 reset role;

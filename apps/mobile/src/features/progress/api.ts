@@ -1,4 +1,4 @@
-import type { HabitLogEntry, LocalDate, XpEntry } from '@per/domain';
+import { parseAiPlan, type HabitLogEntry, type LocalDate, type XpEntry } from '@per/domain';
 import { listHabits, type HabitRecord, type Result } from '@/features/habits/api';
 import { supabase } from '@/lib/supabase';
 
@@ -36,15 +36,6 @@ async function fetchAll<T>(
   }
 }
 
-/** Texto curto da revisão, se o plano semanal da IA trouxer um resumo. */
-function reviewSummary(payload: unknown): string | null {
-  if (payload && typeof payload === 'object' && 'summary' in payload) {
-    const s = (payload as { summary: unknown }).summary;
-    if (typeof s === 'string' && s.trim()) return s.trim();
-  }
-  return null;
-}
-
 /**
  * Dados da tela Progresso: registros desde `logsFrom` (para o streak),
  * XP desde `xpFrom` (gráfico e resumos), XP total e a última revisão semanal.
@@ -80,7 +71,7 @@ export async function fetchProgress(logsFrom: LocalDate, xpFrom: LocalDate): Pro
       totalXp: Number(total.data ?? 0),
       // A revisão é opcional: se falhar, o resto da tela continua.
       review: review.data
-        ? { createdAt: review.data.created_at, status: review.data.status, summary: reviewSummary(review.data.payload) }
+        ? { createdAt: review.data.created_at, status: review.data.status, summary: parseAiPlan(review.data.payload).summary || null }
         : null,
     },
     error: null,

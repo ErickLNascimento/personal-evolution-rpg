@@ -51,3 +51,14 @@ jobs:
           done
       - name: Testes de RLS e XP
         run: psql -v ON_ERROR_STOP=1 -q -f supabase/sql-tests/10_rls_and_xp.test.sql
+
+  functions:
+    name: Edge Functions (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Checar tipos
+        run: deno check supabase/functions/*/index.ts

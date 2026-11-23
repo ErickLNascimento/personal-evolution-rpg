@@ -31,6 +31,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="habit/new" options={{ ...formHeader, title: 'Novo hábito', presentation: 'modal' }} />
         <Stack.Screen name="habit/[id]" options={{ ...formHeader, title: 'Hábito' }} />
+        <Stack.Screen name="ai-plan" options={{ ...formHeader, title: 'Sugestões da IA', presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="sign-in" />
