@@ -12,6 +12,7 @@ import {
   type Difficulty,
   type ObjectiveCategory,
 } from '@per/domain';
+import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, View } from 'react-native';
 import { Chips } from '@/components/Chips';
@@ -86,6 +87,7 @@ function AccountProfile() {
       </Section>
 
       <SignOutButton />
+      <Button title="Excluir minha conta" onPress={() => router.push('/delete-account')} variant="secondary" />
     </Screen>
   );
 }

@@ -1,12 +1,23 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme/tokens';
+
+/**
+ * Rolagem que convive com o teclado: no iOS ganha espaço embaixo para o teclado
+ * (dá para rolar até o último campo); arrastar para baixo fecha o teclado.
+ * No Android o sistema já redimensiona a janela.
+ */
+const keyboardAware: ScrollViewProps = {
+  automaticallyAdjustKeyboardInsets: true,
+  keyboardShouldPersistTaps: 'handled',
+  keyboardDismissMode: 'interactive',
+};
 
 export function Screen({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView {...keyboardAware} contentContainerStyle={styles.content}>
         <Text style={typography.title} accessibilityRole="header">
           {title}
         </Text>
@@ -19,13 +30,11 @@ export function Screen({ title, children }: { title: string; children?: ReactNod
 /** Tela empilhada (com cabeçalho do Stack): só rolagem e teclado, sem título próprio. */
 export function StackScreen({ children }: { children?: ReactNode }) {
   return (
-    <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {children}
-        </ScrollView>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <ScrollView {...keyboardAware} contentContainerStyle={styles.content}>
+        {children}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

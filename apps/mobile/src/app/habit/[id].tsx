@@ -7,6 +7,7 @@ import { StackScreen } from '@/components/Screen';
 import { getHabit, isLoggedOn, retire, updateHabit, type HabitRecord } from '@/features/habits/api';
 import { HabitForm } from '@/features/habits/HabitForm';
 import { useToday } from '@/features/profile/useToday';
+import { syncReminders } from '@/lib/reminders';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 function toDraft(h: HabitRecord): HabitDraft {
@@ -17,6 +18,7 @@ function toDraft(h: HabitRecord): HabitDraft {
     objectiveId: h.objectiveId,
     targetQty: h.targetQty === null ? '' : String(h.targetQty).replace('.', ','),
     unit: h.unit ?? '',
+    reminderTime: h.reminderTime,
   };
 }
 
@@ -99,7 +101,10 @@ export default function EditHabitScreen() {
           const r = await retire(current.id, action);
           setRetiring(false);
           if (r.error !== null) setError(r.error);
-          else router.back();
+          else {
+            void syncReminders();
+            router.back();
+          }
         },
       },
     ]);
@@ -113,6 +118,7 @@ export default function EditHabitScreen() {
         onSubmit={async (input) => {
           const r = await updateHabit(habit.id, input);
           if (r.error !== null) return r.error;
+          void syncReminders();
           router.back();
           return null;
         }}

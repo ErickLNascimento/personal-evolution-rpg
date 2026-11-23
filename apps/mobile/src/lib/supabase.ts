@@ -32,3 +32,14 @@ if (supabase) {
     else client.auth.stopAutoRefresh();
   });
 }
+
+/**
+ * Cliente separado e sem persistência para o link de redefinição de senha.
+ * Assim a sessão de recuperação não troca o login do app nem a navegação.
+ */
+export function createRecoveryClient(): SupabaseClient | null {
+  if (!isSupabaseConfigured) return null;
+  return createClient(url!, anonKey!, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}

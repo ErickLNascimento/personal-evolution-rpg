@@ -1,4 +1,5 @@
 import { resolveTimeZone, validateCredentials, type AuthMode } from '@per/domain';
+import * as Linking from 'expo-linking';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +24,30 @@ export default function SignInScreen() {
     setMode(isSignUp ? 'sign-in' : 'sign-up');
     setError(null);
     setInfo(null);
+  }
+
+  async function forgotPassword() {
+    if (!supabase) return;
+    setError(null);
+    setInfo(null);
+    // Reaproveita a validação de e-mail (a senha não importa aqui).
+    const invalid = validateCredentials({ email, password: '-', mode: 'sign-in' });
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+    setLoading(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      // Abre app/reset-password.tsx (evolutionrpg://… num build, exp://… no Expo Go).
+      redirectTo: Linking.createURL('reset-password'),
+    });
+    setLoading(false);
+    if (resetError) {
+      setError(authErrorMessage(resetError));
+      return;
+    }
+    // Mesma mensagem exista ou não a conta, para não revelar quem está cadastrado.
+    setInfo('Se houver uma conta com este e-mail, enviamos um link para criar uma nova senha. Abra o link neste aparelho.');
   }
 
   async function submit() {
@@ -118,6 +143,9 @@ export default function SignInScreen() {
           <FormMessage text={error} />
 
           <Button title={isSignUp ? 'Criar conta' : 'Entrar'} onPress={submit} loading={loading} />
+          {!isSignUp && (
+            <Button title="Esqueci minha senha" onPress={forgotPassword} variant="secondary" disabled={loading} />
+          )}
           <Button
             title={isSignUp ? 'Já tenho conta' : 'Criar uma conta'}
             onPress={switchMode}

@@ -4,6 +4,7 @@ import { StackScreen } from '@/components/Screen';
 import { createHabit } from '@/features/habits/api';
 import { EMPTY_DRAFT, HabitForm } from '@/features/habits/HabitForm';
 import { useToday } from '@/features/profile/useToday';
+import { syncReminders } from '@/lib/reminders';
 import { colors } from '@/theme/tokens';
 
 export default function NewHabitScreen() {
@@ -26,6 +27,7 @@ export default function NewHabitScreen() {
           // Começa hoje, no fuso do perfil: entra nas missões de hoje se o dia estiver na agenda.
           const r = await createHabit(input, today);
           if (r.error !== null) return r.error;
+          void syncReminders();
           router.back();
           return null;
         }}

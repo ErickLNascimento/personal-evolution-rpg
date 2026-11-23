@@ -12,6 +12,8 @@ export interface HabitRecord {
   unit: string | null;
   startDate: LocalDate;
   archivedOn: LocalDate | null;
+  /** "HH:MM:SS" como vem do Postgres, ou `null`. */
+  reminderTime: string | null;
 }
 
 export interface ObjectiveRecord {
@@ -30,9 +32,11 @@ interface HabitRow {
   unit: string | null;
   start_date: string;
   archived_on: string | null;
+  reminder_time: string | null;
 }
 
-const HABIT_COLUMNS = 'id, title, difficulty, schedule_days, objective_id, target_qty, unit, start_date, archived_on';
+const HABIT_COLUMNS =
+  'id, title, difficulty, schedule_days, objective_id, target_qty, unit, start_date, archived_on, reminder_time';
 
 function fromRow(row: HabitRow): HabitRecord {
   return {
@@ -46,6 +50,7 @@ function fromRow(row: HabitRow): HabitRecord {
     unit: row.unit,
     startDate: row.start_date,
     archivedOn: row.archived_on,
+    reminderTime: row.reminder_time,
   };
 }
 
@@ -57,6 +62,7 @@ function toRow(input: HabitInput) {
     objective_id: input.objectiveId,
     target_qty: input.targetQty,
     unit: input.unit,
+    reminder_time: input.reminderTime,
   };
 }
 

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { describeSchedule, DIFFICULTY_LABEL, xpForHabit } from '@per/domain';
+import { describeSchedule, DIFFICULTY_LABEL, formatReminderTime, parseReminderTime, xpForHabit } from '@per/domain';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -84,6 +84,8 @@ function HabitList() {
 function HabitRow({ habit, objective, archived = false }: { habit: HabitRecord; objective?: string; archived?: boolean }) {
   const details = [DIFFICULTY_LABEL[habit.difficulty], describeSchedule(habit.scheduleDays)];
   if (habit.targetQty !== null) details.push(`${String(habit.targetQty).replace('.', ',')} ${habit.unit ?? ''}`.trim());
+  const reminder = parseReminderTime(habit.reminderTime);
+  if (reminder && !archived) details.push(`lembrete ${formatReminderTime(reminder)}`);
 
   return (
     <Pressable

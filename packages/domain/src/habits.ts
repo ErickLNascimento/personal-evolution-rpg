@@ -3,6 +3,7 @@
  * Os limites espelham os `check` das tabelas `habits` e `objectives`.
  */
 import { addDays, compareLocalDates, type LocalDate } from './dates';
+import { formatReminderTime, parseReminderTime } from './reminders';
 import { ALL_DAYS } from './schedule';
 import type { Difficulty } from './xp';
 
@@ -68,6 +69,8 @@ export interface HabitDraft {
   /** Meta opcional por dia, como texto digitado (ex.: "10"). */
   targetQty: string;
   unit: string;
+  /** Horário do lembrete ("08:30"), ou `null`/ausente para sem lembrete. */
+  reminderTime?: string | null;
 }
 
 export interface HabitInput {
@@ -77,9 +80,11 @@ export interface HabitInput {
   objectiveId: string | null;
   targetQty: number | null;
   unit: string | null;
+  /** "HH:MM" ou `null`. */
+  reminderTime: string | null;
 }
 
-export type HabitDraftErrors = Partial<Record<'title' | 'scheduleDays' | 'targetQty' | 'unit', string>>;
+export type HabitDraftErrors = Partial<Record<'title' | 'scheduleDays' | 'targetQty' | 'unit' | 'reminderTime', string>>;
 
 /** Valida e converte o formulário de hábito. Mensagens em português. */
 export function validateHabitDraft(
@@ -106,6 +111,13 @@ export function validateHabitDraft(
   if (unitText.length > UNIT_MAX) errors.unit = `Use no máximo ${UNIT_MAX} caracteres.`;
   else if (unitText && !qtyText) errors.unit = 'Informe a meta para usar uma unidade.';
 
+  let reminderTime: string | null = null;
+  if (draft.reminderTime) {
+    const t = parseReminderTime(draft.reminderTime);
+    if (!t) errors.reminderTime = 'Horário inválido.';
+    else reminderTime = formatReminderTime(t);
+  }
+
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return {
     ok: true,
@@ -116,6 +128,7 @@ export function validateHabitDraft(
       objectiveId: draft.objectiveId,
       targetQty,
       unit: targetQty === null || !unitText ? null : unitText,
+      reminderTime,
     },
   };
 }

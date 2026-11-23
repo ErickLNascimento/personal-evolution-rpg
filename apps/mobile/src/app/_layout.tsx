@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { ProfileProvider, useProfile } from '@/features/profile/ProfileProvider';
+import { useReminderSync } from '@/features/reminders/useReminderSync';
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography } from '@/theme/tokens';
 
@@ -12,6 +13,8 @@ const formHeader = {
   headerStyle: { backgroundColor: colors.surface },
   headerTintColor: colors.text,
   headerShadowVisible: false,
+  // Sem isso o iOS mostra o nome da rota anterior, ex.: "(tabs)".
+  headerBackTitle: 'Voltar',
 } as const;
 
 function Loading() {
@@ -25,6 +28,7 @@ function Loading() {
 function RootNavigator() {
   const { session, isLoading, isDemo } = useAuth();
   const { profile, loading: profileLoading, error: profileError, reload } = useProfile();
+  useReminderSync(isDemo ? null : (session?.user.id ?? null), Boolean(profile?.onboardingDone), isLoading);
 
   // Espera ler a sessão salva para não piscar a tela de login.
   if (isLoading) return <Loading />;
@@ -54,6 +58,7 @@ function RootNavigator() {
         <Stack.Screen name="habit/new" options={{ ...formHeader, title: 'Novo hábito', presentation: 'modal' }} />
         <Stack.Screen name="habit/[id]" options={{ ...formHeader, title: 'Hábito' }} />
         <Stack.Screen name="ai-plan" options={{ ...formHeader, title: 'Sugestões da IA', presentation: 'modal' }} />
+        <Stack.Screen name="delete-account" options={{ ...formHeader, title: 'Excluir conta', presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !onboarded}>
         <Stack.Screen name="onboarding" />

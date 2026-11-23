@@ -1,10 +1,12 @@
 import {
   DEFAULT_TIME_ZONE,
   hasAiConsent,
+  isDeleteConfirmation,
   isValidTimeZone,
   normalizeDisplayName,
   resolveTimeZone,
   validateCredentials,
+  validateNewPassword,
 } from './account';
 
 describe('fuso horário', () => {
@@ -65,5 +67,22 @@ describe('consentimento da IA', () => {
   it('depende da data de consentimento', () => {
     expect(hasAiConsent({ aiConsentAt: null })).toBe(false);
     expect(hasAiConsent({ aiConsentAt: '2026-11-22T10:00:00Z' })).toBe(true);
+  });
+});
+
+describe('nova senha', () => {
+  it('exige o mínimo e a confirmação igual', () => {
+    expect(validateNewPassword('1234567', '1234567')).toMatch(/8 caracteres/);
+    expect(validateNewPassword('12345678', '12345679')).toBe('As senhas não conferem.');
+    expect(validateNewPassword('12345678', '12345678')).toBeNull();
+  });
+});
+
+describe('confirmação de exclusão', () => {
+  it('aceita EXCLUIR sem diferenciar maiúsculas e espaços', () => {
+    expect(isDeleteConfirmation(' excluir ')).toBe(true);
+    expect(isDeleteConfirmation('EXCLUIR')).toBe(true);
+    expect(isDeleteConfirmation('excluir conta')).toBe(false);
+    expect(isDeleteConfirmation('')).toBe(false);
   });
 });

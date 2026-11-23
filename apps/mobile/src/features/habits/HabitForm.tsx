@@ -5,6 +5,8 @@ import {
   OBJECTIVE_CATEGORY_LABEL,
   toggleScheduleDay,
   validateHabitDraft,
+  formatReminderTime,
+  parseReminderTime,
   validateObjectiveTitle,
   WEEKDAY_SHORT,
   xpForHabit,
@@ -13,11 +15,13 @@ import {
   type HabitInput,
   type ObjectiveCategory,
 } from '@per/domain';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
-import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { ensureReminderPermission } from '@/lib/reminders';
+import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 import { createObjective, listObjectives, type ObjectiveRecord } from './api';
 
 const WEEKDAY_FULL = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -33,6 +37,7 @@ export const EMPTY_DRAFT: HabitDraft = {
   objectiveId: null,
   targetQty: '',
   unit: '',
+  reminderTime: null,
 };
 
 export function HabitForm({
@@ -114,10 +119,102 @@ export function HabitForm({
         </View>
       </View>
 
+      <ReminderField value={draft.reminderTime ?? null} onChange={(v) => set('reminderTime', v)} error={errors.reminderTime} />
+
       <ObjectivePicker value={draft.objectiveId} onChange={(id) => set('objectiveId', id)} />
 
       <FormMessage text={error} />
       <Button title={submitLabel} onPress={submit} loading={saving} />
+    </View>
+  );
+}
+
+const DEFAULT_REMINDER = '08:00';
+
+/** Liga/desliga o lembrete e escolhe o horário. Pede permissão de notificação ao ligar. */
+function ReminderField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+  error?: string;
+}) {
+  const [denied, setDenied] = useState(false);
+  const [androidOpen, setAndroidOpen] = useState(false);
+  const time = parseReminderTime(value);
+  const pickerDate = new Date();
+  pickerDate.setHours(time?.hour ?? 8, time?.minute ?? 0, 0, 0);
+
+  async function toggle(on: boolean) {
+    if (!on) {
+      onChange(null);
+      return;
+    }
+    const allowed = await ensureReminderPermission();
+    setDenied(!allowed);
+    if (allowed) onChange(value ?? DEFAULT_REMINDER);
+  }
+
+  function pick(date: Date) {
+    setAndroidOpen(false);
+    onChange(formatReminderTime({ hour: date.getHours(), minute: date.getMinutes() }));
+  }
+
+  return (
+    <View style={styles.group}>
+      <View style={styles.switchRow}>
+        <Text style={[typography.label, styles.flex]}>LEMBRETE</Text>
+        <Switch
+          value={time !== null}
+          onValueChange={(on) => void toggle(on)}
+          accessibilityLabel="Lembrete"
+          trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
+        />
+      </View>
+      {time && Platform.OS === 'ios' && (
+        <View style={styles.switchRow}>
+          <Text style={[typography.body, styles.flex]}>Horário</Text>
+          <DateTimePicker
+            value={pickerDate}
+            mode="time"
+            display="compact"
+            locale="pt-BR"
+            themeVariant="dark"
+            onValueChange={(_e, date) => pick(date)}
+          />
+        </View>
+      )}
+      {time && Platform.OS !== 'ios' && (
+        <>
+          <Pressable
+            onPress={() => setAndroidOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Horário do lembrete: ${value}`}
+            style={styles.timeButton}
+          >
+            <Text style={typography.body}>{value}</Text>
+          </Pressable>
+          {androidOpen && (
+            <DateTimePicker
+              value={pickerDate}
+              mode="time"
+              is24Hour
+              onValueChange={(_e, date) => pick(date)}
+              onDismiss={() => setAndroidOpen(false)}
+            />
+          )}
+        </>
+      )}
+      <Text style={typography.caption}>
+        {denied
+          ? 'As notificações estão bloqueadas. Ative-as nos Ajustes do aparelho para usar lembretes.'
+          : time
+            ? 'Você recebe um aviso neste aparelho nos dias da agenda, mesmo que a missão já esteja feita.'
+            : 'Receba um aviso no horário escolhido, nos dias da agenda.'}
+      </Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }
@@ -206,6 +303,17 @@ const styles = StyleSheet.create({
   group: { gap: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.md },
   flex: { flex: 1 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: MIN_TOUCH },
+  timeButton: {
+    minHeight: MIN_TOUCH,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignSelf: 'flex-start',
+  },
   error: { ...typography.caption, color: colors.danger },
   panel: {
     gap: spacing.sm,

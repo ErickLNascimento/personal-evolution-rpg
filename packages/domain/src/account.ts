@@ -57,3 +57,17 @@ export function validateCredentials(input: { email: string; password: string; mo
 export function hasAiConsent(profile: { aiConsentAt: string | null }): boolean {
   return profile.aiConsentAt !== null;
 }
+
+/** Nova senha (redefinição): mesmo mínimo do cadastro e confirmação igual. */
+export function validateNewPassword(password: string, confirmation: string): string | null {
+  if (password.length < PASSWORD_MIN) return `A senha precisa ter pelo menos ${PASSWORD_MIN} caracteres.`;
+  if (password !== confirmation) return 'As senhas não conferem.';
+  return null;
+}
+
+/** Palavra que o usuário digita para confirmar a exclusão da conta. */
+export const DELETE_ACCOUNT_WORD = 'EXCLUIR';
+
+export function isDeleteConfirmation(text: string): boolean {
+  return text.trim().toUpperCase() === DELETE_ACCOUNT_WORD;
+}

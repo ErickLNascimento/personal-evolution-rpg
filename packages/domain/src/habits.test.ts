@@ -40,7 +40,15 @@ describe('formulário de hábito', () => {
     const r = validateHabitDraft({ ...draft, title: '  Ler   10 páginas ', scheduleDays: [5, 1, 3, 3] });
     expect(r).toEqual({
       ok: true,
-      value: { title: 'Ler 10 páginas', difficulty: 'easy', scheduleDays: [1, 3, 5], objectiveId: null, targetQty: null, unit: null },
+      value: {
+        title: 'Ler 10 páginas',
+        difficulty: 'easy',
+        scheduleDays: [1, 3, 5],
+        objectiveId: null,
+        targetQty: null,
+        unit: null,
+        reminderTime: null,
+      },
     });
   });
 
@@ -68,6 +76,19 @@ describe('formulário de hábito', () => {
   it('unidade só com meta e até 20 caracteres', () => {
     expect(validateHabitDraft({ ...draft, unit: 'páginas' }).ok).toBe(false);
     expect(validateHabitDraft({ ...draft, targetQty: '10', unit: 'a'.repeat(21) }).ok).toBe(false);
+  });
+});
+
+describe('lembrete no formulário', () => {
+  it('normaliza o horário e aceita sem lembrete', () => {
+    const r = validateHabitDraft({ ...draft, reminderTime: '7:05' });
+    expect(r.ok && r.value.reminderTime).toBe('07:05');
+    expect(validateHabitDraft({ ...draft, reminderTime: null }).ok).toBe(true);
+  });
+
+  it('recusa horário inválido', () => {
+    const r = validateHabitDraft({ ...draft, reminderTime: '25:00' });
+    expect(!r.ok && r.errors.reminderTime).toBeTruthy();
   });
 });
 
