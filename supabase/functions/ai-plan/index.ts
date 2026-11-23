@@ -1,4 +1,4 @@
-// Edge Function ai-plan: gera um plano inicial ou uma revisão semanal com o Claude
+// Edge Function ai-plan: gera um plano inicial ou uma revisão semanal com Groq e Gemini (ordem em AI_PRIMARY; Claude como alternativa)
 // e grava a proposta em ai_plans. A IA só propõe: hábitos nascem quando o usuário
 // aceita (decide_ai_plan), e XP só existe por log_habit. Nada aqui toca em XP.
 //
@@ -44,7 +44,7 @@ const PLAN_SCHEMA = {
           title: { type: "string" },
           difficulty: { type: "string", enum: [...DIFFICULTIES] },
           schedule_days: { type: "array", items: { type: "integer", enum: [0, 1, 2, 3, 4, 5, 6] } },
-          objective_title: { anyOf: [{ type: "string" }, { type: "null" }] },
+          objective_title: { type: "string", description: "Objetivo existente (título exato) ou um novo, curto. Nunca vazio." },
           objective_category: { type: "string", enum: [...CATEGORIES] },
           rationale: { type: "string" },
         },
@@ -61,7 +61,7 @@ Como propor:
 - Hábitos pequenos, concretos e verificáveis num dia (ex.: "Ler 10 páginas", "Caminhar 20 minutos"). Títulos com até 60 caracteres.
 - Dificuldade: easy (até ~10 min, quase sem esforço), medium (esforço moderado), hard (exige disciplina ou tempo).
 - schedule_days usa 0 = domingo até 6 = sábado. Prefira começar com poucos dias por semana para hábitos novos.
-- Ligue cada hábito a um objetivo. Se um objetivo existente servir, repita o título dele exatamente; senão, sugira um título curto e a categoria.
+- TODO hábito precisa de um objetivo (objective_title nunca vazio). Se um objetivo existente servir, repita o título dele exatamente; senão, crie um título curto e motivador (até 40 caracteres) na categoria certa. Prefira agrupar hábitos parecidos no mesmo objetivo.
 - Não repita hábitos que o usuário já tem ativos.
 - Nada de recomendações médicas, dietas restritivas, remédios ou investimentos específicos; para saúde e finanças, fique em hábitos gerais e seguros.
 - rationale: uma frase dizendo por que o hábito ajuda, dirigida ao usuário.
@@ -75,8 +75,26 @@ function taskFor(kind: Kind) {
     : `Faça a revisão da semana: compare o que estava agendado com os registros dos últimos 14 dias. No summary, destaque o que foi bem e um ponto de ajuste. Proponha de 0 a ${MAX_HABITS.weekly} hábitos novos ou mais leves que substituam os que o usuário não está conseguindo manter.`;
 }
 
+const NAMED_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
+/** Alguns modelos devolvem acentos como entidades HTML (&#xf3; ou &oacute;); converte de volta. */
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-z]+);/gi, (m, name) => NAMED_ENTITIES[name.toLowerCase()] ?? decodeNamedAccent(name) ?? m);
+}
+
+/** Entidades de acento comuns em português (&aacute; &ccedil; &atilde; …). */
+function decodeNamedAccent(name: string): string | undefined {
+  const m = /^([a-z])(acute|grave|circ|tilde|uml|cedil)$/i.exec(name);
+  if (!m) return undefined;
+  const marks: Record<string, string> = { acute: "́", grave: "̀", circ: "̂", tilde: "̃", uml: "̈", cedil: "̧" };
+  return (m[1] + marks[m[2].toLowerCase()]).normalize("NFC");
+}
+
 function clean(text: unknown, max: number): string {
-  return typeof text === "string" ? text.trim().replace(/\s+/g, " ").slice(0, max) : "";
+  return typeof text === "string" ? decodeEntities(text).trim().replace(/\s+/g, " ").slice(0, max) : "";
 }
 
 /** Garante limites que o schema não expressa; o banco valida de novo ao aceitar. */
@@ -99,6 +117,262 @@ function sanitize(raw: unknown, kind: Kind) {
     .filter((h) => h.title && h.schedule_days.length > 0)
     .slice(0, MAX_HABITS[kind]);
   return { summary: clean(obj.summary, 800), habits };
+}
+
+type ModelResult = { ok: true; text: string; tokens: number } | { ok: false; status: number; error: string };
+
+// Gemini (API Interactions): JSON validado por schema. "nullable" é escrito como tipo em lista.
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.8-flash";
+// Se o modelo principal estiver sobrecarregado (503) ou sem cota (429), tenta este, mais leve.
+const GEMINI_FALLBACK_MODEL = Deno.env.get("GEMINI_FALLBACK_MODEL") ?? "gemini-3.5-flash-lite";
+const GEMINI_SCHEMA = {
+  type: "object",
+  required: ["summary", "habits"],
+  properties: {
+    summary: { type: "string", description: "Mensagem curta ao usuário, em português do Brasil." },
+    habits: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["title", "difficulty", "schedule_days", "objective_title", "objective_category", "rationale"],
+        properties: {
+          title: { type: "string" },
+          difficulty: { type: "string", enum: [...DIFFICULTIES] },
+          schedule_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 } },
+          objective_title: { type: "string" },
+          objective_category: { type: "string", enum: [...CATEGORIES] },
+          rationale: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+type Attempt = { name: string; run: () => Promise<ModelResult & { retryable?: boolean }> };
+
+/**
+ * Tenta os provedores em ordem e só passa para o próximo quando o anterior está
+ * sobrecarregado, sem cota ou demorando (retryable). A ordem vem de AI_PRIMARY;
+ * os limites somam ~100 s, abaixo dos 150 s de uma Edge Function.
+ */
+async function callAI(
+  userText: string,
+  keys: { geminiKey?: string; anthropicKey?: string; groqKey?: string },
+): Promise<ModelResult> {
+  // Quem vai na frente: segredo AI_PRIMARY = "groq" (padrão: mais rápido e estável hoje) ou "gemini".
+  const groqFirst = (Deno.env.get("AI_PRIMARY") ?? "groq").toLowerCase() !== "gemini";
+  const gemini: Attempt[] = [];
+  if (keys.geminiKey) {
+    const k = keys.geminiKey;
+    gemini.push({ name: GEMINI_MODEL, run: () => callGeminiModel(k, userText, GEMINI_MODEL, 40_000) });
+    if (GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
+      gemini.push({ name: GEMINI_FALLBACK_MODEL, run: () => callGeminiModel(k, userText, GEMINI_FALLBACK_MODEL, 30_000) });
+    }
+  }
+  const groq: Attempt[] = [];
+  if (keys.groqKey) {
+    const k = keys.groqKey;
+    groq.push({ name: "groq/xai", run: () => callOpenAICompatible(k, userText, 30_000) });
+  }
+  // Limites somam ~100 s em qualquer ordem (Groq 30 s + Gemini 40 s + Gemini leve 30 s).
+  const attempts: Attempt[] = groqFirst ? [...groq, ...gemini] : [...gemini, ...groq];
+  if (keys.anthropicKey && attempts.length === 0) {
+    const k = keys.anthropicKey;
+    attempts.push({ name: "claude", run: () => callClaude(k, userText) });
+  }
+
+  let last: ModelResult = { ok: false, status: 503, error: "A IA ainda não foi configurada no servidor." };
+  for (const [i, attempt] of attempts.entries()) {
+    const r = await attempt.run();
+    if (r.ok || !r.retryable) return r;
+    last = r;
+    if (i < attempts.length - 1) console.warn(`ia: ${attempt.name} indisponível, tentando ${attempts[i + 1]!.name}`);
+  }
+  return last;
+}
+
+async function callGeminiModel(
+  apiKey: string,
+  userText: string,
+  model: string,
+  timeoutMs: number,
+): Promise<ModelResult & { retryable?: boolean }> {
+  let res: Response;
+  try {
+    res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      method: "POST",
+      // Limite por modelo: as Edge Functions param em 150 s; assim sobra tempo para o modelo reserva.
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        model,
+        system_instruction: SYSTEM,
+        input: userText,
+        response_format: { type: "text", mime_type: "application/json", schema: GEMINI_SCHEMA },
+        // Raciocínio leve: plano de hábitos não precisa de muito, e fica mais rápido e barato.
+        generation_config: { max_output_tokens: 8000, thinking_level: "low" },
+      }),
+    });
+  } catch (e) {
+    const timedOut = e instanceof DOMException && (e.name === "TimeoutError" || e.name === "AbortError");
+    console.error("gemini fetch", model, timedOut ? `timeout ${timeoutMs / 1000}s` : e);
+    return {
+      ok: false,
+      retryable: timedOut,
+      status: timedOut ? 503 : 502,
+      error: timedOut ? "A IA está demorando demais agora. Tente de novo em alguns minutos." : "A IA não respondeu. Tente de novo.",
+    };
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("gemini", model, res.status, body.slice(0, 500));
+    if (res.status === 429 || res.status === 503) {
+      return { ok: false, retryable: true, status: 503, error: "A IA está ocupada agora. Tente de novo em alguns minutos." };
+    }
+    if (res.status === 400 && /api[_ ]?key/i.test(body)) return { ok: false, status: 503, error: "A chave da IA no servidor é inválida." };
+    if (res.status === 401 || res.status === 403) return { ok: false, status: 503, error: "A chave da IA no servidor é inválida." };
+    return { ok: false, status: 502, error: "A IA não respondeu. Tente de novo." };
+  }
+
+  const data = (await res.json()) as {
+    status?: string;
+    steps?: { type?: string; content?: { type?: string; text?: string }[] }[];
+    usage?: { total_tokens?: number };
+  };
+  if (data.status === "incomplete") return { ok: false, status: 502, error: "A resposta da IA veio incompleta. Tente de novo." };
+  if (data.status && data.status !== "completed") {
+    console.error("gemini status", data.status);
+    return { ok: false, status: 502, error: "A IA não conseguiu montar um plano. Tente de novo." };
+  }
+  // O texto do modelo fica nos passos "model_output" (os de raciocínio são ignorados).
+  const text = (data.steps ?? [])
+    .filter((st) => st.type === "model_output")
+    .flatMap((st) => st.content ?? [])
+    .filter((c) => c.type === "text" && typeof c.text === "string")
+    .map((c) => c.text)
+    .join("");
+  if (!text) return { ok: false, status: 502, error: "A IA respondeu vazio. Tente de novo." };
+  return { ok: true, text, tokens: data.usage?.total_tokens ?? 0 };
+}
+
+// Groq ou xAI (Grok): mesmo formato de pedido (chat/completions) e JSON estrito por schema.
+// O provedor é reconhecido pelo começo da chave guardada em GROQ_API_KEY.
+const OPENAI_STYLE_SCHEMA = {
+  ...PLAN_SCHEMA,
+  properties: {
+    ...PLAN_SCHEMA.properties,
+    habits: {
+      ...PLAN_SCHEMA.properties.habits,
+      items: {
+        ...PLAN_SCHEMA.properties.habits.items,
+        properties: {
+          ...PLAN_SCHEMA.properties.habits.items.properties,
+          objective_title: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+function openAICompatibleTarget(apiKey: string) {
+  if (apiKey.startsWith("xai-")) {
+    return {
+      label: "xai",
+      url: "https://api.x.ai/v1/chat/completions",
+      model: Deno.env.get("XAI_MODEL") ?? "grok-4.20-0309-non-reasoning",
+      extra: {},
+    };
+  }
+  return {
+    label: "groq",
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    model: Deno.env.get("GROQ_MODEL") ?? "openai/gpt-oss-120b",
+    extra: { reasoning_effort: "low" },
+  };
+}
+
+async function callOpenAICompatible(
+  apiKey: string,
+  userText: string,
+  timeoutMs: number,
+): Promise<ModelResult & { retryable?: boolean }> {
+  const target = openAICompatibleTarget(apiKey);
+  let res: Response;
+  try {
+    res = await fetch(target.url, {
+      method: "POST",
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: target.model,
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: userText },
+        ],
+        response_format: { type: "json_schema", json_schema: { name: "plano", strict: true, schema: OPENAI_STYLE_SCHEMA } },
+        max_completion_tokens: 4000,
+        ...target.extra,
+      }),
+    });
+  } catch (e) {
+    const timedOut = e instanceof DOMException && (e.name === "TimeoutError" || e.name === "AbortError");
+    console.error(target.label, "fetch", timedOut ? `timeout ${timeoutMs / 1000}s` : e);
+    return { ok: false, retryable: timedOut, status: timedOut ? 503 : 502, error: "A IA não respondeu. Tente de novo." };
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(target.label, target.model, res.status, body.slice(0, 500));
+    if (res.status === 429 || res.status >= 500) {
+      return { ok: false, retryable: true, status: 503, error: "A IA está ocupada agora. Tente de novo em alguns minutos." };
+    }
+    if (res.status === 401 || res.status === 403) return { ok: false, status: 503, error: "A chave da IA no servidor é inválida." };
+    return { ok: false, status: 502, error: "A IA não respondeu. Tente de novo." };
+  }
+
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string | null }; finish_reason?: string }[];
+    usage?: { total_tokens?: number };
+  };
+  const choice = data.choices?.[0];
+  if (choice?.finish_reason === "length") return { ok: false, status: 502, error: "A resposta da IA veio incompleta. Tente de novo." };
+  const text = choice?.message?.content ?? "";
+  if (!text) return { ok: false, status: 502, error: "A IA respondeu vazio. Tente de novo." };
+  return { ok: true, text, tokens: data.usage?.total_tokens ?? 0 };
+}
+
+// Claude (alternativa, se houver ANTHROPIC_API_KEY e nenhuma outra chave).
+async function callClaude(apiKey: string, userText: string): Promise<ModelResult> {
+  const anthropic = new Anthropic({ apiKey });
+  try {
+    const message = await anthropic.beta.messages.create({
+      model: MODEL,
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      // Se o modelo recusar por política, o servidor repete no modelo recomendado.
+      fallbacks: "default",
+      output_config: { effort: "medium", format: { type: "json_schema", schema: PLAN_SCHEMA } },
+      system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userText }],
+    });
+    if (message.stop_reason === "refusal") return { ok: false, status: 422, error: "A IA não conseguiu montar um plano com esses dados." };
+    if (message.stop_reason === "max_tokens") return { ok: false, status: 502, error: "A resposta da IA veio incompleta. Tente de novo." };
+    const block = message.content.find((b) => b.type === "text");
+    return {
+      ok: true,
+      text: block && block.type === "text" ? block.text : "",
+      tokens: message.usage.input_tokens + message.usage.output_tokens,
+    };
+  } catch (e) {
+    if (e instanceof Anthropic.RateLimitError) return { ok: false, status: 503, error: "A IA está ocupada. Tente em alguns minutos." };
+    if (e instanceof Anthropic.AuthenticationError) return { ok: false, status: 503, error: "A chave da IA no servidor é inválida." };
+    if (e instanceof Anthropic.APIError) {
+      console.error("anthropic", e.status, e.message);
+      return { ok: false, status: 502, error: "A IA não respondeu. Tente de novo." };
+    }
+    throw e;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -131,8 +405,10 @@ Deno.serve(async (req) => {
   if (userError || !userData.user) return reply(401, { error: "Sessão inválida. Entre de novo." });
   const userId = userData.user.id;
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) return reply(503, { error: "A IA ainda não foi configurada no servidor." });
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const groqKey = Deno.env.get("GROQ_API_KEY");
+  if (!geminiKey && !anthropicKey && !groqKey) return reply(503, { error: "A IA ainda não foi configurada no servidor." });
 
   // Service role só para o limite de uso e para gravar o plano.
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
@@ -175,41 +451,15 @@ Deno.serve(async (req) => {
       })),
   };
 
-  const anthropic = new Anthropic({ apiKey });
-  let message;
-  try {
-    message = await anthropic.beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      // Se o modelo recusar por política, o servidor repete no modelo recomendado.
-      fallbacks: "default",
-      output_config: { effort: "medium", format: { type: "json_schema", schema: PLAN_SCHEMA } },
-      system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
-      messages: [
-        {
-          role: "user",
-          content: `${taskFor(kind)}\n\n<dados_do_usuario>\n${JSON.stringify(context)}\n</dados_do_usuario>`,
-        },
-      ],
-    });
-  } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return reply(503, { error: "A IA está ocupada. Tente em alguns minutos." });
-    if (e instanceof Anthropic.AuthenticationError) return reply(503, { error: "A chave da IA no servidor é inválida." });
-    if (e instanceof Anthropic.APIError) {
-      console.error("anthropic", e.status, e.message);
-      return reply(502, { error: "A IA não respondeu. Tente de novo." });
-    }
-    throw e;
-  }
+  const userText = `${taskFor(kind)}\n\n<dados_do_usuario>\n${JSON.stringify(context)}\n</dados_do_usuario>`;
+  const result = await callAI(userText, { geminiKey, anthropicKey, groqKey });
+  if (!result.ok) return reply(result.status, { error: result.error });
 
-  if (message.stop_reason === "refusal") return reply(422, { error: "A IA não conseguiu montar um plano com esses dados." });
-  if (message.stop_reason === "max_tokens") return reply(502, { error: "A resposta da IA veio incompleta. Tente de novo." });
-
-  const text = message.content.find((b) => b.type === "text");
   let payload;
   try {
-    payload = sanitize(JSON.parse(text && text.type === "text" ? text.text : ""), kind);
+    // Alguns modelos embrulham o JSON em ```json … ```; tira isso antes de ler.
+    const clean = result.text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    payload = sanitize(JSON.parse(clean), kind);
   } catch {
     return reply(502, { error: "A IA respondeu num formato inesperado. Tente de novo." });
   }
@@ -221,7 +471,7 @@ Deno.serve(async (req) => {
       kind,
       payload,
       prompt_version: PROMPT_VERSION,
-      tokens_used: message.usage.input_tokens + message.usage.output_tokens,
+      tokens_used: result.tokens,
     })
     .select("id, kind, payload, status, created_at")
     .single();

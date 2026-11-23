@@ -286,6 +286,25 @@ end $$;
 
 -- Limite de pedidos à IA (consultado pela Edge Function com service role)
 reset role;
+-- A Edge Function ai-plan roda como service_role: precisa checar o limite e gravar o plano.
+set local role service_role;
+-- precisa funcionar (sem tratar exceção: permissão negada aqui derruba o teste)
+do $$ begin
+  perform public.ai_plan_block_reason('11111111-1111-1111-1111-111111111111', 'initial');
+  insert into public.ai_plans (user_id, kind, payload, prompt_version)
+  values ('11111111-1111-1111-1111-111111111111', 'weekly', '{"summary":"service","habits":[]}', 'plan-v1');
+end $$;
+-- e não pode ir além de ler e inserir
+do $$ begin
+  begin
+    delete from public.ai_plans where payload = '{"summary":"service","habits":[]}'::jsonb;
+    raise exception 'FALHOU: service_role apagou plano';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+delete from public.ai_plans where payload = '{"summary":"service","habits":[]}'::jsonb;
+reset role;
 do $$ begin
   update public.profiles set ai_consent_at = null where id = '11111111-1111-1111-1111-111111111111';
   perform pg_temp.check(
@@ -390,7 +409,7 @@ declare t text;
 begin
   -- anon não tem acesso a nenhuma tabela (nem pelo RLS, nem pelos grants)
   foreach t in array array['profiles', 'objectives', 'habits', 'habit_logs', 'xp_rules', 'xp_transactions', 'ai_plans',
-                          'coin_rules', 'class_catalog', 'coin_transactions', 'user_unlocks'] loop
+                          'coin_rules', 'class_catalog', 'coin_transactions', 'user_unlocks', 'title_catalog', 'user_titles'] loop
     begin
       execute format('select count(*) from public.%I', t);
       raise exception 'FALHOU: anon leu a tabela %', t;
@@ -634,6 +653,106 @@ begin
   join public.habit_logs l on l.id = t.source_id
   where t.source_type = 'habit' and l.habit_id = 'b1000000-0000-0000-0000-000000000002';
   perform pg_temp.check(v_coin = 12, 'bônus de área da classe equipada');
+end $$;
+
+-- ── Títulos ──────────────────────────────────────────────────
+-- Gil (nível 5, com registros): Primeiro Passo já veio com a primeira missão.
+do $$ begin
+  perform pg_temp.check(exists (select 1 from public.user_titles where title_id = 'primeiro-passo'), 'primeira missão dá Primeiro Passo');
+  perform pg_temp.check(not exists (select 1 from public.user_titles where title_id = 'centuriao'), 'Centurião só com 100 missões');
+
+  update public.profiles set equipped_title = 'nivel-5';
+  perform pg_temp.check((select equipped_title from public.profiles) = 'nivel-5', 'exibe título de nível alcançado');
+  update public.profiles set equipped_title = 'primeiro-passo';
+  perform pg_temp.check((select equipped_title from public.profiles) = 'primeiro-passo', 'exibe título conquistado');
+  update public.profiles set equipped_title = null;
+
+  begin
+    update public.profiles set equipped_title = 'nivel-10';
+    raise exception 'FALHOU: exibiu título de nível não alcançado';
+  exception when sqlstate 'PR007' then null;
+  end;
+  begin
+    update public.profiles set equipped_title = 'fenix';
+    raise exception 'FALHOU: exibiu título secreto não conquistado';
+  exception when sqlstate 'PR007' then null;
+  end;
+  begin
+    insert into public.user_titles (user_id, title_id) values ('88888888-8888-8888-8888-888888888888', 'equilibrio-perfeito');
+    raise exception 'FALHOU: concedeu título direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- Hana: 4 hábitos em 4 áreas; o último registro dela foi há 10 dias.
+reset role;
+insert into auth.users (id, email) values ('99999999-9999-9999-9999-999999999999', 'hana@teste.dev');
+update public.profiles set timezone = 'America/Manaus' where id = '99999999-9999-9999-9999-999999999999';
+insert into public.objectives (id, user_id, title, category) values
+  ('c1000000-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', 'Saúde', 'health'),
+  ('c1000000-0000-0000-0000-000000000002', '99999999-9999-9999-9999-999999999999', 'Estudo', 'knowledge'),
+  ('c1000000-0000-0000-0000-000000000003', '99999999-9999-9999-9999-999999999999', 'Dinheiro', 'finance'),
+  ('c1000000-0000-0000-0000-000000000004', '99999999-9999-9999-9999-999999999999', 'Amigos', 'relationships');
+insert into public.habits (id, user_id, objective_id, title, start_date)
+select ('c2000000-0000-0000-0000-00000000000' || i)::uuid, '99999999-9999-9999-9999-999999999999',
+       ('c1000000-0000-0000-0000-00000000000' || i)::uuid, 'Hábito ' || i, pg_temp.today() - 20
+from generate_series(1, 4) i;
+insert into public.habit_logs (user_id, habit_id, local_date)
+values ('99999999-9999-9999-9999-999999999999', 'c2000000-0000-0000-0000-000000000001', pg_temp.today() - 10);
+select set_config('request.jwt.claim.sub', '99999999-9999-9999-9999-999999999999', true);
+set local role authenticated;
+
+do $$
+declare r jsonb; i int;
+begin
+  for i in 1..3 loop
+    r := public.log_habit(('c2000000-0000-0000-0000-00000000000' || i)::uuid, pg_temp.today());
+  end loop;
+  perform pg_temp.check(not (r->'titles_granted' ? 'fenix'), 'Fênix só com o dia perfeito');
+
+  r := public.log_habit('c2000000-0000-0000-0000-000000000004', pg_temp.today());
+  perform pg_temp.check((r->>'perfect_day_bonus')::int > 0, 'dia perfeito');
+  perform pg_temp.check(r->'titles_granted' ? 'fenix', 'Fênix: dia perfeito após 10 dias parada');
+  perform pg_temp.check(r->'titles_granted' ? 'equilibrio-perfeito', 'Equilíbrio: 4 áreas no dia perfeito');
+
+  -- objetivo com poucos registros ainda não pode ser conquistado
+  begin
+    perform public.complete_objective('c1000000-0000-0000-0000-000000000001');
+    raise exception 'FALHOU: conquistou objetivo com 2 registros';
+  exception when sqlstate 'PR006' then null;
+  end;
+  -- objetivo de outra pessoa não existe para ela
+  begin
+    perform public.complete_objective('b0000000-0000-0000-0000-000000000001');
+    raise exception 'FALHOU: conquistou objetivo de outro usuário';
+  exception when no_data_found then null;
+  end;
+  perform pg_temp.check((select count(*) from public.my_objectives_progress()) = 4, '4 objetivos ativos');
+end $$;
+
+-- mais 8 registros antigos em Saúde (10 no total)
+reset role;
+insert into public.habit_logs (user_id, habit_id, local_date)
+select '99999999-9999-9999-9999-999999999999', 'c2000000-0000-0000-0000-000000000001', pg_temp.today() - d
+from generate_series(11, 18) d;
+set local role authenticated;
+
+do $$
+declare r jsonb; v_before int;
+begin
+  v_before := public.my_coin_balance();
+  r := public.complete_objective('c1000000-0000-0000-0000-000000000001');
+  perform pg_temp.check(r->>'title' = 'conquista-health' and (r->>'title_new')::boolean, 'título épico da área');
+  perform pg_temp.check(public.my_coin_balance() = v_before + 100, '+100 Cristais pelo objetivo');
+  perform pg_temp.check((select status from public.objectives where id = 'c1000000-0000-0000-0000-000000000001') = 'done', 'objetivo concluído');
+  perform pg_temp.check((select count(*) from public.my_objectives_progress()) = 3, 'sai da lista de ativos');
+  begin
+    perform public.complete_objective('c1000000-0000-0000-0000-000000000001');
+    raise exception 'FALHOU: conquistou o mesmo objetivo duas vezes';
+  exception when invalid_parameter_value then null;
+  end;
+  update public.profiles set equipped_title = 'conquista-health';
+  perform pg_temp.check((select equipped_title from public.profiles) = 'conquista-health', 'exibe o título épico');
 end $$;
 
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros

@@ -30,6 +30,6 @@ grant execute on function auth.uid() to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
 -- Como nos projetos Supabase novos: tabelas NÃO recebem grants automáticos para anon/authenticated.
 -- Cada migration precisa conceder o acesso explicitamente (ver 20261122000300_table_grants.sql).
-alter default privileges in schema public grant all on tables to service_role;
+-- Nem a service_role recebe acesso automático às tabelas (igual aos projetos Supabase novos).
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;

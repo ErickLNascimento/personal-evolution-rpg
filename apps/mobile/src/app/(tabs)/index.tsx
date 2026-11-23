@@ -1,4 +1,4 @@
-import { isHeroUnset, sanitizeHero, type DayProgress, type LevelProgress, type Mission, type XpTable } from '@per/domain';
+import { displayedTitle, isHeroUnset, sanitizeHero, type DayProgress, type LevelProgress, type Mission, type XpTable } from '@per/domain';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -73,6 +73,7 @@ function RealToday() {
                 unset={isHeroUnset(profile?.hero)}
                 onPress={() => router.push('/hero')}
                 crystals={day.crystals}
+                titleId={displayedTitle(profile?.equippedTitle, day.level.level, profile?.earnedTitles ?? new Set())}
                 onShop={() => router.push('/shop')}
               />
             }

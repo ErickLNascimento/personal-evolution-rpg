@@ -93,6 +93,8 @@ export interface LogOutcome {
   /** Cristais ganhos (registro) ou estornados (desfazer) nesta ação. */
   crystals: number;
   crystalBalance: number;
+  /** Títulos especiais concedidos agora (só no registro). */
+  titles: string[];
 }
 
 export async function logHabit(habitId: string, date: LocalDate): Promise<Result<LogOutcome>> {
@@ -105,6 +107,7 @@ export async function logHabit(habitId: string, date: LocalDate): Promise<Result
     total_xp: number;
     coins_awarded?: number;
     coin_balance?: number;
+    titles_granted?: string[];
   };
   return {
     data: {
@@ -114,6 +117,7 @@ export async function logHabit(habitId: string, date: LocalDate): Promise<Result
       totalXp: Number(r.total_xp),
       crystals: Number(r.coins_awarded ?? 0),
       crystalBalance: Number(r.coin_balance ?? 0),
+      titles: r.titles_granted ?? [],
     },
     error: null,
   };
@@ -131,6 +135,7 @@ export async function undoHabitLog(habitId: string, date: LocalDate): Promise<Re
       totalXp: Number(r.total_xp),
       crystals: Number(r.coins_reverted ?? 0),
       crystalBalance: Number(r.coin_balance ?? 0),
+      titles: [],
     },
     error: null,
   };

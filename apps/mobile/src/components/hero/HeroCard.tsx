@@ -1,10 +1,14 @@
 import {
   heroClassLabel,
   heroTier,
-  heroTitle,
+  levelTitleId,
   nextUnlock,
+  RARITY_COLOR,
+  titleInfo,
+  titleName,
   type HeroLook,
   type LevelProgress,
+  type TitleId,
 } from '@per/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +33,7 @@ export function HeroCard({
   onPress,
   crystals,
   onShop,
+  titleId,
 }: {
   hero: HeroLook;
   level: LevelProgress;
@@ -38,7 +43,11 @@ export function HeroCard({
   /** Saldo de Cristais; com `onShop`, mostra também o botão da Loja. */
   crystals?: number;
   onShop?: () => void;
+  /** Título exibido (escolhido ou o de nível); padrão: o de nível. */
+  titleId?: TitleId;
 }) {
+  const shownTitle = titleId ?? levelTitleId(level.level);
+  const titleColor = RARITY_COLOR[titleInfo(shownTitle).rarity];
   const next = nextUnlock(level.level, hero.form);
   const frame = tierColor(level.level);
   return (
@@ -48,7 +57,7 @@ export function HeroCard({
       accessibilityLabel={
         unset
           ? 'Criar seu herói'
-          : `Seu herói, ${heroTitle(level.level, hero.form)}, nível ${level.level}. Toque para personalizar.`
+          : `Seu herói, ${titleName(shownTitle, hero.form)}, nível ${level.level}. Toque para personalizar.`
       }
       style={({ pressed }) => [styles.card, { borderColor: frame }, pressed && styles.pressed]}
     >
@@ -57,13 +66,8 @@ export function HeroCard({
           <HeroAvatar hero={hero} size={84} animated />
         </View>
         <View style={styles.info}>
-          <Text
-            style={[
-              styles.title,
-              { color: frame === TIER_COLORS[0] ? colors.textSecondary : frame },
-            ]}
-          >
-            {heroTitle(level.level, hero.form).toUpperCase()}
+          <Text style={[styles.title, { color: titleColor }]}>
+            {titleName(shownTitle, hero.form).toUpperCase()}
           </Text>
           <Text style={typography.heading} numberOfLines={1}>
             {name ?? 'Herói sem nome'}

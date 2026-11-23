@@ -1,6 +1,7 @@
 import {
   addDays,
   dailyXp,
+  displayedTitle,
   heroAttributes,
   isHeroUnset,
   OBJECTIVE_CATEGORIES,
@@ -17,6 +18,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
 import { AttributeSheet } from '@/components/hero/AttributeSheet';
+import { ObjectivesCard } from '@/components/ObjectivesCard';
 import { HeroCard } from '@/components/hero/HeroCard';
 import { XpChart } from '@/components/XpChart';
 import { useFocusLoad } from '@/lib/useFocusLoad';
@@ -84,7 +86,12 @@ function RealProgress() {
         name={profile?.displayName ?? null}
         unset={isHeroUnset(profile?.hero)}
         onPress={() => router.push('/hero')}
+        titleId={displayedTitle(profile?.equippedTitle, level.level, profile?.earnedTitles ?? new Set())}
       />
+
+      <Card title="OBJETIVOS">
+        <ObjectivesCard />
+      </Card>
 
       <Card title="ATRIBUTOS">
         <AttributeSheet attributes={heroAttributes(data.attributeXp, OBJECTIVE_CATEGORIES)} />

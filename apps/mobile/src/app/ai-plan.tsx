@@ -54,8 +54,9 @@ export default function AiPlanScreen() {
     return (
       <StackScreen>
         <Text style={typography.body}>
-          Para receber sugestões, ative “Permitir que a IA use meus dados” no Perfil. A IA lê seus objetivos, hábitos e
-          registros, e só propõe: nada muda sem a sua aprovação, e ela nunca altera seu XP.
+          Para receber sugestões, ative “Permitir que a IA use meus dados” no Perfil. Seus objetivos, hábitos e registros
+          (sem nome nem e-mail) vão para os provedores de IA (Google Gemini e, como reserva, Groq). A IA só propõe: nada
+          muda sem a sua aprovação, e ela nunca altera seu XP.
         </Text>
         <Button title="Ir para o Perfil" onPress={() => router.navigate('/profile')} />
       </StackScreen>

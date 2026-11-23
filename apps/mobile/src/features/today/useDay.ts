@@ -27,7 +27,7 @@ export function useDay(choice: DayChoice) {
 
   const load = useCallback(() => fetchDay([yesterday, today]), [yesterday, today]);
   const { data, setData, error, setError, loading, failed, refreshing, refresh } = useFocusLoad<DayData>(load, ready);
-  const { celebrateLevelUp } = useCelebration();
+  const { celebrateLevelUp, celebrateTitles } = useCelebration();
   const [notice, setNotice] = useState<string | null>(null);
   // Aviso rápido "+N Cristais"; `key` muda a cada ganho para reanimar.
   const [crystalGain, setCrystalGain] = useState<{ amount: number; key: number } | null>(null);
@@ -73,6 +73,7 @@ export function useDay(choice: DayChoice) {
       const before = levelFromXp(data.totalXp).level;
       const after = levelFromXp(outcome.totalXp).level;
       if (after > before) celebrateLevelUp(before, after);
+      if (outcome.titles.length > 0) celebrateTitles(outcome.titles);
       setData((d) => {
         if (!d) return d;
         // Guarda o XP ganho neste registro (ou o tira, ao desfazer) para o card mostrar o valor real.

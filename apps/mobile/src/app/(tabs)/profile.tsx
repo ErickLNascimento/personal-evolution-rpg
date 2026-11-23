@@ -264,8 +264,9 @@ function AiConsent({
         />
       </View>
       <Text style={typography.caption}>
-        Com a permissão, a IA lê seus objetivos, hábitos e registros para sugerir planos. Ela só propõe: nada muda sem a
-        sua aprovação, e ela nunca altera seu XP. Você pode desativar quando quiser.
+        Com a permissão, seus objetivos, hábitos e registros (sem nome nem e-mail) são enviados aos provedores de IA —
+        Google Gemini e, quando ele está ocupado, Groq — só para sugerir planos. A IA só propõe: nada muda sem a sua
+        aprovação, e ela nunca altera seu XP. Você pode desativar quando quiser.
       </Text>
       {enabled && consentAt && (
         <Text style={typography.caption}>Permitido em {new Date(consentAt).toLocaleDateString('pt-BR')}.</Text>

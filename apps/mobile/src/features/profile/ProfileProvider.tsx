@@ -15,6 +15,16 @@ export interface Profile {
   hero: unknown;
   /** Classes compradas na loja (as iniciais são grátis e não aparecem aqui). */
   owned: ReadonlySet<string>;
+  /** Título escolhido para exibir (null = o de nível atual). */
+  equippedTitle: string | null;
+  /** Títulos especiais já concedidos pelo banco. */
+  earnedTitles: ReadonlySet<string>;
+}
+
+/** O que vem de outras tabelas além de `profiles`. */
+interface ProfileExtras {
+  owned: ReadonlySet<string>;
+  earnedTitles: ReadonlySet<string>;
 }
 
 interface ProfileRow {
@@ -26,6 +36,7 @@ interface ProfileRow {
   focus_areas: ObjectiveCategory[];
   onboarding_done: boolean;
   hero: unknown;
+  equipped_title: string | null;
 }
 
 export type ProfileChanges = Partial<{
@@ -35,6 +46,7 @@ export type ProfileChanges = Partial<{
   focus_areas: ObjectiveCategory[];
   difficulty: Difficulty;
   hero: HeroLook;
+  equipped_title: string | null;
 }>;
 
 export interface OnboardingInput {
@@ -45,11 +57,12 @@ export interface OnboardingInput {
   habits: OnboardingHabit[];
 }
 
-const COLUMNS = 'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero';
+const COLUMNS = 'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero, equipped_title';
 
-function fromRow(row: ProfileRow, owned: ReadonlySet<string>): Profile {
+function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
   return {
-    owned,
+    ...extras,
+    equippedTitle: row.equipped_title,
     id: row.id,
     displayName: row.display_name,
     timezone: row.timezone,
@@ -63,13 +76,19 @@ function fromRow(row: ProfileRow, owned: ReadonlySet<string>): Profile {
 
 async function fetchProfile(userId: string): Promise<{ profile: Profile | null; error: string | null }> {
   if (!supabase) return { profile: null, error: 'Supabase não configurado.' };
-  const [profile, unlocks] = await Promise.all([
+  const [profile, unlocks, titles] = await Promise.all([
     supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>(),
     supabase.from('user_unlocks').select('item_id').returns<{ item_id: string }[]>(),
+    supabase.from('user_titles').select('title_id').returns<{ title_id: string }[]>(),
   ]);
   if (profile.error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
-  const owned = new Set((unlocks.data ?? []).map((u) => u.item_id));
-  return { profile: fromRow(profile.data, owned), error: null };
+  return {
+    profile: fromRow(profile.data, {
+      owned: new Set((unlocks.data ?? []).map((u) => u.item_id)),
+      earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
+    }),
+    error: null,
+  };
 }
 
 interface ProfileState {
@@ -129,11 +148,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         if (error.code === '22023') return 'Fuso horário inválido.';
         if (error.code === '23514') return 'Valor inválido. Confira os campos.';
         if (error.code === 'PR005') return 'Essa classe ainda não foi comprada na Loja.';
+        if (error.code === 'PR007') return 'Esse título ainda não foi conquistado.';
         return 'Não foi possível salvar. Tente de novo.';
       }
       setLoaded((prev) => ({
         userId,
-        profile: fromRow(data, prev?.userId === userId && prev.profile ? prev.profile.owned : new Set()),
+        profile: fromRow(
+          data,
+          prev?.userId === userId && prev.profile
+            ? { owned: prev.profile.owned, earnedTitles: prev.profile.earnedTitles }
+            : { owned: new Set(), earnedTitles: new Set() },
+        ),
         error: null,
       }));
       return null;

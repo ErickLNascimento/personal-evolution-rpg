@@ -10,3 +10,4 @@ export * from './ai';
 export * from './onboarding';
 export * from './reminders';
 export * from './hero';
+export * from './titles';

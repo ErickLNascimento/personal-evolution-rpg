@@ -63,14 +63,19 @@ npx supabase functions deploy delete-account --use-api
 
 ### Ligar a IA (Edge Function `ai-plan`)
 
-A função chama o Claude no servidor; a chave da Anthropic fica só nos segredos do Supabase.
+A função usa o **Gemini** (API Interactions do Google) quando existe o segredo `GEMINI_API_KEY`, e o Claude como
+alternativa se houver `ANTHROPIC_API_KEY` sem a do Gemini. As chaves ficam só nos segredos do Supabase, nunca no app.
 
 ```powershell
-npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...   # cole a sua chave
-npx supabase functions deploy ai-plan --use-api         # só se mudar o código da função
+npx supabase secrets set "GEMINI_API_KEY=..."            # ou pelo painel: Edge Functions → Secrets
+npx supabase functions deploy ai-plan --use-api           # só se mudar o código da função
 ```
 
-Limites: 3 planos iniciais por dia e 2 revisões por semana por usuário, e só com a permissão da IA ativa no Perfil.
+- Ordem de tentativas (só passa adiante se o anterior estiver sobrecarregado, sem cota ou demorando):
+  1. `gemini-3.8-flash` (até 40 s) → 2. `gemini-3.5-flash-lite` (até 30 s) → 3. Groq `openai/gpt-oss-120b` (até 40 s),
+     se houver o segredo `GROQ_API_KEY`. Uma chave da xAI (`xai-…`) nesse mesmo segredo usa o Grok no lugar do Groq.
+- Modelos trocáveis pelos segredos `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `GROQ_MODEL` e `XAI_MODEL`.
+- Limites: 3 planos iniciais por dia e 2 revisões por semana por usuário, e só com a permissão da IA ativa no Perfil.
 
 ## Regras do projeto
 
