@@ -10,7 +10,7 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { useToday } from '@/features/profile/useToday';
-import { fetchDay, logHabit, undoHabitLog, type DayData } from './api';
+import { awardKey, fetchDay, logHabit, undoHabitLog, type DayData } from './api';
 
 export type DayChoice = 'today' | 'yesterday';
 
@@ -29,11 +29,14 @@ export function useDay(choice: DayChoice) {
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const pendingRef = useRef(new Set<string>());
+  const [attempt, setAttempt] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       if (!ready) return;
       let active = true;
+      // `attempt` muda quando o usuário toca em "Tentar de novo" e força uma nova busca.
+      void attempt;
       fetchDay([yesterday, today]).then((r) => {
         if (!active) return;
         setError(r.error);
@@ -42,7 +45,7 @@ export function useDay(choice: DayChoice) {
       return () => {
         active = false;
       };
-    }, [ready, today, yesterday]),
+    }, [ready, today, yesterday, attempt]),
   );
 
   const xpTable: XpTable = data?.xpTable ?? DEFAULT_XP_TABLE;
@@ -79,7 +82,16 @@ export function useDay(choice: DayChoice) {
       setLogged(habitId, wasDone);
       setError(r.error);
     } else {
-      setData((d) => (d ? { ...d, totalXp: r.data.totalXp } : d));
+      const outcome = r.data;
+      setData((d) => {
+        if (!d) return d;
+        // Guarda o XP ganho neste registro (ou o tira, ao desfazer) para o card mostrar o valor real.
+        const awarded = new Map(d.awarded);
+        const key = awardKey(date, habitId);
+        if (wasDone) awarded.delete(key);
+        else if (outcome.changed) awarded.set(key, outcome.xp);
+        return { ...d, totalXp: outcome.totalXp, awarded };
+      });
       if (r.data.perfectDayBonus > 0) setNotice(`Dia perfeito! +${r.data.perfectDayBonus} XP de bônus.`);
     }
 
@@ -90,11 +102,19 @@ export function useDay(choice: DayChoice) {
   return {
     date,
     loading: !data && !error,
+    /** Falhou antes de carregar qualquer coisa: a tela mostra só o erro e "Tentar de novo". */
+    failed: !data && Boolean(error),
+    retry: () => {
+      setError(null);
+      setAttempt((n) => n + 1);
+    },
     hasHabits: (data?.habits.length ?? 0) > 0,
     missions,
     progress,
     level,
     xpTable,
+    /** XP ganho no registro desta missão na data escolhida, se houver. */
+    awardedXp: (habitId: string) => data?.awarded.get(awardKey(date, habitId)),
     pending,
     error,
     notice,

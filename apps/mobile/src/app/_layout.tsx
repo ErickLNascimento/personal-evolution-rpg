@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { ProfileProvider, useProfile } from '@/features/profile/ProfileProvider';
-import { useReminderSync } from '@/features/reminders/useReminderSync';
+import { useReminderSync, useReminderTapOpensToday } from '@/features/reminders/useReminderSync';
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography } from '@/theme/tokens';
 
@@ -29,6 +29,7 @@ function RootNavigator() {
   const { session, isLoading, isDemo } = useAuth();
   const { profile, loading: profileLoading, error: profileError, reload } = useProfile();
   useReminderSync(isDemo ? null : (session?.user.id ?? null), Boolean(profile?.onboardingDone), isLoading);
+  useReminderTapOpensToday();
 
   // Espera ler a sessão salva para não piscar a tela de login.
   if (isLoading) return <Loading />;

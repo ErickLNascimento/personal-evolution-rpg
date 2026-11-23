@@ -73,3 +73,16 @@ export function xpTableFromRules(rows: readonly { key: string; amount: number }[
     perfectDayBonus: pick('perfect_day_bonus', DEFAULT_XP_TABLE.perfectDayBonus),
   };
 }
+
+/**
+ * XP mostrado numa missão: concluída mostra o que foi ganho de fato naquele registro
+ * (a dificuldade pode ter mudado depois); pendente mostra o que a dificuldade atual vai dar.
+ */
+export function missionXp(
+  mission: { done: boolean; difficulty: Difficulty },
+  awarded: number | undefined,
+  table: XpTable = DEFAULT_XP_TABLE,
+): number {
+  if (mission.done && awarded !== undefined) return awarded;
+  return xpForHabit(mission.difficulty, table);
+}

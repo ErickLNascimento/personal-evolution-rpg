@@ -44,6 +44,11 @@ function RealToday() {
     <Screen title="Hoje">
       {day.loading ? (
         <ActivityIndicator color={colors.primary} />
+      ) : day.failed ? (
+        <>
+          <FormMessage text={day.error} />
+          <Button title="Tentar de novo" onPress={day.retry} variant="secondary" />
+        </>
       ) : (
         <>
           <Chips options={DAY_OPTIONS} selected={[choice]} onToggle={setChoice} />
@@ -58,6 +63,7 @@ function RealToday() {
             level={day.level}
             xpTable={day.xpTable}
             pending={day.pending}
+            awardedXp={day.awardedXp}
             onToggle={day.toggle}
             empty={
               day.hasHabits ? (
@@ -84,6 +90,7 @@ function DayView({
   level,
   xpTable,
   pending,
+  awardedXp,
   onToggle,
   empty,
 }: {
@@ -92,6 +99,7 @@ function DayView({
   level: LevelProgress;
   xpTable?: XpTable;
   pending?: ReadonlySet<string>;
+  awardedXp?: (habitId: string) => number | undefined;
   onToggle: (habitId: string) => void;
   empty?: ReactNode;
 }) {
@@ -118,6 +126,7 @@ function DayView({
           mission={m}
           xpTable={xpTable}
           busy={pending?.has(m.habit.id)}
+          awardedXp={awardedXp?.(m.habit.id)}
           onToggle={() => onToggle(m.habit.id)}
         />
       ))}

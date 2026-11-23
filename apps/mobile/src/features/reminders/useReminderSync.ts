@@ -1,3 +1,5 @@
+import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { clearReminders, syncReminders } from '@/lib/reminders';
@@ -21,4 +23,14 @@ export function useReminderSync(userId: string | null, enabled: boolean, authLoa
     });
     return () => sub.remove();
   }, [userId, enabled, authLoading]);
+}
+
+/** Tocar num lembrete abre a aba Hoje, onde a missão é concluída. */
+export function useReminderTapOpensToday() {
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(() => {
+      router.navigate('/');
+    });
+    return () => sub.remove();
+  }, []);
 }

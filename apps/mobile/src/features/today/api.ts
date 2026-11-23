@@ -7,8 +7,15 @@ export interface DayData {
   habits: HabitRecord[];
   /** Hábitos registrados por data: `logged.get('2026-11-22')` → ids. */
   logged: Map<LocalDate, Set<string>>;
+  /** XP ganho em cada registro ativo, por `awardKey(data, hábito)`. */
+  awarded: Map<string, number>;
   totalXp: number;
   xpTable: XpTable;
+}
+
+/** Chave de `DayData.awarded`. */
+export function awardKey(date: LocalDate, habitId: string): string {
+  return `${date}:${habitId}`;
 }
 
 function client() {
@@ -26,9 +33,20 @@ function rpcFailure(error: PostgrestError, fallback: string): { data: null; erro
 /** Tudo o que a tela Hoje precisa: hábitos, registros das datas, XP total e tabela de XP. */
 export async function fetchDay(dates: readonly LocalDate[]): Promise<Result<DayData>> {
   const db = client();
-  const [habits, logs, xp, rules] = await Promise.all([
+  const [habits, logs, grants, xp, rules] = await Promise.all([
     listHabits(),
-    db.from('habit_logs').select('habit_id, local_date').in('local_date', [...dates]).returns<{ habit_id: string; local_date: string }[]>(),
+    db
+      .from('habit_logs')
+      .select('id, habit_id, local_date')
+      .in('local_date', [...dates])
+      .returns<{ id: string; habit_id: string; local_date: string }[]>(),
+    // XP concedido a cada registro (source_id = id do registro); estornos não entram.
+    db
+      .from('xp_transactions')
+      .select('source_id, amount')
+      .eq('source_type', 'habit')
+      .in('local_date', [...dates])
+      .returns<{ source_id: string; amount: number }[]>(),
     db.rpc('my_total_xp'),
     db.from('xp_rules').select('key, amount').returns<{ key: string; amount: number }[]>(),
   ]);
@@ -40,10 +58,19 @@ export async function fetchDay(dates: readonly LocalDate[]): Promise<Result<DayD
   const logged = new Map<LocalDate, Set<string>>(dates.map((d) => [d, new Set<string>()]));
   for (const l of logs.data) logged.get(l.local_date)?.add(l.habit_id);
 
+  // Sem as transações, o card mostra o valor da dificuldade atual (missionXp).
+  const amountByLog = new Map((grants.data ?? []).map((g) => [g.source_id, g.amount]));
+  const awarded = new Map<string, number>();
+  for (const l of logs.data) {
+    const amount = amountByLog.get(l.id);
+    if (amount !== undefined) awarded.set(awardKey(l.local_date, l.habit_id), amount);
+  }
+
   return {
     data: {
       habits: habits.data,
       logged,
+      awarded,
       totalXp: Number(xp.data ?? 0),
       // Sem as regras, a tela mostra o padrão; o XP real é sempre o que o banco concede.
       xpTable: xpTableFromRules(rules.data ?? []),

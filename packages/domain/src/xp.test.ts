@@ -6,6 +6,7 @@ import {
   xpBalance,
   xpForHabit,
   xpTableFromRules,
+  missionXp,
 } from './xp';
 
 describe('XP', () => {
@@ -71,5 +72,19 @@ describe('tabela de XP do banco', () => {
   it('cai no padrão para chave ausente ou inválida', () => {
     const t = xpTableFromRules([{ key: 'habit_hard', amount: -3 }]);
     expect(t).toEqual(DEFAULT_XP_TABLE);
+  });
+});
+
+describe('XP mostrado na missão', () => {
+  it('concluída mostra o XP ganho, mesmo após mudar a dificuldade', () => {
+    expect(missionXp({ done: true, difficulty: 'hard' }, 10)).toBe(10);
+  });
+
+  it('pendente mostra o valor da dificuldade atual', () => {
+    expect(missionXp({ done: false, difficulty: 'hard' }, 10)).toBe(30);
+  });
+
+  it('concluída sem registro conhecido usa a dificuldade atual', () => {
+    expect(missionXp({ done: true, difficulty: 'medium' }, undefined)).toBe(20);
   });
 });

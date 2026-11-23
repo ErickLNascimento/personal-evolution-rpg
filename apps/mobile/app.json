@@ -10,7 +10,8 @@
     "backgroundColor": "#101116",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.erick.personalevolutionrpg"
+      "bundleIdentifier": "com.erick.personalevolutionrpg",
+      "infoPlist": {}
     },
     "android": {
       "package": "com.erick.personalevolutionrpg",
@@ -34,6 +35,17 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "a1d627b6-40fb-4fe8-b662-50e961f53be0"
+      }
+    },
+    "owner": "ericklnascimento"
   }
 }

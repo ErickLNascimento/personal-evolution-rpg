@@ -80,6 +80,19 @@ Limites: 3 planos iniciais por dia e 2 revisões por semana por usuário, e só 
 - Instale libs nativas com `npx expo install`, nunca `npm install` direto.
 - Quebra de linha LF em tudo (`.gitattributes` e `.editorconfig`), para o projeto abrir igual no Windows e no Mac.
 
+## Build de teste (EAS)
+
+O projeto está ligado ao EAS (`@ericklnascimento/personal-evolution-rpg`). O `.env.local` não vai para o build
+(está no `.gitignore`): a URL e a chave publishable do Supabase ficam nas variáveis de ambiente do EAS
+(`development`, `preview` e `production`), lidas pelo perfil em `eas.json`.
+
+```powershell
+cd apps\mobile
+npx eas-cli@latest build --platform android --profile preview   # APK para instalar no Android
+```
+
+No iPhone, um build exige uma conta Apple Developer paga; até lá, use o Expo Go.
+
 ## Migrar para o Mac
 
 1. Instale Xcode, Command Line Tools, Homebrew, CocoaPods (`brew install cocoapods`) e Node 22.
