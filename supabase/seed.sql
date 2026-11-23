@@ -1,0 +1,2 @@
+-- Dados de exemplo para o banco local (supabase db reset).
+-- As regras de XP já são criadas pela migration inicial.
