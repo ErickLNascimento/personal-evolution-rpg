@@ -2,6 +2,7 @@ import type { DailyXp } from '@per/domain';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, typography } from '@/theme/tokens';
+import { currentLocale } from '@/i18n';
 
 const CHART_HEIGHT = 120;
 
@@ -11,7 +12,11 @@ function shortDate(date: string) {
 }
 
 function longDate(date: string) {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: 'numeric', month: 'long' });
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(currentLocale(), {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'long',
+  });
 }
 
 /**

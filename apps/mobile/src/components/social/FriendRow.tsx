@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
 import type { SocialCard, SocialSummary } from '@/features/social/api';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 function isSummary(p: SocialCard | SocialSummary): p is SocialSummary {
   return 'streak' in p;
@@ -23,13 +24,20 @@ export function FriendRow({
   actions?: ReactNode;
   onPress?: () => void;
 }) {
-  const name = socialName(person.displayName);
+  const { t, locale } = useT();
+  const name = socialName(person.displayName, locale);
   const summary = isSummary(person) ? person : null;
   const allDone =
     summary !== null && summary.todayTotal > 0 && summary.todayDone >= summary.todayTotal;
   const label = summary
-    ? `${name}, nível ${person.level}, sequência de ${summary.streak} dias, ${summary.todayDone} de ${summary.todayTotal} missões hoje`
-    : `${name}, nível ${person.level}`;
+    ? t('social.friendA11y', {
+        name,
+        level: person.level,
+        streak: summary.streak,
+        done: summary.todayDone,
+        total: summary.todayTotal,
+      })
+    : t('social.cardA11y', { name, level: person.level });
 
   return (
     <Pressable
@@ -47,7 +55,7 @@ export function FriendRow({
           {name}
         </Text>
         <View style={styles.meta}>
-          <Text style={typography.caption}>Nv {person.level}</Text>
+          <Text style={typography.caption}>{t('social.level', { level: person.level })}</Text>
           {summary && (
             <>
               <Ionicons
@@ -70,7 +78,7 @@ export function FriendRow({
               />
             </View>
             <Text style={[typography.caption, allDone && styles.done]}>
-              {summary.todayDone}/{summary.todayTotal} hoje
+              {t('social.today', { done: summary.todayDone, total: summary.todayTotal })}
             </Text>
           </View>
         )}

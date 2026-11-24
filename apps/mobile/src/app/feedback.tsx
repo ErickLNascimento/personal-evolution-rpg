@@ -1,6 +1,5 @@
 import {
   FEEDBACK_KINDS,
-  FEEDBACK_KIND_LABEL,
   FEEDBACK_MAX,
   validateFeedback,
   type FeedbackKind,
@@ -14,18 +13,25 @@ import { Button, Field, FormMessage } from '@/components/Form';
 import { StackScreen } from '@/components/Screen';
 import { sendFeedback } from '@/features/feedback/api';
 import { typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
-const KIND_OPTIONS = FEEDBACK_KINDS.map((k) => ({ value: k, label: FEEDBACK_KIND_LABEL[k] }));
+const KIND_KEY = {
+  bug: 'feedback.kindBug',
+  ideia: 'feedback.kindIdea',
+  elogio: 'feedback.kindPraise',
+  outro: 'feedback.kindOther',
+} as const satisfies Record<FeedbackKind, string>;
 
-const PLACEHOLDER: Record<FeedbackKind, string> = {
-  bug: 'O que aconteceu? Em qual tela? O que você esperava que acontecesse?',
-  ideia: 'Conte a sua ideia: o que gostaria de ver no app?',
-  elogio: 'O que você mais gostou até agora?',
-  outro: 'Escreva aqui.',
-};
+const PLACEHOLDER_KEY = {
+  bug: 'feedback.placeholderBug',
+  ideia: 'feedback.placeholderIdea',
+  elogio: 'feedback.placeholderPraise',
+  outro: 'feedback.placeholderOther',
+} as const satisfies Record<FeedbackKind, string>;
 
 /** Feedback dos testadores: tipo + texto livre. A equipe lê pelo painel do Supabase. */
 export default function FeedbackScreen() {
+  const { t, locale } = useT();
   const [kind, setKind] = useState<FeedbackKind>('bug');
   const [message, setMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +39,7 @@ export default function FeedbackScreen() {
   const [sent, setSent] = useState(false);
 
   async function submit() {
-    const invalid = validateFeedback(message);
+    const invalid = validateFeedback(message, locale);
     if (invalid) return setError(invalid);
     setError(null);
     setSending(true);
@@ -47,13 +53,11 @@ export default function FeedbackScreen() {
   if (sent) {
     return (
       <StackScreen>
-        <Text style={typography.heading}>Obrigado!</Text>
-        <Text style={typography.body}>
-          Seu feedback chegou para a equipe. Cada relato ajuda a deixar a jornada melhor.
-        </Text>
-        <Button title="Voltar" onPress={() => router.back()} />
+        <Text style={typography.heading}>{t('feedback.thanks')}</Text>
+        <Text style={typography.body}>{t('feedback.received')}</Text>
+        <Button title={t('feedback.back')} onPress={() => router.back()} />
         <Button
-          title="Enviar outro"
+          title={t('feedback.another')}
           variant="secondary"
           onPress={() => {
             setMessage('');
@@ -66,27 +70,27 @@ export default function FeedbackScreen() {
 
   return (
     <StackScreen>
-      <Text style={typography.body}>
-        Encontrou um problema, teve uma ideia ou quer contar o que achou? Escreva aqui — a equipe lê
-        tudo.
-      </Text>
-      <Chips options={KIND_OPTIONS} selected={[kind]} onToggle={setKind} />
+      <Text style={typography.body}>{t('feedback.intro')}</Text>
+      <Chips
+        options={FEEDBACK_KINDS.map((k) => ({ value: k, label: t(KIND_KEY[k]) }))}
+        selected={[kind]}
+        onToggle={setKind}
+      />
       <Field
-        label="Sua mensagem"
+        label={t('feedback.message')}
         value={message}
         onChangeText={setMessage}
-        placeholder={PLACEHOLDER[kind]}
+        placeholder={t(PLACEHOLDER_KEY[kind])}
         multiline
         maxLength={FEEDBACK_MAX}
         textAlignVertical="top"
         style={styles.message}
       />
       <Text style={typography.caption}>
-        {message.trim().length}/{FEEDBACK_MAX} · A versão do app e o sistema do aparelho vão junto,
-        para ajudar a investigar.
+        {t('feedback.counter', { count: message.trim().length, max: FEEDBACK_MAX })}
       </Text>
       <FormMessage text={error} />
-      <Button title="Enviar feedback" onPress={submit} loading={sending} />
+      <Button title={t('feedback.send')} onPress={submit} loading={sending} />
     </StackScreen>
   );
 }

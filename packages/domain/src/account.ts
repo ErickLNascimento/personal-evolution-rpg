@@ -1,4 +1,5 @@
 import type { LocalDate } from './dates';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 /**
  * Regras de conta e perfil (Sprint 1): fuso horário, nome de exibição,
@@ -31,10 +32,19 @@ export function resolveTimeZone(candidate: string | null | undefined): string {
 }
 
 /** Nome sem espaços nas pontas; vazio vira `null`. Erro se passar do limite. */
-export function normalizeDisplayName(name: string): { value: string | null; error: string | null } {
+export function normalizeDisplayName(
+  name: string,
+  locale: Locale = DEFAULT_LOCALE,
+): { value: string | null; error: string | null } {
   const value = name.trim().replace(/\s+/g, ' ');
   if (value.length > DISPLAY_NAME_MAX) {
-    return { value: null, error: `O nome pode ter no máximo ${DISPLAY_NAME_MAX} caracteres.` };
+    return {
+      value: null,
+      error:
+        locale === 'en'
+          ? `The name can have at most ${DISPLAY_NAME_MAX} characters.`
+          : `O nome pode ter no máximo ${DISPLAY_NAME_MAX} caracteres.`,
+    };
   }
   return { value: value === '' ? null : value, error: null };
 }
@@ -44,18 +54,37 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export type AuthMode = 'sign-in' | 'sign-up';
 
 /** Mensagem de erro em português, ou `null` se os dados podem ir para o Supabase. */
-export function validateCredentials(input: {
-  email: string;
-  password: string;
-  mode: AuthMode;
-}): string | null {
+const AUTH_MESSAGES = {
+  'pt-BR': {
+    email: 'Informe seu e-mail.',
+    badEmail: 'E-mail inválido.',
+    password: 'Informe sua senha.',
+    short: `A senha precisa ter pelo menos ${PASSWORD_MIN} caracteres.`,
+    mismatch: 'As senhas não conferem.',
+  },
+  en: {
+    email: 'Enter your email.',
+    badEmail: 'Invalid email.',
+    password: 'Enter your password.',
+    short: `The password needs at least ${PASSWORD_MIN} characters.`,
+    mismatch: "The passwords don't match.",
+  },
+} as const;
+
+export function validateCredentials(
+  input: {
+    email: string;
+    password: string;
+    mode: AuthMode;
+  },
+  locale: Locale = DEFAULT_LOCALE,
+): string | null {
+  const m = AUTH_MESSAGES[locale];
   const email = input.email.trim();
-  if (!email) return 'Informe seu e-mail.';
-  if (!EMAIL_RE.test(email)) return 'E-mail inválido.';
-  if (!input.password) return 'Informe sua senha.';
-  if (input.mode === 'sign-up' && input.password.length < PASSWORD_MIN) {
-    return `A senha precisa ter pelo menos ${PASSWORD_MIN} caracteres.`;
-  }
+  if (!email) return m.email;
+  if (!EMAIL_RE.test(email)) return m.badEmail;
+  if (!input.password) return m.password;
+  if (input.mode === 'sign-up' && input.password.length < PASSWORD_MIN) return m.short;
   return null;
 }
 
@@ -65,18 +94,22 @@ export function hasAiConsent(profile: { aiConsentAt: string | null }): boolean {
 }
 
 /** Nova senha (redefinição): mesmo mínimo do cadastro e confirmação igual. */
-export function validateNewPassword(password: string, confirmation: string): string | null {
-  if (password.length < PASSWORD_MIN)
-    return `A senha precisa ter pelo menos ${PASSWORD_MIN} caracteres.`;
-  if (password !== confirmation) return 'As senhas não conferem.';
+export function validateNewPassword(
+  password: string,
+  confirmation: string,
+  locale: Locale = DEFAULT_LOCALE,
+): string | null {
+  if (password.length < PASSWORD_MIN) return AUTH_MESSAGES[locale].short;
+  if (password !== confirmation) return AUTH_MESSAGES[locale].mismatch;
   return null;
 }
 
 /** Palavra que o usuário digita para confirmar a exclusão da conta. */
 export const DELETE_ACCOUNT_WORD = 'EXCLUIR';
+export const DELETE_ACCOUNT_WORDS: Record<Locale, string> = { 'pt-BR': 'EXCLUIR', en: 'DELETE' };
 
-export function isDeleteConfirmation(text: string): boolean {
-  return text.trim().toUpperCase() === DELETE_ACCOUNT_WORD;
+export function isDeleteConfirmation(text: string, locale: Locale = DEFAULT_LOCALE): boolean {
+  return text.trim().toUpperCase() === DELETE_ACCOUNT_WORDS[locale];
 }
 
 /** Nome do arquivo da exportação de dados (LGPD): `personal-evolution-rpg-dados-AAAA-MM-DD.json`. */

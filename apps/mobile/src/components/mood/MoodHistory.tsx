@@ -14,6 +14,7 @@ import {
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, typography } from '@/theme/tokens';
 import { MoodFace } from './MoodFace';
+import { useT } from '@/i18n';
 
 const WEEKDAY = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
@@ -29,6 +30,7 @@ export function MoodHistory({
   logs: readonly HabitLogEntry[];
   today: LocalDate;
 }) {
+  const { t } = useT();
   const strip = moodStrip(entries, today, 14);
   const from = addDays(today, -59);
   const insight = moodInsight(
@@ -42,11 +44,7 @@ export function MoodHistory({
 
   return (
     <>
-      <View
-        style={styles.strip}
-        accessible
-        accessibilityLabel={label || 'Nenhum registro de humor nos últimos 14 dias'}
-      >
+      <View style={styles.strip} accessible accessibilityLabel={label || t('mood.noneA11y')}>
         {strip.map((d) => (
           <View key={d.date} style={styles.day}>
             <MoodFace mood={d.mood} size={20} />
@@ -60,8 +58,8 @@ export function MoodHistory({
         {insight
           ? moodInsightText(insight)
           : entries.length === 0
-            ? 'Registre como você está na tela Hoje. Com alguns dias, aparece aqui o que mais mexe com o seu humor.'
-            : `Continue registrando: com ${MOOD_INSIGHT_MIN_DAYS} dias de missões completas e ${MOOD_INSIGHT_MIN_DAYS} sem, mostro como a rotina mexe com o seu humor.`}
+            ? t('mood.emptyHint')
+            : t('mood.keepGoing', { min: MOOD_INSIGHT_MIN_DAYS })}
       </Text>
     </>
   );

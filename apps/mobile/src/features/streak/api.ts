@@ -10,6 +10,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { listHabits, type Result } from '@/features/habits/api';
 import { isFeatureOn } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 export interface StreakShields {
   held: number;
@@ -25,16 +26,15 @@ function client() {
 }
 
 function failure(error: PostgrestError, fallback: string): { data: null; error: string } {
-  if (error.code === 'PR020') return { data: null, error: 'Você já tem o máximo de escudos.' };
-  if (error.code === 'PR004') return { data: null, error: 'Cristais insuficientes para o escudo.' };
-  if (/network|fetch/i.test(error.message))
-    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+  if (error.code === 'PR020') return { data: null, error: t('shields.errorFull') };
+  if (error.code === 'PR004') return { data: null, error: t('shields.errorCrystals') };
+  if (/network|fetch/i.test(error.message)) return { data: null, error: t('common.noConnection') };
   return { data: null, error: fallback };
 }
 
 export async function fetchShields(): Promise<Result<StreakShields>> {
   const { data, error } = await client().rpc('my_streak_shields');
-  if (error) return failure(error, 'Não foi possível carregar os escudos.');
+  if (error) return failure(error, t('shields.errorLoad'));
   const r = data as { held: number; max: number; price: number; used_dates: string[] };
   return {
     data: { held: r.held, max: r.max, price: r.price, usedDates: new Set(r.used_dates) },
@@ -45,7 +45,7 @@ export async function fetchShields(): Promise<Result<StreakShields>> {
 /** Compra um escudo (o banco confere limite e saldo). */
 export async function buyShield(): Promise<Result<{ held: number; crystals: number }>> {
   const { data, error } = await client().rpc('buy_streak_shield');
-  if (error) return failure(error, 'Não foi possível comprar o escudo. Tente de novo.');
+  if (error) return failure(error, t('shields.errorBuy'));
   const r = data as { held: number; coin_balance: number };
   return { data: { held: r.held, crystals: r.coin_balance }, error: null };
 }

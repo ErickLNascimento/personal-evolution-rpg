@@ -1,6 +1,7 @@
 import { dataExportFileName, type LocalDate } from '@per/domain';
 import { Linking } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 /** Quanto tempo o link do arquivo vale (segundos). */
 const LINK_SECONDS = 10 * 60;
@@ -12,13 +13,12 @@ const LINK_SECONDS = 10 * 60;
  * Devolve uma mensagem de erro, ou `null` se abriu o download.
  */
 export async function exportMyData(userId: string, today: LocalDate): Promise<string | null> {
-  if (!supabase) return 'Você precisa estar conectado.';
+  if (!supabase) return t('dataExport.signedOut');
   const { data, error } = await supabase.rpc('export_my_data');
   if (error) {
-    if (error.code === 'PR050') return 'A exportação de dados está desativada no momento.';
-    if (/network|fetch/i.test(error.message))
-      return 'Sem conexão. Verifique a internet e tente de novo.';
-    return 'Não foi possível juntar os seus dados. Tente de novo.';
+    if (error.code === 'PR050') return t('dataExport.disabled');
+    if (/network|fetch/i.test(error.message)) return t('common.noConnection');
+    return t('dataExport.collect');
   }
 
   // Um arquivo por usuário (sobrescrito a cada pedido): não acumula cópias no servidor.
@@ -28,12 +28,12 @@ export async function exportMyData(userId: string, today: LocalDate): Promise<st
     contentType: 'application/json',
     upsert: true,
   });
-  if (upload.error) return 'Não foi possível preparar o arquivo. Tente de novo.';
+  if (upload.error) return t('dataExport.prepare');
 
   const link = await bucket.createSignedUrl(path, LINK_SECONDS, {
     download: dataExportFileName(today),
   });
-  if (link.error || !link.data?.signedUrl) return 'Não foi possível gerar o link do arquivo.';
+  if (link.error || !link.data?.signedUrl) return t('dataExport.link');
   await Linking.openURL(link.data.signedUrl);
   return null;
 }

@@ -1,6 +1,7 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { Result } from '@/features/habits/api';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 export interface CustomReward {
   id: string;
@@ -29,12 +30,10 @@ function client() {
 }
 
 function failure(error: PostgrestError, fallback: string): { data: null; error: string } {
-  if (error.code === 'PR004') return { data: null, error: 'Cristais insuficientes.' };
-  if (error.code === 'PR002') return { data: null, error: 'Você já tem este item.' };
-  if (error.code === '23514')
-    return { data: null, error: 'Confira o nome e o preço da recompensa.' };
-  if (/network|fetch/i.test(error.message))
-    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+  if (error.code === 'PR004') return { data: null, error: t('shop.errorCrystals') };
+  if (error.code === 'PR002') return { data: null, error: t('shop.errorOwned') };
+  if (error.code === '23514') return { data: null, error: t('shop.errorReward') };
+  if (/network|fetch/i.test(error.message)) return { data: null, error: t('common.noConnection') };
   return { data: null, error: fallback };
 }
 
@@ -77,7 +76,7 @@ export async function fetchShop(): Promise<Result<ShopData>> {
 
 export async function buyCosmetic(itemId: string): Promise<Result<number>> {
   const { data, error } = await client().rpc('buy_cosmetic', { p_item_id: itemId });
-  if (error) return failure(error, 'Não foi possível comprar. Tente de novo.');
+  if (error) return failure(error, t('shop.errorBuy'));
   return { data: (data as { coin_balance: number }).coin_balance, error: null };
 }
 
@@ -93,19 +92,19 @@ export async function saveReward(
   const { error } = id
     ? await client().from('custom_rewards').update(row).eq('id', id)
     : await client().from('custom_rewards').insert(row);
-  if (error) return failure(error, 'Não foi possível salvar a recompensa.');
+  if (error) return failure(error, t('shop.errorSaveReward'));
   return { data: true, error: null };
 }
 
 export async function deleteReward(id: string): Promise<Result<true>> {
   const { error } = await client().from('custom_rewards').delete().eq('id', id);
-  if (error) return failure(error, 'Não foi possível apagar a recompensa.');
+  if (error) return failure(error, t('shop.errorDeleteReward'));
   return { data: true, error: null };
 }
 
 /** Resgata uma recompensa: o banco confere o saldo e desconta os Cristais. */
 export async function redeemReward(id: string): Promise<Result<number>> {
   const { data, error } = await client().rpc('redeem_reward', { p_reward_id: id });
-  if (error) return failure(error, 'Não foi possível resgatar. Tente de novo.');
+  if (error) return failure(error, t('shop.errorRedeem'));
   return { data: (data as { coin_balance: number }).coin_balance, error: null };
 }

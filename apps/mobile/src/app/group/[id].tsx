@@ -18,9 +18,11 @@ import { FriendRow } from '@/components/social/FriendRow';
 import { claimGroupBoss, fetchGroup, leaveGroup, type GroupInfo } from '@/features/social/api';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /** Grupo: chefe da semana em conjunto, membros com o resumo de cada um e o convite. */
 function GroupScreen() {
+  const { t } = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const load = useCallback(() => fetchGroup(id), [id]);
   const screen = useFocusLoad<GroupInfo>(load);
@@ -52,7 +54,7 @@ function GroupScreen() {
     setBusy(null);
     if (r.error !== null) return setError(r.error);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setNotice(`Vitória do grupo: +${r.data.coins} Cristais!`);
+    setNotice(t('social.groupWin', { coins: r.data.coins }));
     screen.refresh();
   }
 
@@ -64,7 +66,7 @@ function GroupScreen() {
 
       {previous.defeated && !group.lastBoss.claimed && (
         <BossCard
-          label="CHEFE DO GRUPO · SEMANA PASSADA"
+          label={t('social.groupBossLast')}
           state={previous}
           claimed={false}
           reward={GROUP_BOSS_REWARD}
@@ -73,7 +75,7 @@ function GroupScreen() {
         />
       )}
       <BossCard
-        label="CHEFE DO GRUPO"
+        label={t('social.groupBoss')}
         state={boss}
         claimed={group.boss.claimed}
         reward={GROUP_BOSS_REWARD}
@@ -82,46 +84,42 @@ function GroupScreen() {
       />
 
       <Text style={typography.label}>
-        MEMBROS ({group.memberCount}/{MAX_GROUP_MEMBERS})
+        {t('social.members', { count: group.memberCount, max: MAX_GROUP_MEMBERS })}
       </Text>
       {(group.members ?? []).map((m) => (
         <FriendRow key={m.userId} person={m} />
       ))}
 
       <View style={styles.card}>
-        <Text style={typography.label}>CONVITE</Text>
+        <Text style={typography.label}>{t('social.invite')}</Text>
         <Text style={styles.code} selectable>
           {code}
         </Text>
-        <Text style={typography.caption}>
-          Quem tiver este código entra pela aba Social → Entrar com código.
-        </Text>
+        <Text style={typography.caption}>{t('social.inviteHint')}</Text>
         <Button
-          title="Compartilhar convite"
+          title={t('social.shareInvite')}
           variant="secondary"
           disabled={group.memberCount >= MAX_GROUP_MEMBERS}
           onPress={() =>
             void Share.share({
-              message: `Entre no meu grupo "${group.name}" no Personal Evolution RPG e vamos derrotar o chefe da semana juntos! Código do grupo: ${code}.`,
+              message: t('social.inviteMessage', { name: group.name, code }),
             })
           }
         />
       </View>
 
       <Button
-        title="Sair do grupo"
+        title={t('social.leave')}
         variant="danger"
         loading={busy === 'leave'}
         onPress={() =>
           Alert.alert(
-            'Sair do grupo?',
-            group.memberCount === 1
-              ? 'Você é a última pessoa: o grupo será apagado.'
-              : 'Você pode voltar depois com o código de convite.',
+            t('social.leaveTitle'),
+            group.memberCount === 1 ? t('social.leaveLast') : t('social.leaveBack'),
             [
-              { text: 'Cancelar', style: 'cancel' },
+              { text: t('common.cancel'), style: 'cancel' },
               {
-                text: 'Sair',
+                text: t('social.leaveConfirm'),
                 style: 'destructive',
                 onPress: async () => {
                   setBusy('leave');

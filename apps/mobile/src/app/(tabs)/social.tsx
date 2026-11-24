@@ -48,6 +48,7 @@ import {
 import type { Result } from '@/features/habits/api';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
+import { t as tr, useT } from '@/i18n';
 
 interface SocialData {
   me: MySocial;
@@ -56,17 +57,14 @@ interface SocialData {
 }
 
 type AddMode = 'code' | 'name';
-const ADD_MODES = [
-  { value: 'code' as const, label: 'Código de amigo' },
-  { value: 'name' as const, label: 'Buscar por nome' },
-];
 
 /** Amigos e grupos. Amigos veem só o resumo: herói, nível, streak e missões de hoje. */
 export default function SocialScreen() {
+  const { t, locale } = useT();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const load = useCallback(async (): Promise<Result<SocialData>> => {
-    if (!userId) return { data: null, error: 'Você precisa estar conectado.' };
+    if (!userId) return { data: null, error: tr('social.signedOut') };
     const [me, friends, groups] = await Promise.all([
       fetchMySocial(userId),
       fetchFriends(),
@@ -105,11 +103,11 @@ export default function SocialScreen() {
 
   if (!screen.data) {
     return (
-      <Screen title="Social">
+      <Screen title={t('social.title')}>
         {screen.error ? (
           <>
             <FormMessage text={screen.error} />
-            <Button title="Tentar de novo" onPress={screen.refresh} variant="secondary" />
+            <Button title={t('common.retry')} onPress={screen.refresh} variant="secondary" />
           </>
         ) : (
           <ActivityIndicator color={colors.primary} />
@@ -122,39 +120,37 @@ export default function SocialScreen() {
   const code = formatSocialCode(me.friendCode);
 
   return (
-    <Screen title="Social" onRefresh={screen.refresh} refreshing={screen.refreshing}>
+    <Screen title={t('social.title')} onRefresh={screen.refresh} refreshing={screen.refreshing}>
       {notice ? <FormMessage tone="info" text={notice} /> : null}
       <FormMessage text={error} />
 
       <View style={styles.card}>
-        <Text style={typography.label}>SEU CÓDIGO DE AMIGO</Text>
+        <Text style={typography.label}>{t('social.myCode')}</Text>
         <Text
           style={styles.code}
           selectable
-          accessibilityLabel={`Seu código: ${code.split('').join(' ')}`}
+          accessibilityLabel={t('social.myCodeA11y', { code: code.split('').join(' ') })}
         >
           {code}
         </Text>
         <Button
-          title="Compartilhar código"
+          title={t('social.shareCode')}
           variant="secondary"
           onPress={() =>
             void Share.share({
-              message: `Vamos evoluir juntos no Personal Evolution RPG! Meu código de amigo é ${code}.`,
+              message: t('social.shareMessage', { code }),
             })
           }
         />
         <View style={styles.switchRow}>
           <View style={styles.flex}>
-            <Text style={typography.body}>Aparecer na busca por nome</Text>
-            <Text style={typography.caption}>
-              Desligado, só quem tem o seu código consegue adicionar você.
-            </Text>
+            <Text style={typography.body}>{t('social.discoverable')}</Text>
+            <Text style={typography.caption}>{t('social.discoverableHint')}</Text>
           </View>
           <Switch
             value={me.discoverable}
             onValueChange={(on) => void run('discoverable', () => setDiscoverable(userId!, on))}
-            accessibilityLabel="Aparecer na busca por nome"
+            accessibilityLabel={t('social.discoverable')}
             trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
           />
         </View>
@@ -168,15 +164,15 @@ export default function SocialScreen() {
             () => sendFriendRequest(target),
             (r) =>
               r.status === 'accepted'
-                ? `Agora você e ${socialName(r.user.displayName)} são amigos!`
-                : `Pedido enviado para ${socialName(r.user.displayName)}.`,
+                ? t('social.nowFriends', { name: socialName(r.user.displayName, locale) })
+                : t('social.requestSent', { name: socialName(r.user.displayName, locale) }),
           )
         }
       />
 
       {friends.incoming.length > 0 && (
         <>
-          <Text style={typography.label}>PEDIDOS RECEBIDOS</Text>
+          <Text style={typography.label}>{t('social.incoming')}</Text>
           {friends.incoming.map((r) => (
             <FriendRow
               key={r.requestId}
@@ -184,18 +180,19 @@ export default function SocialScreen() {
               actions={
                 <View style={styles.actions}>
                   <PillButton
-                    title="Aceitar"
+                    title={t('social.accept')}
                     loading={busy === `accept:${r.requestId}`}
                     onPress={() =>
                       void run(
                         `accept:${r.requestId}`,
                         () => respondFriendRequest(r.requestId, true),
-                        () => `Agora você e ${socialName(r.user.displayName)} são amigos!`,
+                        () =>
+                          t('social.nowFriends', { name: socialName(r.user.displayName, locale) }),
                       )
                     }
                   />
                   <PillButton
-                    title="Recusar"
+                    title={t('social.decline')}
                     tone="secondary"
                     loading={busy === `decline:${r.requestId}`}
                     onPress={() =>
@@ -211,9 +208,9 @@ export default function SocialScreen() {
         </>
       )}
 
-      <Text style={typography.label}>AMIGOS ({friends.friends.length})</Text>
+      <Text style={typography.label}>{t('social.friends', { count: friends.friends.length })}</Text>
       {friends.friends.length === 0 ? (
-        <Placeholder text="Ainda sem amigos. Compartilhe o seu código ou busque alguém pelo nome. Amigos veem só o seu herói, nível, streak e quantas missões você fez hoje." />
+        <Placeholder text={t('social.noFriends')} />
       ) : (
         friends.friends.map((f) => (
           <FriendRow
@@ -221,12 +218,12 @@ export default function SocialScreen() {
             person={f}
             onPress={() =>
               Alert.alert(
-                socialName(f.displayName),
-                `Nível ${f.level} · sequência de ${f.streak} dias`,
+                socialName(f.displayName, locale),
+                t('social.friendInfo', { level: f.level, streak: f.streak }),
                 [
-                  { text: 'Fechar', style: 'cancel' },
+                  { text: t('social.close'), style: 'cancel' },
                   {
-                    text: 'Desfazer amizade',
+                    text: t('social.unfriend'),
                     style: 'destructive',
                     onPress: () => void run(`remove:${f.userId}`, () => removeFriend(f.userId)),
                   },
@@ -239,14 +236,14 @@ export default function SocialScreen() {
 
       {friends.outgoing.length > 0 && (
         <>
-          <Text style={typography.label}>AGUARDANDO RESPOSTA</Text>
+          <Text style={typography.label}>{t('social.outgoing')}</Text>
           {friends.outgoing.map((r) => (
             <FriendRow
               key={r.requestId}
               person={r.user}
               actions={
                 <PillButton
-                  title="Cancelar"
+                  title={t('social.cancel')}
                   tone="secondary"
                   loading={busy === `cancel:${r.user.userId}`}
                   onPress={() =>
@@ -259,11 +256,8 @@ export default function SocialScreen() {
         </>
       )}
 
-      <Text style={typography.label}>GRUPOS</Text>
-      <Text style={typography.caption}>
-        Até {MAX_GROUP_MEMBERS} pessoas enfrentam juntas o chefe da semana: cada missão de qualquer
-        um tira 1 de vida.
-      </Text>
+      <Text style={typography.label}>{t('social.groups')}</Text>
+      <Text style={typography.caption}>{t('social.groupsHint', { max: MAX_GROUP_MEMBERS })}</Text>
       {groups.map((g) => (
         <GroupRow key={g.id} group={g} />
       ))}
@@ -273,14 +267,14 @@ export default function SocialScreen() {
           run(
             'create',
             () => createGroup(name),
-            () => 'Grupo criado! Convide a turma com o código.',
+            () => t('social.groupCreated'),
           )
         }
         onJoin={(c) =>
           run(
             'join',
             () => joinGroup(c),
-            () => 'Você entrou no grupo!',
+            () => t('social.groupJoined'),
           )
         }
       />
@@ -295,6 +289,7 @@ function AddFriend({
   busy: string | null;
   onSend: (target: { code: string } | { userId: string }) => Promise<boolean>;
 }) {
+  const { t } = useT();
   const [mode, setMode] = useState<AddMode>('code');
   const [text, setText] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -305,12 +300,12 @@ function AddFriend({
     setFieldError(null);
     if (mode === 'code') {
       const code = normalizeSocialCode(text);
-      if (!code) return setFieldError('O código tem 6 letras e números, como K7Q-2PM.');
+      if (!code) return setFieldError(t('social.badCode'));
       if (await onSend({ code })) setText('');
       return;
     }
     const q = searchQuery(text);
-    if (!q) return setFieldError('Digite ao menos 2 letras do nome.');
+    if (!q) return setFieldError(t('social.shortQuery'));
     setSearching(true);
     const r = await searchUsers(q);
     setSearching(false);
@@ -320,9 +315,12 @@ function AddFriend({
 
   return (
     <View style={styles.card}>
-      <Text style={typography.label}>ADICIONAR AMIGO</Text>
+      <Text style={typography.label}>{t('social.addFriend')}</Text>
       <Chips
-        options={ADD_MODES}
+        options={[
+          { value: 'code' as const, label: t('social.modeCode') },
+          { value: 'name' as const, label: t('social.modeName') },
+        ]}
         selected={[mode]}
         onToggle={(m) => {
           setMode(m);
@@ -331,10 +329,10 @@ function AddFriend({
         }}
       />
       <Field
-        label={mode === 'code' ? 'Código do amigo' : 'Nome'}
+        label={mode === 'code' ? t('social.friendCode') : t('social.name')}
         value={text}
         onChangeText={setText}
-        placeholder={mode === 'code' ? 'Ex.: K7Q-2PM' : 'Ex.: Ana'}
+        placeholder={mode === 'code' ? t('social.codePlaceholder') : t('social.namePlaceholder')}
         autoCapitalize={mode === 'code' ? 'characters' : 'words'}
         autoCorrect={false}
         maxLength={mode === 'code' ? 8 : 40}
@@ -343,13 +341,13 @@ function AddFriend({
         error={fieldError}
       />
       <Button
-        title={mode === 'code' ? 'Enviar pedido' : 'Buscar'}
+        title={mode === 'code' ? t('social.sendRequest') : t('social.search')}
         onPress={() => void submit()}
         loading={busy === 'add' || searching}
       />
       {results !== null &&
         (results.length === 0 ? (
-          <Text style={typography.caption}>Ninguém encontrado com esse nome.</Text>
+          <Text style={typography.caption}>{t('social.noResults')}</Text>
         ) : (
           results.map((r) => (
             <FriendRow
@@ -357,12 +355,12 @@ function AddFriend({
               person={r.user}
               actions={
                 r.relation === 'friend' ? (
-                  <Text style={styles.tag}>Amigo</Text>
+                  <Text style={styles.tag}>{t('social.friend')}</Text>
                 ) : r.relation === 'pending_out' ? (
-                  <Text style={styles.tag}>Pedido enviado</Text>
+                  <Text style={styles.tag}>{t('social.pending')}</Text>
                 ) : (
                   <PillButton
-                    title={r.relation === 'pending_in' ? 'Aceitar' : 'Adicionar'}
+                    title={r.relation === 'pending_in' ? t('social.accept') : t('social.add')}
                     onPress={async () => {
                       if (await onSend({ userId: r.user.userId }))
                         setResults((list) =>
@@ -387,6 +385,7 @@ function AddFriend({
 }
 
 function GroupRow({ group }: { group: GroupInfo }) {
+  const { t } = useT();
   const boss = groupBossState(group.weekStart, group.boss.maxHp, group.boss.damage);
   const lastWon =
     group.lastBoss.maxHp > 0 &&
@@ -397,7 +396,13 @@ function GroupRow({ group }: { group: GroupInfo }) {
     <Pressable
       onPress={() => router.push({ pathname: '/group/[id]', params: { id: group.id } })}
       accessibilityRole="button"
-      accessibilityLabel={`Grupo ${group.name}, ${group.memberCount} membros, chefe ${boss.boss.name} com vida ${boss.hp} de ${boss.maxHp}`}
+      accessibilityLabel={t('social.groupA11y', {
+        name: group.name,
+        count: group.memberCount,
+        boss: boss.boss.name,
+        hp: boss.hp,
+        max: boss.maxHp,
+      })}
       style={({ pressed }) => [styles.group, pressed && styles.pressed]}
     >
       <BossEmblem id={boss.boss.id} size={44} />
@@ -406,14 +411,14 @@ function GroupRow({ group }: { group: GroupInfo }) {
           {group.name}
         </Text>
         <Text style={typography.caption}>
-          {group.memberCount}/{MAX_GROUP_MEMBERS} pessoas ·{' '}
+          {t('social.groupPeople', { count: group.memberCount, max: MAX_GROUP_MEMBERS })}
           {boss.maxHp === 0
-            ? 'sem chefe esta semana'
+            ? t('social.noBoss')
             : boss.defeated
-              ? 'chefe derrotado!'
-              : `chefe com ${boss.hp} de vida`}
+              ? t('social.bossDown')
+              : t('social.bossHp', { hp: boss.hp })}
         </Text>
-        {toClaim && <Text style={styles.claim}>Prêmio para resgatar</Text>}
+        {toClaim && <Text style={styles.claim}>{t('social.toClaim')}</Text>}
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
     </Pressable>
@@ -429,6 +434,7 @@ function GroupActions({
   onCreate: (name: string) => Promise<boolean>;
   onJoin: (code: string) => Promise<boolean>;
 }) {
+  const { t, locale } = useT();
   const [open, setOpen] = useState<'create' | 'join' | null>(null);
   const [text, setText] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -437,10 +443,18 @@ function GroupActions({
     return (
       <View style={styles.row}>
         <View style={styles.flex}>
-          <Button title="Criar grupo" variant="secondary" onPress={() => setOpen('create')} />
+          <Button
+            title={t('social.createGroup')}
+            variant="secondary"
+            onPress={() => setOpen('create')}
+          />
         </View>
         <View style={styles.flex}>
-          <Button title="Entrar com código" variant="secondary" onPress={() => setOpen('join')} />
+          <Button
+            title={t('social.joinWithCode')}
+            variant="secondary"
+            onPress={() => setOpen('join')}
+          />
         </View>
       </View>
     );
@@ -448,12 +462,12 @@ function GroupActions({
   async function submit() {
     setFieldError(null);
     if (open === 'create') {
-      const { value, error } = validateGroupName(text);
+      const { value, error } = validateGroupName(text, locale);
       if (error) return setFieldError(error);
       if (await onCreate(value)) close();
     } else {
       const code = normalizeSocialCode(text);
-      if (!code) return setFieldError('O código do grupo tem 6 letras e números.');
+      if (!code) return setFieldError(t('social.badGroupCode'));
       if (await onJoin(code)) close();
     }
   }
@@ -467,21 +481,23 @@ function GroupActions({
   return (
     <View style={styles.card}>
       <Field
-        label={open === 'create' ? 'Nome do grupo' : 'Código do grupo'}
+        label={open === 'create' ? t('social.groupName') : t('social.groupCode')}
         value={text}
         onChangeText={setText}
-        placeholder={open === 'create' ? 'Ex.: Time da manhã' : 'Ex.: H4K-9TZ'}
+        placeholder={
+          open === 'create' ? t('social.groupNamePlaceholder') : t('social.groupCodePlaceholder')
+        }
         autoCapitalize={open === 'create' ? 'sentences' : 'characters'}
         autoCorrect={false}
         maxLength={open === 'create' ? 40 : 8}
         error={fieldError}
       />
       <Button
-        title={open === 'create' ? 'Criar' : 'Entrar'}
+        title={open === 'create' ? t('social.create') : t('social.join')}
         onPress={() => void submit()}
         loading={busy === 'create' || busy === 'join'}
       />
-      <Button title="Cancelar" variant="secondary" onPress={close} />
+      <Button title={t('common.cancel')} variant="secondary" onPress={close} />
     </View>
   );
 }

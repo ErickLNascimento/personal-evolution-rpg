@@ -9,6 +9,7 @@ import {
 } from '@per/domain';
 import type { Result } from '@/features/habits/api';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 function client() {
   if (!supabase) throw new Error('Supabase não configurado');
@@ -16,13 +17,11 @@ function client() {
 }
 
 function failure(error: PostgrestError, fallback: string): { data: null; error: string } {
-  if (error.code === '22023')
-    return { data: null, error: 'Só dá para registrar o humor de hoje ou de ontem.' };
+  if (error.code === '22023') return { data: null, error: t('mood.errorWindow') };
   // Banco ainda sem a migration do diário.
   if (error.code === 'PGRST202' || error.code === 'PGRST205' || error.code === '42P01')
-    return { data: null, error: 'O diário ainda não está disponível. Tente mais tarde.' };
-  if (/network|fetch/i.test(error.message))
-    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+    return { data: null, error: t('mood.errorUnavailable') };
+  if (/network|fetch/i.test(error.message)) return { data: null, error: t('common.noConnection') };
   return { data: null, error: fallback };
 }
 
@@ -41,7 +40,7 @@ export async function fetchMoodEntries(from: LocalDate): Promise<Result<MoodEntr
     .gte('local_date', from)
     .order('local_date')
     .returns<Row[]>();
-  if (error) return failure(error, 'Não foi possível carregar o diário.');
+  if (error) return failure(error, t('mood.errorLoad'));
   return {
     data: data
       .filter((r) => isMood(r.mood))
@@ -68,7 +67,7 @@ export async function saveMoodEntry(
     p_tags: tags,
     p_note: note,
   });
-  if (error) return failure(error, 'Não foi possível salvar o seu humor.');
+  if (error) return failure(error, t('mood.errorSave'));
   return {
     data: { coins: Number((data as { coins_awarded: number }).coins_awarded ?? 0) },
     error: null,

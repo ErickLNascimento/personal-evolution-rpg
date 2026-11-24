@@ -7,7 +7,7 @@ import {
 } from '@per/domain';
 import { useLocales } from 'expo-localization';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { useFeature } from '@/features/profile/useFeature';
+import { useProfile } from '@/features/profile/useProfile';
 import en from './en';
 import pt from './pt';
 
@@ -66,6 +66,7 @@ export function t(key: TKey, params?: TParams): string {
 }
 
 const PREF_KEY = 'per.locale';
+const ENGLISH_KEY = 'per.feature.english';
 
 function loadPreference(): LocalePreference {
   const v = globalThis.localStorage?.getItem(PREF_KEY);
@@ -87,7 +88,14 @@ const LocaleContext = createContext<LocaleState>({
 });
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const englishOn = useFeature(FEATURES.english);
+  // Sem perfil (tela de login), vale o último estado conhecido da flag neste aparelho.
+  const { profile } = useProfile();
+  const englishOn = profile
+    ? profile.features.has(FEATURES.english)
+    : globalThis.localStorage?.getItem(ENGLISH_KEY) === '1';
+  useEffect(() => {
+    if (profile) globalThis.localStorage?.setItem(ENGLISH_KEY, englishOn ? '1' : '0');
+  }, [profile, englishOn]);
   const device = useLocales(); // re-renderiza se o idioma do celular mudar
   const [preference, setPref] = useState<LocalePreference>(loadPreference);
   const locale: Locale = englishOn

@@ -12,6 +12,7 @@
  */
 import { addDays, compareLocalDates, startOfWeek, type LocalDate } from './dates';
 import { isHabitScheduledOn, LOGGABLE_DAYS_BACK, type Habit } from './schedule';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 export const JOURNEY_LENGTHS = [21, 66] as const;
 export type JourneyLength = (typeof JOURNEY_LENGTHS)[number];
@@ -96,10 +97,19 @@ export function journeyProgress(
 }
 
 /** Pode começar uma jornada com este hábito? Mensagem em português se não. */
-export function canStartJourney(habitId: string, journeys: readonly Pick<Journey, 'habitId' | 'status'>[]): string | null {
+export function canStartJourney(
+  habitId: string,
+  journeys: readonly Pick<Journey, 'habitId' | 'status'>[],
+  locale: Locale = DEFAULT_LOCALE,
+): string | null {
+  const en = locale === 'en';
   const active = journeys.filter((j) => j.status === 'active');
-  if (active.some((j) => j.habitId === habitId)) return 'Este hábito já está numa jornada.';
-  if (active.length >= MAX_ACTIVE_JOURNEYS) return `Você já tem ${MAX_ACTIVE_JOURNEYS} jornadas em andamento.`;
+  if (active.some((j) => j.habitId === habitId))
+    return en ? 'This habit is already on a journey.' : 'Este hábito já está numa jornada.';
+  if (active.length >= MAX_ACTIVE_JOURNEYS)
+    return en
+      ? `You already have ${MAX_ACTIVE_JOURNEYS} journeys in progress.`
+      : `Você já tem ${MAX_ACTIVE_JOURNEYS} jornadas em andamento.`;
   return null;
 }
 

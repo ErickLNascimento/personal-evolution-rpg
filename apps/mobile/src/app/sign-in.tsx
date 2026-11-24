@@ -8,8 +8,10 @@ import { authErrorMessage } from '@/features/auth/authErrors';
 import { deviceTimeZone } from '@/lib/deviceTimeZone';
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 export default function SignInScreen() {
+  const { t, locale } = useT();
   const [mode, setMode] = useState<AuthMode>('sign-in');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,7 +33,7 @@ export default function SignInScreen() {
     setError(null);
     setInfo(null);
     // Reaproveita a validação de e-mail (a senha não importa aqui).
-    const invalid = validateCredentials({ email, password: '-', mode: 'sign-in' });
+    const invalid = validateCredentials({ email, password: '-', mode: 'sign-in' }, locale);
     if (invalid) {
       setError(invalid);
       return;
@@ -47,7 +49,7 @@ export default function SignInScreen() {
       return;
     }
     // Mesma mensagem exista ou não a conta, para não revelar quem está cadastrado.
-    setInfo('Se houver uma conta com este e-mail, enviamos um link para criar uma nova senha. Abra o link neste aparelho.');
+    setInfo(t('auth.resetSent'));
   }
 
   async function submit() {
@@ -55,7 +57,7 @@ export default function SignInScreen() {
     setError(null);
     setInfo(null);
 
-    const invalid = validateCredentials({ email, password, mode });
+    const invalid = validateCredentials({ email, password, mode }, locale);
     if (invalid) {
       setError(invalid);
       return;
@@ -74,7 +76,7 @@ export default function SignInScreen() {
         });
         if (signUpError) throw signUpError;
         if (!data.session) {
-          setInfo('Conta criada. Abra o link que enviamos para o seu e-mail e depois entre aqui.');
+          setInfo(t('auth.accountCreated'));
           setMode('sign-in');
           setPassword('');
         }
@@ -92,14 +94,17 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={styles.safe}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <Text style={typography.title} accessibilityRole="header">
               Personal Evolution RPG
             </Text>
             <Text style={typography.caption}>
-              {isSignUp ? 'Crie sua conta para começar a jornada.' : 'Entre para continuar a sua jornada.'}
+              {isSignUp ? t('auth.signUpTitle') : t('auth.signInTitle')}
             </Text>
           </View>
 
@@ -107,20 +112,20 @@ export default function SignInScreen() {
 
           {isSignUp && (
             <Field
-              label="Como quer ser chamado"
+              label={t('auth.displayName')}
               value={displayName}
               onChangeText={setDisplayName}
-              placeholder="Opcional"
+              placeholder={t('auth.optional')}
               autoComplete="name"
               textContentType="name"
               maxLength={60}
             />
           )}
           <Field
-            label="E-mail"
+            label={t('auth.email')}
             value={email}
             onChangeText={setEmail}
-            placeholder="voce@email.com"
+            placeholder={t('auth.emailPlaceholder')}
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="email"
@@ -128,10 +133,10 @@ export default function SignInScreen() {
             textContentType="emailAddress"
           />
           <Field
-            label="Senha"
+            label={t('auth.password')}
             value={password}
             onChangeText={setPassword}
-            placeholder={isSignUp ? 'Pelo menos 8 caracteres' : undefined}
+            placeholder={isSignUp ? t('auth.passwordHint') : undefined}
             secureTextEntry
             autoCapitalize="none"
             autoComplete={isSignUp ? 'new-password' : 'current-password'}
@@ -142,12 +147,21 @@ export default function SignInScreen() {
 
           <FormMessage text={error} />
 
-          <Button title={isSignUp ? 'Criar conta' : 'Entrar'} onPress={submit} loading={loading} />
+          <Button
+            title={isSignUp ? t('auth.createAccount') : t('auth.signIn')}
+            onPress={submit}
+            loading={loading}
+          />
           {!isSignUp && (
-            <Button title="Esqueci minha senha" onPress={forgotPassword} variant="secondary" disabled={loading} />
+            <Button
+              title={t('auth.forgot')}
+              onPress={forgotPassword}
+              variant="secondary"
+              disabled={loading}
+            />
           )}
           <Button
-            title={isSignUp ? 'Já tenho conta' : 'Criar uma conta'}
+            title={isSignUp ? t('auth.haveAccount') : t('auth.newAccount')}
             onPress={switchMode}
             variant="secondary"
             disabled={loading}

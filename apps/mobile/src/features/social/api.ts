@@ -11,6 +11,7 @@ import {
 } from '@per/domain';
 import type { Result } from '@/features/habits/api';
 import { supabase } from '@/lib/supabase';
+import { t, type TKey } from '@/i18n';
 
 /** Cartão curto (busca e pedidos): nome, nível e aparência. */
 export interface SocialCard {
@@ -68,24 +69,23 @@ function client() {
   return supabase;
 }
 
-const MESSAGES: Record<string, string> = {
-  P0002: 'Não encontrado. Confira o código.',
-  PR040: 'Este é o seu próprio código.',
-  PR041: 'Vocês já são amigos.',
-  PR042: 'Você chegou ao limite de amigos ou de pedidos pendentes.',
-  PR043: 'Você já está em 5 grupos.',
-  PR044: 'Este grupo já tem 6 pessoas.',
-  PR032: 'O chefe ainda não foi derrotado.',
+const MESSAGES: Record<string, TKey> = {
+  P0002: 'social.errorNotFound',
+  PR040: 'social.errorOwnCode',
+  PR041: 'social.errorAlreadyFriends',
+  PR042: 'social.errorLimit',
+  PR043: 'social.errorGroups',
+  PR044: 'social.errorFull',
+  PR032: 'challenges.errorNotDefeated',
 };
 
 function failure(error: PostgrestError, fallback: string): { data: null; error: string } {
   const known = error.code ? MESSAGES[error.code] : undefined;
-  if (known) return { data: null, error: known };
+  if (known) return { data: null, error: t(known) };
   // Banco ainda sem a migration do social.
   if (error.code === 'PGRST202' || error.code === '42883' || error.code === '42703')
-    return { data: null, error: 'O social ainda não está disponível. Tente mais tarde.' };
-  if (/network|fetch/i.test(error.message))
-    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+    return { data: null, error: t('social.errorUnavailable') };
+  if (/network|fetch/i.test(error.message)) return { data: null, error: t('common.noConnection') };
   return { data: null, error: fallback };
 }
 
@@ -140,19 +140,19 @@ export async function fetchMySocial(userId: string): Promise<Result<MySocial>> {
     .select('friend_code, discoverable')
     .eq('id', userId)
     .single<{ friend_code: string; discoverable: boolean }>();
-  if (error) return failure(error, 'Não foi possível carregar o seu código.');
+  if (error) return failure(error, t('social.errorLoadCode'));
   return { data: { friendCode: data.friend_code, discoverable: data.discoverable }, error: null };
 }
 
 export async function setDiscoverable(userId: string, on: boolean): Promise<Result<true>> {
   const { error } = await client().from('profiles').update({ discoverable: on }).eq('id', userId);
-  if (error) return failure(error, 'Não foi possível salvar.');
+  if (error) return failure(error, t('social.errorSave'));
   return { data: true, error: null };
 }
 
 export async function fetchFriends(): Promise<Result<FriendsData>> {
   const { data, error } = await client().rpc('my_friends');
-  if (error) return failure(error, 'Não foi possível carregar os amigos.');
+  if (error) return failure(error, t('social.errorLoadFriends'));
   const r = data as {
     friends: CardRow[];
     incoming: { request_id: string; user: CardRow }[];
@@ -173,7 +173,7 @@ export async function sendFriendRequest(
 ): Promise<Result<{ status: 'pending' | 'accepted'; user: SocialCard }>> {
   const args = 'code' in target ? { p_code: target.code } : { p_user: target.userId };
   const { data, error } = await client().rpc('send_friend_request', args);
-  if (error) return failure(error, 'Não foi possível enviar o pedido.');
+  if (error) return failure(error, t('social.errorSend'));
   const r = data as { status: 'pending' | 'accepted'; user: CardRow };
   return { data: { status: r.status, user: toCard(r.user) }, error: null };
 }
@@ -186,14 +186,14 @@ export async function respondFriendRequest(
     p_request_id: requestId,
     p_accept: accept,
   });
-  if (error) return failure(error, 'Não foi possível responder ao pedido.');
+  if (error) return failure(error, t('social.errorRespond'));
   return { data: true, error: null };
 }
 
 /** Desfaz a amizade ou cancela um pedido. */
 export async function removeFriend(userId: string): Promise<Result<true>> {
   const { error } = await client().rpc('remove_friend', { p_user: userId });
-  if (error) return failure(error, 'Não foi possível remover.');
+  if (error) return failure(error, t('social.errorRemove'));
   return { data: true, error: null };
 }
 
@@ -201,7 +201,7 @@ export async function searchUsers(
   query: string,
 ): Promise<Result<{ user: SocialCard; relation: Relation }[]>> {
   const { data, error } = await client().rpc('search_users', { p_query: query });
-  if (error) return failure(error, 'Não foi possível buscar.');
+  if (error) return failure(error, t('social.errorSearch'));
   const rows = data as { user: CardRow; relation: Relation }[];
   return { data: rows.map((r) => ({ user: toCard(r.user), relation: r.relation })), error: null };
 }
@@ -244,31 +244,31 @@ function toGroup(row: GroupRow): GroupInfo {
 
 export async function fetchGroups(): Promise<Result<GroupInfo[]>> {
   const { data, error } = await client().rpc('my_groups');
-  if (error) return failure(error, 'Não foi possível carregar os grupos.');
+  if (error) return failure(error, t('social.errorLoadGroups'));
   return { data: (data as GroupRow[]).map(toGroup), error: null };
 }
 
 export async function fetchGroup(id: string): Promise<Result<GroupInfo>> {
   const { data, error } = await client().rpc('group_detail', { p_group: id });
-  if (error) return failure(error, 'Não foi possível carregar o grupo.');
+  if (error) return failure(error, t('social.errorLoadGroup'));
   return { data: toGroup(data as GroupRow), error: null };
 }
 
 export async function createGroup(name: string): Promise<Result<string>> {
   const { data, error } = await client().rpc('create_group', { p_name: name });
-  if (error) return failure(error, 'Não foi possível criar o grupo.');
+  if (error) return failure(error, t('social.errorCreateGroup'));
   return { data: (data as { id: string }).id, error: null };
 }
 
 export async function joinGroup(code: string): Promise<Result<string>> {
   const { data, error } = await client().rpc('join_group', { p_code: code });
-  if (error) return failure(error, 'Não foi possível entrar no grupo.');
+  if (error) return failure(error, t('social.errorJoinGroup'));
   return { data: (data as { id: string }).id, error: null };
 }
 
 export async function leaveGroup(id: string): Promise<Result<true>> {
   const { error } = await client().rpc('leave_group', { p_group: id });
-  if (error) return failure(error, 'Não foi possível sair do grupo.');
+  if (error) return failure(error, t('social.errorLeaveGroup'));
   return { data: true, error: null };
 }
 
@@ -280,7 +280,7 @@ export async function claimGroupBoss(
     p_group: id,
     p_week_start: weekStart,
   });
-  if (error) return failure(error, 'Não foi possível resgatar o prêmio.');
+  if (error) return failure(error, t('challenges.errorClaim'));
   return {
     data: { coins: Number((data as { coins_awarded: number }).coins_awarded) },
     error: null,

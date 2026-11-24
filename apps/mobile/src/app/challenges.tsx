@@ -33,17 +33,19 @@ import type { HabitRecord } from '@/features/habits/api';
 import { useToday } from '@/features/profile/useToday';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 interface ScreenData extends ChallengesData {
   /** Jornadas que acabaram de ser decididas nesta visita. */
   results: { title: string; status: string; coins: number }[];
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  won: 'Vencida',
-  lost: 'Não concluída',
-  abandoned: 'Encerrada',
-};
+const STATUS_KEY = {
+  won: 'challenges.won',
+  lost: 'challenges.lost',
+  abandoned: 'challenges.abandoned',
+  active: 'challenges.won',
+} as const;
 
 function logsOf(data: ChallengesData, habitId: string): Set<LocalDate> {
   const set = new Set<LocalDate>();
@@ -53,6 +55,7 @@ function logsOf(data: ChallengesData, habitId: string): Set<LocalDate> {
 
 /** Desafios com prazo: o chefe da semana e as jornadas de 21 ou 66 dias. */
 function ChallengesScreen() {
+  const { t } = useT();
   const { today, ready } = useToday();
 
   // Carrega e já fecha no banco as jornadas com resultado decidido (o banco confere e paga).
@@ -73,13 +76,14 @@ function ChallengesScreen() {
     const results = decided.flatMap((j, i) => {
       const r = resolved[i]!;
       if (r.error !== null || r.data.status === 'active') return [];
-      const title = first.data.habits.find((h) => h.id === j.habitId)?.title ?? 'Hábito';
+      const title =
+        first.data.habits.find((h) => h.id === j.habitId)?.title ?? t('challenges.habit');
       return [{ title, status: r.data.status, coins: r.data.coins }];
     });
     const again = await fetchChallenges(today);
     if (again.error !== null) return again;
     return { data: { ...again.data, results }, error: null };
-  }, [today]);
+  }, [today, t]);
   const screen = useFocusLoad<ScreenData>(load, ready);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +116,7 @@ function ChallengesScreen() {
     setBusy(null);
     if (r.error !== null) return setError(r.error);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setNotice(`Chefe derrotado: +${r.data.coins} Cristais!`);
+    setNotice(t('challenges.bossDefeated', { coins: r.data.coins }));
     screen.refresh();
   }
 
@@ -127,8 +131,8 @@ function ChallengesScreen() {
           tone="info"
           text={
             r.status === 'won'
-              ? `🏆 Jornada vencida: ${r.title}! +${r.coins} Cristais.`
-              : `A jornada de ${r.title} não chegou à meta desta vez. Que tal tentar de novo?`
+              ? t('challenges.journeyWon', { title: r.title, coins: r.coins })
+              : t('challenges.journeyLost', { title: r.title })
           }
         />
       ))}
@@ -137,7 +141,7 @@ function ChallengesScreen() {
 
       {previous.defeated && !data.bossClaimed.has(lastWeek) && (
         <BossCard
-          label="CHEFE DA SEMANA PASSADA"
+          label={t('challenges.lastWeekBoss')}
           state={previous}
           claimed={false}
           busy={busy === `boss:${lastWeek}`}
@@ -151,9 +155,9 @@ function ChallengesScreen() {
         onClaim={() => claim(thisWeek)}
       />
 
-      <Text style={typography.label}>JORNADAS</Text>
+      <Text style={typography.label}>{t('challenges.journeys')}</Text>
       <Text style={typography.caption}>
-        Escolha um hábito e um prazo. Faça-o em {JOURNEY_PASS_PCT}% dos dias da agenda para vencer.
+        {t('challenges.journeysHint', { pct: JOURNEY_PASS_PCT })}
       </Text>
       {active.map((j) => {
         const habit = habitById.get(j.habitId);
@@ -166,10 +170,10 @@ function ChallengesScreen() {
             today={today}
             busy={busy === j.id}
             onAbandon={() =>
-              Alert.alert('Encerrar jornada?', 'O progresso desta jornada será perdido.', [
-                { text: 'Cancelar', style: 'cancel' },
+              Alert.alert(t('challenges.endTitle'), t('challenges.endText'), [
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Encerrar',
+                  text: t('challenges.end'),
                   style: 'destructive',
                   onPress: async () => {
                     setBusy(j.id);
@@ -200,14 +204,17 @@ function ChallengesScreen() {
 
       {finished.length > 0 && (
         <>
-          <Text style={typography.label}>HISTÓRICO</Text>
+          <Text style={typography.label}>{t('challenges.history')}</Text>
           {finished.map((j) => (
             <View key={j.id} style={styles.historyRow}>
               <Text style={[typography.body, styles.flex]}>
-                {habitById.get(j.habitId)?.title ?? 'Hábito'} · {j.lengthDays} dias
+                {t('challenges.historyRow', {
+                  title: habitById.get(j.habitId)?.title ?? t('challenges.habit'),
+                  days: j.lengthDays,
+                })}
               </Text>
               <Text style={[typography.caption, j.status === 'won' && styles.won]}>
-                {STATUS_LABEL[j.status]}
+                {t(STATUS_KEY[j.status])}
               </Text>
             </View>
           ))}
@@ -232,6 +239,7 @@ function JourneyCard({
   busy: boolean;
   onAbandon: () => void;
 }) {
+  const { t } = useT();
   const p = journeyProgress(habit, logged, journey, today);
   const pct = p.required === 0 ? 0 : Math.min(100, (p.done / p.required) * 100);
   return (
@@ -239,24 +247,33 @@ function JourneyCard({
       <View style={styles.row}>
         <Text style={[typography.heading, styles.flex]}>{habit.title}</Text>
         <Text style={styles.day}>
-          Dia {p.day}/{journey.lengthDays}
+          {t('challenges.day', { day: p.day, total: journey.lengthDays })}
         </Text>
       </View>
       <View
         style={styles.track}
         accessible
-        accessibilityLabel={`${p.done} de ${p.required} dias feitos`}
+        accessibilityLabel={t('challenges.doneA11y', { done: p.done, required: p.required })}
       >
         <View style={[styles.fill, { width: `${pct}%` }]} />
       </View>
       <Text style={typography.caption}>
-        {p.done} de {p.required} dias necessários ·{' '}
+        {t('challenges.progress', { done: p.done, required: p.required })}
         {p.missesLeft === 0
-          ? 'nenhuma falta sobrando'
-          : `${p.missesLeft} ${p.missesLeft === 1 ? 'falta ainda cabe' : 'faltas ainda cabem'}`}
+          ? t('challenges.noMissesLeft')
+          : t(p.missesLeft === 1 ? 'challenges.missesLeftOne' : 'challenges.missesLeftMany', {
+              count: p.missesLeft,
+            })}
       </Text>
-      <Text style={typography.caption}>Prêmio: +{JOURNEY_REWARD[journey.lengthDays]} Cristais</Text>
-      <Button title="Encerrar jornada" variant="secondary" onPress={onAbandon} loading={busy} />
+      <Text style={typography.caption}>
+        {t('challenges.reward', { coins: JOURNEY_REWARD[journey.lengthDays] })}
+      </Text>
+      <Button
+        title={t('challenges.endButton')}
+        variant="secondary"
+        onPress={onAbandon}
+        loading={busy}
+      />
     </View>
   );
 }
@@ -270,6 +287,7 @@ function NewJourney({
   journeys: JourneyRecord[];
   onStart: (habitId: string, length: JourneyLength) => Promise<string | null>;
 }) {
+  const { t, locale } = useT();
   const free = habits.filter(
     (h) => !journeys.some((j) => j.status === 'active' && j.habitId === h.id),
   );
@@ -279,16 +297,18 @@ function NewJourney({
   const [error, setError] = useState<string | null>(null);
 
   if (habits.length === 0)
-    return <Text style={typography.caption}>Crie um hábito para começar uma jornada.</Text>;
+    return <Text style={typography.caption}>{t('challenges.needHabit')}</Text>;
 
   const chosen = habitId && free.some((h) => h.id === habitId) ? habitId : null;
-  const blocked = chosen ? canStartJourney(chosen, journeys) : canStartJourney('', journeys);
+  const blocked = chosen
+    ? canStartJourney(chosen, journeys, locale)
+    : canStartJourney('', journeys, locale);
 
   return (
     <View style={styles.card}>
-      <Text style={typography.label}>NOVA JORNADA</Text>
+      <Text style={typography.label}>{t('challenges.newJourney')}</Text>
       {free.length === 0 ? (
-        <Text style={typography.caption}>Todos os seus hábitos já estão em jornadas.</Text>
+        <Text style={typography.caption}>{t('challenges.allBusy')}</Text>
       ) : (
         <>
           <Chips
@@ -299,20 +319,18 @@ function NewJourney({
           <Chips
             options={JOURNEY_LENGTHS.map((n) => ({
               value: n,
-              label: `${n} dias · +${JOURNEY_REWARD[n]}`,
-              accessibilityLabel: `${n} dias, prêmio de ${JOURNEY_REWARD[n]} Cristais`,
+              label: t('challenges.lengthOption', { days: n, coins: JOURNEY_REWARD[n] }),
+              accessibilityLabel: t('challenges.lengthA11y', { days: n, coins: JOURNEY_REWARD[n] }),
             }))}
             selected={[length]}
             onToggle={setLength}
           />
           <Text style={typography.caption}>
-            {length === 66
-              ? '66 dias é o tempo médio para um hábito virar automático.'
-              : '21 dias: um primeiro marco para firmar o hábito.'}
+            {length === 66 ? t('challenges.hint66') : t('challenges.hint21')}
           </Text>
           <FormMessage text={error ?? (chosen ? blocked : null)} />
           <Button
-            title="Começar jornada"
+            title={t('challenges.start')}
             loading={saving}
             disabled={!chosen || Boolean(blocked)}
             onPress={async () => {

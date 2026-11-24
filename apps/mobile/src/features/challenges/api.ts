@@ -9,6 +9,7 @@ import {
 import { listHabits, type HabitRecord, type Result } from '@/features/habits/api';
 import { fetchAll } from '@/features/progress/api';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 export interface JourneyRecord extends Journey {
   finishedAt: string | null;
@@ -30,11 +31,10 @@ function client() {
 }
 
 function failure(error: PostgrestError, fallback: string): { data: null; error: string } {
-  if (error.code === 'PR030') return { data: null, error: 'Este hábito já está numa jornada.' };
-  if (error.code === 'PR031') return { data: null, error: 'Você já tem 3 jornadas em andamento.' };
-  if (error.code === 'PR032') return { data: null, error: 'O chefe ainda não foi derrotado.' };
-  if (/network|fetch/i.test(error.message))
-    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+  if (error.code === 'PR030') return { data: null, error: t('challenges.errorBusy') };
+  if (error.code === 'PR031') return { data: null, error: t('challenges.errorMax') };
+  if (error.code === 'PR032') return { data: null, error: t('challenges.errorNotDefeated') };
+  if (/network|fetch/i.test(error.message)) return { data: null, error: t('common.noConnection') };
   return { data: null, error: fallback };
 }
 
@@ -67,7 +67,7 @@ export async function fetchChallenges(today: LocalDate): Promise<Result<Challeng
       .returns<{ item_id: string }[]>(),
   ]);
   if (habits.error !== null) return habits;
-  if (journeys.error) return failure(journeys.error, 'Não foi possível carregar os desafios.');
+  if (journeys.error) return failure(journeys.error, t('challenges.errorLoad'));
 
   const list: JourneyRecord[] = journeys.data.map((j) => ({
     id: j.id,
@@ -89,7 +89,7 @@ export async function fetchChallenges(today: LocalDate): Promise<Result<Challeng
       .order('id')
       .range(a, b),
   );
-  if (!logs) return { data: null, error: 'Não foi possível carregar os desafios.' };
+  if (!logs) return { data: null, error: t('challenges.errorLoad') };
 
   const logged = new Map<LocalDate, Set<string>>();
   for (const l of logs) {
@@ -115,7 +115,7 @@ export async function startJourney(habitId: string, lengthDays: 21 | 66): Promis
     p_habit_id: habitId,
     p_length: lengthDays,
   });
-  if (error) return failure(error, 'Não foi possível começar a jornada.');
+  if (error) return failure(error, t('challenges.errorStart'));
   return { data: true, error: null };
 }
 
@@ -129,7 +129,7 @@ export async function resolveJourney(
   id: string,
 ): Promise<Result<{ status: JourneyStatus } & Reward>> {
   const { data, error } = await client().rpc('resolve_journey', { p_journey_id: id });
-  if (error) return failure(error, 'Não foi possível atualizar a jornada.');
+  if (error) return failure(error, t('challenges.errorResolve'));
   const r = data as { status: JourneyStatus; coins_awarded: number; coin_balance: number };
   return {
     data: { status: r.status, coins: Number(r.coins_awarded), balance: Number(r.coin_balance) },
@@ -139,13 +139,13 @@ export async function resolveJourney(
 
 export async function abandonJourney(id: string): Promise<Result<true>> {
   const { error } = await client().rpc('abandon_journey', { p_journey_id: id });
-  if (error) return failure(error, 'Não foi possível encerrar a jornada.');
+  if (error) return failure(error, t('challenges.errorEnd'));
   return { data: true, error: null };
 }
 
 export async function claimBoss(weekStart: LocalDate): Promise<Result<Reward>> {
   const { data, error } = await client().rpc('claim_weekly_boss', { p_week_start: weekStart });
-  if (error) return failure(error, 'Não foi possível resgatar o prêmio.');
+  if (error) return failure(error, t('challenges.errorClaim'));
   const r = data as { coins_awarded: number; coin_balance: number };
   return { data: { coins: Number(r.coins_awarded), balance: Number(r.coin_balance) }, error: null };
 }

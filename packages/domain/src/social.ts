@@ -8,6 +8,7 @@
  */
 import { addDays, type LocalDate } from './dates';
 import { BOSSES, bossForWeek, type Boss } from './challenges';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 /** Sem 0/O e 1/I, para não confundir ao ditar ou digitar. */
 export const SOCIAL_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -33,10 +34,20 @@ export function formatSocialCode(code: string): string {
   return code.length === SOCIAL_CODE_LENGTH ? `${code.slice(0, 3)}-${code.slice(3)}` : code;
 }
 
-export function validateGroupName(name: string): { value: string; error: string | null } {
+export function validateGroupName(
+  name: string,
+  locale: Locale = DEFAULT_LOCALE,
+): { value: string; error: string | null } {
+  const en = locale === 'en';
   const value = name.trim().replace(/\s+/g, ' ');
-  if (!value) return { value, error: 'Dê um nome ao grupo.' };
-  if (value.length > GROUP_NAME_MAX) return { value, error: `Use no máximo ${GROUP_NAME_MAX} caracteres.` };
+  if (!value) return { value, error: en ? 'Give the group a name.' : 'Dê um nome ao grupo.' };
+  if (value.length > GROUP_NAME_MAX)
+    return {
+      value,
+      error: en
+        ? `Use at most ${GROUP_NAME_MAX} characters.`
+        : `Use no máximo ${GROUP_NAME_MAX} caracteres.`,
+    };
   return { value, error: null };
 }
 
@@ -47,8 +58,11 @@ export function searchQuery(input: string): string | null {
 }
 
 /** Nome mostrado para quem não definiu um. */
-export function socialName(displayName: string | null | undefined): string {
-  return displayName?.trim() || 'Aventureiro sem nome';
+export function socialName(
+  displayName: string | null | undefined,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  return displayName?.trim() || (locale === 'en' ? 'Nameless adventurer' : 'Aventureiro sem nome');
 }
 
 /** Chefe do grupo: outro da lista, para não repetir o chefe individual da mesma semana. */

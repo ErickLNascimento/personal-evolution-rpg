@@ -1,6 +1,7 @@
 import { parseAiPlan, type HabitLogEntry, type LocalDate, type XpEntry } from '@per/domain';
 import { listHabits, type HabitRecord, type Result } from '@/features/habits/api';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 /** O PostgREST devolve no máximo 1000 linhas por chamada; lemos em páginas. */
 const PAGE = 1000;
@@ -79,8 +80,7 @@ export async function fetchProgress(
   ]);
 
   if (habits.error !== null) return habits;
-  if (!logs || !xp || total.error)
-    return { data: null, error: 'Não foi possível carregar o seu progresso.' };
+  if (!logs || !xp || total.error) return { data: null, error: t('progress.errorLoad') };
 
   return {
     data: {

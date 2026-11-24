@@ -4,6 +4,7 @@
  */
 import { OBJECTIVE_CATEGORY_LABEL, type ObjectiveCategory } from './habits';
 import type { Difficulty } from './xp';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 export const FOCUS_AREAS_MAX = 3;
 export const ONBOARDING_STEPS = 6;
@@ -74,9 +75,14 @@ export function toggleFocusArea(areas: readonly ObjectiveCategory[], area: Objec
   return [...areas, area];
 }
 
-export function validateFocusAreas(areas: readonly ObjectiveCategory[]): string | null {
-  if (areas.length === 0) return 'Escolha pelo menos uma área.';
-  if (areas.length > FOCUS_AREAS_MAX) return `Escolha no máximo ${FOCUS_AREAS_MAX} áreas.`;
+export function validateFocusAreas(
+  areas: readonly ObjectiveCategory[],
+  locale: Locale = DEFAULT_LOCALE,
+): string | null {
+  const en = locale === 'en';
+  if (areas.length === 0) return en ? 'Pick at least one area.' : 'Escolha pelo menos uma área.';
+  if (areas.length > FOCUS_AREAS_MAX)
+    return en ? `Pick at most ${FOCUS_AREAS_MAX} areas.` : `Escolha no máximo ${FOCUS_AREAS_MAX} áreas.`;
   return null;
 }
 

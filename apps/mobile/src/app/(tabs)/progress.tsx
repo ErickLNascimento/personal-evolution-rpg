@@ -42,6 +42,7 @@ import {
   type StreakShields,
 } from '@/features/streak/api';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /** Dias lidos para o streak. Sequências maiores aparecem como "90+". */
 const STREAK_WINDOW = 90;
@@ -49,11 +50,12 @@ const STREAK_WINDOW = 90;
 const CHART_DAYS = 14;
 
 export default function ProgressScreen() {
+  const { t } = useT();
   const { isDemo } = useAuth();
   if (isDemo) {
     return (
       <Screen title="Progresso">
-        <Placeholder text="Modo demonstração: configure o Supabase no .env.local para ver o seu progresso." />
+        <Placeholder text={t('progress.demo')} />
       </Screen>
     );
   }
@@ -61,6 +63,7 @@ export default function ProgressScreen() {
 }
 
 function RealProgress() {
+  const { t } = useT();
   const { today, ready } = useToday();
   const { profile } = useProfile();
   const moodOn = useFeature(FEATURES.moodJournal);
@@ -92,7 +95,7 @@ function RealProgress() {
         {error ? (
           <>
             <FormMessage text={error} />
-            <Button title="Tentar de novo" onPress={refresh} variant="secondary" />
+            <Button title={t('common.retry')} onPress={refresh} variant="secondary" />
           </>
         ) : (
           <ActivityIndicator color={colors.primary} />
@@ -135,34 +138,36 @@ function RealProgress() {
         )}
       />
 
-      <Card title="OBJETIVOS">
+      <Card title={t('progress.objectives')}>
         <ObjectivesCard />
       </Card>
 
-      <Card title="ATRIBUTOS">
+      <Card title={t('progress.attributes')}>
         <AttributeSheet attributes={heroAttributes(data.attributeXp, OBJECTIVE_CATEGORIES)} />
       </Card>
 
-      <Card title="STREAK">
+      <Card title={t('progress.streak')}>
         <View
           style={styles.hero}
           accessible
-          accessibilityLabel={`Streak de ${streak.current} dias`}
+          accessibilityLabel={t('progress.streakA11y', { days: streak.current })}
         >
           <Text style={styles.heroNumber}>
             {streak.current}
             {streak.capped ? '+' : ''}
           </Text>
           <Text style={typography.body}>
-            {streak.current === 1 ? 'dia completo seguido' : 'dias completos seguidos'}
+            {streak.current === 1 ? t('progress.streakOne') : t('progress.streakMany')}
           </Text>
         </View>
         <Text style={typography.caption}>
-          Um dia conta quando todas as missões dele são feitas. Uma falta por semana é perdoada
+          {t('progress.streakRule')}
           {streak.restDaysUsed > 0
-            ? ` (${streak.restDaysUsed} ${streak.restDaysUsed === 1 ? 'usada' : 'usadas'} nesta sequência).`
+            ? t(streak.restDaysUsed === 1 ? 'progress.restUsedOne' : 'progress.restUsedMany', {
+                count: streak.restDaysUsed,
+              })
             : '.'}{' '}
-          Hoje e ontem ainda podem ser completados, então não quebram a sequência.
+          {t('progress.openDays')}
         </Text>
         {data.shields && (
           <ShieldRow
@@ -175,42 +180,41 @@ function RealProgress() {
       </Card>
 
       {moodOn && (
-        <Card title="HUMOR · ÚLTIMOS 14 DIAS">
+        <Card title={t('progress.mood')}>
           <MoodHistory entries={data.mood} habits={data.habits} logs={data.logs} today={today} />
         </Card>
       )}
 
-      <Card title={`XP POR DIA · ÚLTIMOS ${CHART_DAYS} DIAS`}>
+      <Card title={t('progress.xpPerDay', { days: CHART_DAYS })}>
         <XpChart days={chart} />
       </Card>
 
-      <Card title="REVISÃO SEMANAL">
-        <WeekRow label="Esta semana (até hoje)" week={thisWeek} />
+      <Card title={t('progress.weekly')}>
+        <WeekRow label={t('progress.thisWeek')} week={thisWeek} />
         <View style={styles.divider} />
-        <WeekRow label="Semana passada" week={lastWeek} />
+        <WeekRow label={t('progress.lastWeek')} week={lastWeek} />
         <View style={styles.divider} />
         <AiReview review={data.review} />
       </Card>
 
       {oracleOn && (
-        <Card title="ORÁCULO">
+        <Card title={t('progress.oracle')}>
           <View style={styles.oracle}>
             <Oracle size={96} />
             <View style={styles.oracleText}>
-              <Text style={typography.heading}>Peça conselho ao Oráculo</Text>
-              <Text style={typography.caption}>
-                Um plano de missões sob medida para um objetivo, ou uma revisão da sua semana.
-              </Text>
+              <Text style={typography.heading}>{t('progress.oracleTitle')}</Text>
+              <Text style={typography.caption}>{t('progress.oracleText')}</Text>
             </View>
           </View>
-          <Button title="✦ Consultar o Oráculo" onPress={() => router.push('/ai-plan')} />
+          <Button title={t('progress.oracleButton')} onPress={() => router.push('/ai-plan')} />
         </Card>
       )}
     </Screen>
   );
 }
 
-const DAY = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const dayFormat = (locale: string) =>
+  new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 /** Escudos de streak: quantos tem, comprar mais e o aviso quando um escudo acabou de salvar o streak. */
 function ShieldRow({
@@ -224,6 +228,7 @@ function ShieldRow({
   savedInStreak: number;
   onBought: () => void;
 }) {
+  const { t, locale } = useT();
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const full = shields.held >= shields.max;
@@ -243,15 +248,18 @@ function ShieldRow({
       {savedNow.length > 0 && (
         <FormMessage
           tone="info"
-          text={`🛡 ${savedNow.length === 1 ? 'Um escudo salvou' : `${savedNow.length} escudos salvaram`} o seu streak (${savedNow
-            .map((d) => DAY.format(new Date(`${d}T00:00:00Z`)))
-            .join(', ')}).`}
+          text={t(savedNow.length === 1 ? 'shields.savedOne' : 'shields.savedMany', {
+            count: savedNow.length,
+            days: savedNow
+              .map((d) => dayFormat(locale).format(new Date(`${d}T00:00:00Z`)))
+              .join(', '),
+          })}
         />
       )}
       <View style={styles.shieldHead}>
         <Text
           style={styles.shieldIcons}
-          accessibilityLabel={`${shields.held} de ${shields.max} escudos`}
+          accessibilityLabel={t('shields.countA11y', { held: shields.held, max: shields.max })}
         >
           {'🛡'.repeat(shields.held)}
           <Text style={styles.shieldEmpty}>
@@ -259,19 +267,18 @@ function ShieldRow({
           </Text>
         </Text>
         <Text style={typography.caption}>
-          {shields.held} de {shields.max} escudos
+          {t('shields.count', { held: shields.held, max: shields.max })}
           {savedInStreak > 0
-            ? ` · ${savedInStreak} usado${savedInStreak > 1 ? 's' : ''} nesta sequência`
+            ? t(savedInStreak > 1 ? 'shields.usedMany' : 'shields.usedOne', {
+                count: savedInStreak,
+              })
             : ''}
         </Text>
       </View>
-      <Text style={typography.caption}>
-        Um escudo protege sozinho um dia perdido além da folga da semana (até 7 dias atrás), e o
-        streak continua.
-      </Text>
+      <Text style={typography.caption}>{t('shields.rule')}</Text>
       <FormMessage text={error} />
       <Button
-        title={full ? 'Escudos no máximo' : `Comprar escudo · ${shields.price} Cristais`}
+        title={full ? t('shields.full') : t('shields.buy', { price: shields.price })}
         onPress={buy}
         loading={buying}
         disabled={full}
@@ -298,31 +305,42 @@ function formatDay(date: string) {
 }
 
 function WeekRow({ label, week }: { label: string; week: WeekSummary }) {
+  const { t } = useT();
   const pct = Math.round(week.rate * 100);
   return (
     <View style={styles.week}>
       <View style={styles.weekHeader}>
         <Text style={typography.body}>{label}</Text>
         <Text style={typography.caption}>
-          {formatDay(week.weekStart)} a {formatDay(week.weekEnd)}
+          {t('progress.weekRange', {
+            from: formatDay(week.weekStart),
+            to: formatDay(week.weekEnd),
+          })}
         </Text>
       </View>
       {week.scheduled === 0 ? (
-        <Text style={typography.caption}>Nenhuma missão agendada.</Text>
+        <Text style={typography.caption}>{t('progress.noScheduled')}</Text>
       ) : (
         <>
           <View
             style={styles.track}
             accessible
             accessibilityRole="progressbar"
-            accessibilityLabel={`${label}: ${pct}% das missões`}
+            accessibilityLabel={t('progress.weekA11y', { label, pct })}
             accessibilityValue={{ min: 0, max: 100, now: pct }}
           >
             <View style={[styles.fill, { width: `${pct}%` }]} />
           </View>
           <Text style={typography.caption}>
-            {week.completed} de {week.scheduled} missões ({pct}%) · {week.perfectDays}{' '}
-            {week.perfectDays === 1 ? 'dia perfeito' : 'dias perfeitos'} · {week.xp} XP
+            {t('progress.weekSummary', {
+              done: week.completed,
+              total: week.scheduled,
+              pct,
+              perfect: week.perfectDays,
+              perfectLabel:
+                week.perfectDays === 1 ? t('progress.perfectOne') : t('progress.perfectMany'),
+              xp: week.xp,
+            })}
           </Text>
         </>
       )}
@@ -330,27 +348,25 @@ function WeekRow({ label, week }: { label: string; week: WeekSummary }) {
   );
 }
 
-const REVIEW_STATUS: Record<WeeklyReview['status'], string> = {
-  proposed: 'aguardando sua decisão',
-  accepted: 'aceita',
-  rejected: 'recusada',
-};
+const REVIEW_STATUS = {
+  proposed: 'progress.statusProposed',
+  accepted: 'progress.statusAccepted',
+  rejected: 'progress.statusRejected',
+} as const satisfies Record<WeeklyReview['status'], string>;
 
 function AiReview({ review }: { review: WeeklyReview | null }) {
+  const { t, locale } = useT();
   if (!review) {
-    return (
-      <Text style={typography.caption}>
-        O Oráculo ainda não revisou sua semana. Consulte-o quando quiser (é preciso permitir a IA no
-        Perfil).
-      </Text>
-    );
+    return <Text style={typography.caption}>{t('progress.reviewNone')}</Text>;
   }
-  const date = new Date(review.createdAt).toLocaleDateString('pt-BR');
+  const date = new Date(review.createdAt).toLocaleDateString(locale);
   return (
     <View style={styles.week}>
-      <Text style={typography.body}>Revisão do Oráculo de {date}</Text>
+      <Text style={typography.body}>{t('progress.reviewOf', { date })}</Text>
       {review.summary ? <Text style={typography.body}>{review.summary}</Text> : null}
-      <Text style={typography.caption}>Status: {REVIEW_STATUS[review.status]}.</Text>
+      <Text style={typography.caption}>
+        {t('progress.reviewStatus', { status: t(REVIEW_STATUS[review.status]) })}
+      </Text>
     </View>
   );
 }

@@ -20,6 +20,7 @@ import { fetchMoodEntries, saveMoodEntry } from '@/features/mood/api';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 import { MoodFace } from './MoodFace';
+import { useT } from '@/i18n';
 
 const TAG_OPTIONS = MOOD_TAGS.map((t) => ({ value: t, label: MOOD_TAG_LABEL[t] }));
 
@@ -28,6 +29,7 @@ const TAG_OPTIONS = MOOD_TAGS.map((t) => ({ value: t, label: MOOD_TAG_LABEL[t] }
  * O primeiro registro do dia rende Cristais. Só o próprio usuário vê.
  */
 export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boolean }) {
+  const { t } = useT();
   const load = useCallback(async (): Promise<Result<MoodEntry | null>> => {
     const r = await fetchMoodEntries(date);
     if (r.error !== null) return r;
@@ -69,7 +71,7 @@ export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boole
     }
     void Haptics.selectionAsync();
     setMessage({
-      text: r.data.coins > 0 ? `Registrado! +${r.data.coins} Cristais.` : 'Registrado.',
+      text: r.data.coins > 0 ? t('mood.savedCoins', { coins: r.data.coins }) : t('mood.saved'),
       tone: 'info',
     });
     saved.setData({ date, mood: next.mood, tags: clean.tags, note: clean.note });
@@ -78,9 +80,7 @@ export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boole
 
   return (
     <View style={styles.card}>
-      <Text style={typography.label}>
-        {isToday ? 'COMO VOCÊ ESTÁ HOJE?' : 'COMO VOCÊ ESTAVA ONTEM?'}
-      </Text>
+      <Text style={typography.label}>{isToday ? t('mood.today') : t('mood.yesterday')}</Text>
       <View style={styles.faces} accessibilityRole="radiogroup">
         {MOODS.map((m) => {
           const selected = current.mood === m;
@@ -129,14 +129,14 @@ export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boole
               }
             />
             <Field
-              label="Nota (só você vê)"
+              label={t('mood.note')}
               value={current.note}
               onChangeText={(note) => setDraft({ ...current, note })}
-              placeholder="O que marcou o seu dia?"
+              placeholder={t('mood.notePlaceholder')}
               multiline
               maxLength={MOOD_NOTE_MAX}
             />
-            <Button title="Salvar" onPress={() => void save(current)} loading={busy} />
+            <Button title={t('mood.save')} onPress={() => void save(current)} loading={busy} />
           </View>
         ) : (
           <Pressable
@@ -146,8 +146,8 @@ export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boole
           >
             <Text style={styles.moreText}>
               {entry && (entry.tags.length > 0 || entry.note)
-                ? 'Ver sentimentos e nota'
-                : '＋ Adicionar sentimentos e nota (opcional)'}
+                ? t('mood.seeDetails')
+                : t('mood.addDetails')}
             </Text>
           </Pressable>
         ))}

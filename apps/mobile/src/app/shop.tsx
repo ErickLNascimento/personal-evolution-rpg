@@ -33,17 +33,13 @@ import {
 } from '@/features/shop/api';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 type Tab = 'rewards' | 'cosmetics';
-const TABS = [
-  { value: 'rewards' as const, label: 'Recompensas' },
-  { value: 'cosmetics' as const, label: 'Cosméticos' },
-];
-
-const DATE = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' });
 
 /** Loja: recompensas da vida real (criadas pelo usuário) e cosméticos do herói, pagos com Cristais. */
 function ShopScreen() {
+  const { t } = useT();
   const load = useCallback(() => fetchShop(), []);
   const shop = useFocusLoad<ShopData>(load);
   const [tab, setTab] = useState<Tab>('rewards');
@@ -63,10 +59,17 @@ function ShopScreen() {
   return (
     <StackScreen>
       <View style={styles.balance}>
-        <Text style={typography.label}>SEU SALDO</Text>
+        <Text style={typography.label}>{t('shop.balance')}</Text>
         <CrystalBadge amount={shop.data.crystals} />
       </View>
-      <Chips options={TABS} selected={[tab]} onToggle={setTab} />
+      <Chips
+        options={[
+          { value: 'rewards' as const, label: t('shop.rewards') },
+          { value: 'cosmetics' as const, label: t('shop.cosmetics') },
+        ]}
+        selected={[tab]}
+        onToggle={setTab}
+      />
       {tab === 'rewards' ? (
         <Rewards data={shop.data} onChange={shop.refresh} />
       ) : (
@@ -80,33 +83,36 @@ function ShopScreen() {
 // Recompensas personalizadas
 // ─────────────────────────────────────────────────────────────
 function Rewards({ data, onChange }: { data: ShopData; onChange: () => void }) {
+  const { t, locale } = useT();
   const [editing, setEditing] = useState<CustomReward | 'new' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   function redeem(r: CustomReward) {
-    Alert.alert(`Resgatar "${r.title}"?`, `Custa ${r.price} Cristais. Aproveite, você mereceu!`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Resgatar',
-        onPress: async () => {
-          setBusy(r.id);
-          setError(null);
-          const res = await redeemReward(r.id);
-          setBusy(null);
-          if (res.error !== null) return setError(res.error);
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          onChange();
+    Alert.alert(
+      t('shop.redeemTitle', { title: r.title }),
+      t('shop.redeemText', { price: r.price }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('shop.redeem'),
+          onPress: async () => {
+            setBusy(r.id);
+            setError(null);
+            const res = await redeemReward(r.id);
+            setBusy(null);
+            if (res.error !== null) return setError(res.error);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onChange();
+          },
         },
-      },
-    ]);
+      ],
+    );
   }
 
   return (
     <View style={styles.section}>
-      <Text style={typography.body}>
-        Crie prêmios da vida real e troque pelos Cristais que você ganha nas missões.
-      </Text>
+      <Text style={typography.body}>{t('shop.rewardsHint')}</Text>
       <FormMessage text={error} />
 
       {data.rewards.map((r) =>
@@ -124,19 +130,21 @@ function Rewards({ data, onChange }: { data: ShopData; onChange: () => void }) {
             <Text style={styles.emoji}>{r.emoji || '🎁'}</Text>
             <View style={styles.flex}>
               <Text style={typography.body}>{r.title}</Text>
-              <Text style={[typography.caption, { color: CRYSTAL }]}>{r.price} Cristais</Text>
+              <Text style={[typography.caption, { color: CRYSTAL }]}>
+                {t('common.crystals', { amount: r.price })}
+              </Text>
             </View>
             <Pressable
               onPress={() => setEditing(r)}
               accessibilityRole="button"
-              accessibilityLabel={`Editar ${r.title}`}
+              accessibilityLabel={t('shop.edit', { title: r.title })}
               hitSlop={8}
               style={styles.iconButton}
             >
               <Ionicons name="create-outline" size={20} color={colors.textSecondary} />
             </Pressable>
             <Button
-              title="Resgatar"
+              title={t('shop.redeem')}
               onPress={() => redeem(r)}
               loading={busy === r.id}
               disabled={data.crystals < r.price}
@@ -153,12 +161,12 @@ function Rewards({ data, onChange }: { data: ShopData; onChange: () => void }) {
           }}
         />
       ) : (
-        <Button title="Nova recompensa" variant="secondary" onPress={() => setEditing('new')} />
+        <Button title={t('shop.newReward')} variant="secondary" onPress={() => setEditing('new')} />
       )}
 
       {data.rewards.length === 0 && editing === null && (
         <View style={styles.section}>
-          <Text style={typography.label}>IDEIAS PARA COMEÇAR</Text>
+          <Text style={typography.label}>{t('shop.ideas')}</Text>
           {REWARD_SUGGESTIONS.map((s) => (
             <Pressable
               key={s.title}
@@ -169,7 +177,7 @@ function Rewards({ data, onChange }: { data: ShopData; onChange: () => void }) {
                 onChange();
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Adicionar ${s.title}, ${s.price} Cristais`}
+              accessibilityLabel={t('shop.addIdea', { title: s.title, price: s.price })}
               style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}
             >
               <Text style={styles.emoji}>{s.emoji}</Text>
@@ -182,11 +190,17 @@ function Rewards({ data, onChange }: { data: ShopData; onChange: () => void }) {
 
       {data.redemptions.length > 0 && (
         <View style={styles.section}>
-          <Text style={typography.label}>ÚLTIMOS RESGATES</Text>
+          <Text style={typography.label}>{t('shop.history')}</Text>
           {data.redemptions.map((h) => (
             <Text key={h.id} style={typography.caption}>
-              {h.emoji || '🎁'} {h.title} · {h.price} Cristais ·{' '}
-              {DATE.format(new Date(h.redeemedAt))}
+              {t('shop.historyRow', {
+                emoji: h.emoji || '🎁',
+                title: h.title,
+                price: h.price,
+                date: new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(
+                  new Date(h.redeemedAt),
+                ),
+              })}
             </Text>
           ))}
         </View>
@@ -196,6 +210,7 @@ function Rewards({ data, onChange }: { data: ShopData; onChange: () => void }) {
 }
 
 function RewardForm({ initial, onDone }: { initial?: CustomReward; onDone: () => void }) {
+  const { t } = useT();
   const [emoji, setEmoji] = useState(initial?.emoji ?? '');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [price, setPrice] = useState(initial ? String(initial.price) : '');
@@ -226,7 +241,7 @@ function RewardForm({ initial, onDone }: { initial?: CustomReward; onDone: () =>
       <View style={styles.formRow}>
         <View style={styles.emojiField}>
           <Field
-            label="Emoji"
+            label={t('shop.emoji')}
             value={emoji}
             onChangeText={setEmoji}
             placeholder="🎁"
@@ -235,27 +250,31 @@ function RewardForm({ initial, onDone }: { initial?: CustomReward; onDone: () =>
         </View>
         <View style={styles.flex}>
           <Field
-            label="Recompensa"
+            label={t('shop.reward')}
             value={title}
             onChangeText={setTitle}
-            placeholder="Ver um episódio"
+            placeholder={t('shop.rewardPlaceholder')}
             maxLength={60}
           />
         </View>
       </View>
       <Field
-        label={`Preço (${REWARD_PRICE_MIN} a ${REWARD_PRICE_MAX} Cristais)`}
+        label={t('shop.price', { min: REWARD_PRICE_MIN, max: REWARD_PRICE_MAX })}
         value={price}
         onChangeText={(t) => setPrice(t.replace(/\D/g, ''))}
         keyboardType="number-pad"
         placeholder="50"
       />
       <FormMessage text={error} />
-      <Button title={initial ? 'Salvar' : 'Criar recompensa'} onPress={save} loading={saving} />
+      <Button
+        title={initial ? t('shop.save') : t('shop.createReward')}
+        onPress={save}
+        loading={saving}
+      />
       {initial ? (
-        <Button title="Apagar recompensa" variant="danger" onPress={remove} />
+        <Button title={t('shop.deleteReward')} variant="danger" onPress={remove} />
       ) : (
-        <Button title="Cancelar" variant="secondary" onPress={onDone} />
+        <Button title={t('common.cancel')} variant="secondary" onPress={onDone} />
       )}
     </View>
   );
@@ -271,6 +290,7 @@ const SLOT_KEY: Record<'aura' | 'outfit' | 'hairColor', 'aura' | 'outfit' | 'hai
 };
 
 function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => void }) {
+  const { t } = useT();
   const { hero, save } = useHero();
   const { profile, refresh } = useProfile();
   const owned = profile?.cosmetics ?? new Set<string>();
@@ -291,29 +311,33 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
   }
 
   function buy(slot: HeroSlot, item: HeroItem) {
-    Alert.alert(`Comprar ${item.label}?`, `Custa ${item.price} Cristais.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Comprar',
-        onPress: async () => {
-          setBusy(item.id);
-          setError(null);
-          const r = await buyCosmetic(item.id);
-          if (r.error !== null) {
+    Alert.alert(
+      t('shop.buyTitle', { item: item.label }),
+      t('shop.buyText', { price: item.price ?? 0 }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('shop.buy'),
+          onPress: async () => {
+            setBusy(item.id);
+            setError(null);
+            const r = await buyCosmetic(item.id);
+            if (r.error !== null) {
+              setBusy(null);
+              return setError(r.error);
+            }
+            await refresh();
             setBusy(null);
-            return setError(r.error);
-          }
-          await refresh();
-          setBusy(null);
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          onChange();
-          Alert.alert(`${item.label} é seu!`, 'Quer usar agora?', [
-            { text: 'Depois', style: 'cancel' },
-            { text: 'Usar agora', onPress: () => void equip(slot, item) },
-          ]);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onChange();
+            Alert.alert(t('shop.yours', { item: item.label }), t('shop.useNow'), [
+              { text: t('shop.later'), style: 'cancel' },
+              { text: t('shop.useNowButton'), onPress: () => void equip(slot, item) },
+            ]);
+          },
         },
-      },
-    ]);
+      ],
+    );
   }
 
   return (
@@ -321,7 +345,7 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
       <View style={styles.preview}>
         <HeroAvatar hero={look} size={120} animated />
         <Text style={typography.caption}>
-          {preview ? `Prévia: ${preview.item.label}` : 'Toque num item para ver no seu herói.'}
+          {preview ? t('shop.preview', { item: preview.item.label }) : t('shop.tapToPreview')}
         </Text>
       </View>
       <FormMessage text={error} />
@@ -337,7 +361,10 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
                 key={item.id}
                 onPress={() => setPreview(previewing ? null : { slot, item })}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.label}, ${has ? 'comprado' : `${item.price} Cristais`}`}
+                accessibilityLabel={t('shop.itemA11y', {
+                  item: item.label,
+                  status: has ? t('shop.owned') : t('common.crystals', { amount: item.price ?? 0 }),
+                })}
                 style={({ pressed }) => [
                   styles.cosmetic,
                   previewing && styles.previewing,
@@ -348,7 +375,7 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
                 <Text style={[typography.body, styles.flex]}>{item.label}</Text>
                 {has ? (
                   <Button
-                    title={equipped ? 'Em uso' : 'Usar'}
+                    title={equipped ? t('shop.inUse') : t('shop.use')}
                     variant="secondary"
                     disabled={equipped}
                     loading={busy === item.id}
@@ -367,10 +394,7 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
           })}
         </View>
       ))}
-      <Text style={typography.caption}>
-        Cosméticos são só visuais: não mudam XP nem Cristais. Depois de comprados, também aparecem
-        na tela do herói.
-      </Text>
+      <Text style={typography.caption}>{t('shop.cosmeticsHint')}</Text>
     </View>
   );
 }

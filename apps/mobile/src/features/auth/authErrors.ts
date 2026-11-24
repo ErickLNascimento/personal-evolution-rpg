@@ -1,20 +1,21 @@
 import type { AuthError } from '@supabase/supabase-js';
+import { t, type TKey } from '@/i18n';
 
-const MESSAGES: Record<string, string> = {
-  invalid_credentials: 'E-mail ou senha incorretos.',
-  email_not_confirmed: 'Confirme seu e-mail pelo link que enviamos antes de entrar.',
-  user_already_exists: 'Já existe uma conta com este e-mail.',
-  email_exists: 'Já existe uma conta com este e-mail.',
-  weak_password: 'Senha fraca. Use uma senha mais longa e menos óbvia.',
-  over_email_send_rate_limit: 'Muitas tentativas. Espere alguns minutos e tente de novo.',
-  over_request_rate_limit: 'Muitas tentativas. Espere alguns minutos e tente de novo.',
-  signup_disabled: 'Novos cadastros estão desativados no momento.',
+const MESSAGES: Record<string, TKey> = {
+  invalid_credentials: 'auth.errInvalid',
+  email_not_confirmed: 'auth.errNotConfirmed',
+  user_already_exists: 'auth.errExists',
+  email_exists: 'auth.errExists',
+  weak_password: 'auth.errWeak',
+  over_email_send_rate_limit: 'auth.errRate',
+  over_request_rate_limit: 'auth.errRate',
+  signup_disabled: 'auth.errSignupOff',
 };
 
 /** Mensagem em português para erros do Supabase Auth. */
 export function authErrorMessage(error: AuthError | Error): string {
   const code = 'code' in error && typeof error.code === 'string' ? error.code : undefined;
-  if (code && MESSAGES[code]) return MESSAGES[code];
-  if (/network|fetch/i.test(error.message)) return 'Sem conexão. Verifique a internet e tente de novo.';
-  return 'Não foi possível concluir. Tente de novo.';
+  if (code && MESSAGES[code]) return t(MESSAGES[code]);
+  if (/network|fetch/i.test(error.message)) return t('common.noConnection');
+  return t('auth.errGeneric');
 }
