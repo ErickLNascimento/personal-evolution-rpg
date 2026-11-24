@@ -85,6 +85,7 @@ function RootNavigator() {
           name="promotion"
           options={{ ...formHeader, title: 'Promoção', presentation: 'modal' }}
         />
+        <Stack.Screen name="feedback" options={{ ...formHeader, title: 'Enviar feedback' }} />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !onboarded}>
         <Stack.Screen name="onboarding" />

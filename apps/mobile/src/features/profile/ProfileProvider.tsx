@@ -31,6 +31,12 @@ export interface Profile {
   heroPath: HeroPathState;
   /** Última troca de caminho ou ramo (início da espera de 14 dias). */
   pathChangedAt: Date | null;
+  /** Quando viu (ou pulou) o tour do app pela última vez. */
+  tourSeenAt: Date | null;
+  /** Última versão do tour que viu (0 = nunca). */
+  tourSeenVersion: number;
+  /** Versão atual do tour, definida pela equipe (app_settings); null se não carregou. */
+  tourVersion: number | null;
   /** Título escolhido para exibir (null = o de nível atual). */
   equippedTitle: string | null;
   /** Títulos especiais já concedidos pelo banco. */
@@ -40,6 +46,7 @@ export interface Profile {
 /** O que vem de outras tabelas além de `profiles`. */
 interface ProfileExtras {
   earnedTitles: ReadonlySet<string>;
+  tourVersion: number | null;
 }
 
 interface ProfileRow {
@@ -57,6 +64,8 @@ interface ProfileRow {
   branch: string | null;
   stage: number;
   path_changed_at: string | null;
+  tour_seen_at: string | null;
+  tour_seen_version: number;
 }
 
 export type ProfileChanges = Partial<{
@@ -68,6 +77,8 @@ export type ProfileChanges = Partial<{
   hero: HeroLook;
   equipped_title: string | null;
   race: Race;
+  tour_seen_at: string | null;
+  tour_seen_version: number;
 }>;
 
 export interface OnboardingInput {
@@ -79,7 +90,7 @@ export interface OnboardingInput {
 }
 
 const COLUMNS =
-  'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero, equipped_title, race, path, branch, stage, path_changed_at';
+  'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero, equipped_title, race, path, branch, stage, path_changed_at, tour_seen_at, tour_seen_version';
 
 function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
   return {
@@ -100,6 +111,8 @@ function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
       stage: Math.max(0, Math.min(5, row.stage ?? 0)) as Tier,
     },
     pathChangedAt: row.path_changed_at ? new Date(row.path_changed_at) : null,
+    tourSeenAt: row.tour_seen_at ? new Date(row.tour_seen_at) : null,
+    tourSeenVersion: row.tour_seen_version ?? 0,
   };
 }
 
@@ -107,14 +120,16 @@ async function fetchProfile(
   userId: string,
 ): Promise<{ profile: Profile | null; error: string | null }> {
   if (!supabase) return { profile: null, error: 'Supabase não configurado.' };
-  const [profile, titles] = await Promise.all([
+  const [profile, titles, tour] = await Promise.all([
     supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>(),
     supabase.from('user_titles').select('title_id').returns<{ title_id: string }[]>(),
+    supabase.from('app_settings').select('value').eq('key', 'tour_version').maybeSingle<{ value: number }>(),
   ]);
   if (profile.error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
   return {
     profile: fromRow(profile.data, {
       earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
+      tourVersion: tour.data?.value ?? null,
     }),
     error: null,
   };
@@ -193,8 +208,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         profile: fromRow(
           data,
           prev?.userId === userId && prev.profile
-            ? { earnedTitles: prev.profile.earnedTitles }
-            : { earnedTitles: new Set() },
+            ? { earnedTitles: prev.profile.earnedTitles, tourVersion: prev.profile.tourVersion }
+            : { earnedTitles: new Set(), tourVersion: null },
         ),
         error: null,
       }));

@@ -972,6 +972,62 @@ do $$ begin
   perform pg_temp.check((public.my_hero_path()->>'path') is null, 'B ainda não escolheu caminho');
 end $$;
 
+-- ── Tour e feedback ──────────────────────────────────────────
+select set_config('request.jwt.claim.sub', '88888888-8888-8888-8888-888888888888', true);
+set local role authenticated;
+
+do $$ begin
+  update public.profiles set tour_seen_at = now(), tour_seen_version = 1;
+  perform pg_temp.check((select tour_seen_at from public.profiles) is not null, 'marca o tour como visto');
+  perform pg_temp.check(
+    (select value from public.app_settings where key = 'tour_version') = 1, 'versão do tour é pública');
+  begin
+    update public.app_settings set value = 99 where key = 'tour_version';
+    raise exception 'FALHOU: usuário mudou a versão do tour';
+  exception when insufficient_privilege then null;
+  end;
+
+  insert into public.feedback (kind, message, app_version, platform) values ('bug', 'O herói some ao rolar', '0.1.0', 'android');
+  perform pg_temp.check((select count(*) from public.feedback) = 1, 'envia e lê o próprio feedback');
+  perform pg_temp.check((select user_id from public.feedback) = '88888888-8888-8888-8888-888888888888', 'feedback fica no nome de quem enviou');
+
+  begin
+    insert into public.feedback (user_id, kind, message) values ('22222222-2222-2222-2222-222222222222', 'ideia', 'em nome de outra pessoa');
+    raise exception 'FALHOU: enviou feedback em nome de outro usuário';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.feedback (kind, message) values ('ideia', '  ');
+    raise exception 'FALHOU: aceitou feedback vazio';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.feedback (kind, message) values ('reclamacao', 'tipo desconhecido');
+    raise exception 'FALHOU: aceitou tipo desconhecido';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.feedback set message = 'editado';
+    raise exception 'FALHOU: editou feedback enviado';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.feedback) = 0, 'B não lê o feedback de Gil');
+end $$;
+
+reset role;
+set local role anon;
+do $$ begin
+  begin
+    insert into public.feedback (kind, message) values ('bug', 'sem login');
+    raise exception 'FALHOU: visitante enviou feedback';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

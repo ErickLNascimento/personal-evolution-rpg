@@ -12,3 +12,5 @@ export * from './reminders';
 export * from './hero';
 export * from './titles';
 export * from './paths';
+export * from './feedback';
+export * from './tour';

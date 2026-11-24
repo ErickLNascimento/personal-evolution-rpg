@@ -4,6 +4,7 @@ import {
   isHeroUnset,
   heroLook,
   NO_PATH,
+  shouldShowTour,
   stageName,
   type DayProgress,
   type LevelProgress,
@@ -25,6 +26,7 @@ import { Placeholder, Screen } from '@/components/Screen';
 import { TodaySkeleton } from '@/components/Skeleton';
 import { CompactHeroBar } from '@/components/today/CompactHeroBar';
 import { PromotionBanner } from '@/components/today/PromotionBanner';
+import { AppTour } from '@/components/tour/AppTour';
 import { DayRing } from '@/components/today/DayRing';
 import { DaySwitch } from '@/components/today/DaySwitch';
 import { XpBar } from '@/components/XpBar';
@@ -78,8 +80,20 @@ function DemoToday() {
 function RealToday() {
   const [choice, setChoice] = useState<DayChoice>('today');
   const day = useDay(choice);
-  const { profile } = useProfile();
-  const hero = heroLook(profile?.hero, day.level.level, profile?.heroPath ?? NO_PATH, profile?.race);
+  const { profile, update } = useProfile();
+  // Tour no primeiro acesso: some na hora ao pular/terminar e fica salvo no perfil.
+  const [tourClosed, setTourClosed] = useState(false);
+  // Aparece para contas novas e antigas sempre que a equipe aumenta a versão do tour.
+  const showTour =
+    Boolean(profile) &&
+    !tourClosed &&
+    shouldShowTour(profile?.tourSeenVersion ?? 0, profile?.tourVersion ?? null);
+  const hero = heroLook(
+    profile?.hero,
+    day.level.level,
+    profile?.heroPath ?? NO_PATH,
+    profile?.race,
+  );
   const scrollY = useSharedValue(0);
   // Promoção disponível? (o banco confere nível e missões na área do caminho)
   const pathLoad = useCallback(() => fetchHeroPath(), []);
@@ -96,105 +110,123 @@ function RealToday() {
 
   const ready = !day.loading && !day.failed;
   return (
-    <Screen
-      title="Hoje"
-      onRefresh={day.refresh}
-      refreshing={day.refreshing}
-      scrollY={scrollY}
-      overlay={
-        ready ? (
-          <CompactHeroBar hero={hero} level={day.level} progress={day.progress} scrollY={scrollY} />
-        ) : undefined
-      }
-    >
-      {day.loading ? (
-        <TodaySkeleton />
-      ) : day.failed ? (
-        <>
-          <FormMessage text={day.error} />
-          <Button title="Tentar de novo" onPress={day.refresh} variant="secondary" />
-        </>
-      ) : (
-        <>
-          <DaySwitch
-            days={day.days}
-            selected={day.date}
-            onSelect={(d) => setChoice(d === todayDate ? 'today' : 'yesterday')}
-          />
-          {choice === 'yesterday' && (
-            <Text style={typography.caption}>
-              Esqueceu de marcar algo ontem? Dá para registrar até o fim de hoje.
-            </Text>
-          )}
-          {profile && !heroPath.path ? (
-            <PromotionBanner
-              title="Escolha seu caminho"
-              subtitle="Seu herói evolui conforme a área da vida que você cuida."
-              onPress={() => router.push('/path')}
+    <>
+      <AppTour
+        visible={showTour}
+        hero={hero}
+        onClose={() => {
+          setTourClosed(true);
+          void update({
+            tour_seen_at: new Date().toISOString(),
+            tour_seen_version: profile?.tourVersion ?? 0,
+          });
+        }}
+      />
+      <Screen
+        title="Hoje"
+        onRefresh={day.refresh}
+        refreshing={day.refreshing}
+        scrollY={scrollY}
+        overlay={
+          ready ? (
+            <CompactHeroBar
+              hero={hero}
+              level={day.level}
+              progress={day.progress}
+              scrollY={scrollY}
             />
-          ) : pathInfo.data?.canPromote && heroPath.path && pathInfo.data.next ? (
-            <PromotionBanner
-              title="Promoção disponível!"
-              subtitle={
-                pathInfo.data.needsBranch
-                  ? 'Escolha o ramo do seu herói.'
-                  : `Toque para virar ${stageName(heroPath.path, heroPath.branch, pathInfo.data.next.tier, hero.form)}.`
+          ) : undefined
+        }
+      >
+        {day.loading ? (
+          <TodaySkeleton />
+        ) : day.failed ? (
+          <>
+            <FormMessage text={day.error} />
+            <Button title="Tentar de novo" onPress={day.refresh} variant="secondary" />
+          </>
+        ) : (
+          <>
+            <DaySwitch
+              days={day.days}
+              selected={day.date}
+              onSelect={(d) => setChoice(d === todayDate ? 'today' : 'yesterday')}
+            />
+            {choice === 'yesterday' && (
+              <Text style={typography.caption}>
+                Esqueceu de marcar algo ontem? Dá para registrar até o fim de hoje.
+              </Text>
+            )}
+            {profile && !heroPath.path ? (
+              <PromotionBanner
+                title="Escolha seu caminho"
+                subtitle="Seu herói evolui conforme a área da vida que você cuida."
+                onPress={() => router.push('/path')}
+              />
+            ) : pathInfo.data?.canPromote && heroPath.path && pathInfo.data.next ? (
+              <PromotionBanner
+                title="Promoção disponível!"
+                subtitle={
+                  pathInfo.data.needsBranch
+                    ? 'Escolha o ramo do seu herói.'
+                    : `Toque para virar ${stageName(heroPath.path, heroPath.branch, pathInfo.data.next.tier, hero.form)}.`
+                }
+                onPress={() => router.push('/promotion')}
+              />
+            ) : null}
+            <CrystalToast gain={day.crystalGain} />
+            {day.notice ? <PerfectDayBanner text={day.notice} /> : null}
+            <FormMessage text={day.error} />
+            <DayView
+              top={
+                <Animated.View style={heroStyle}>
+                  <HeroCard
+                    hero={hero}
+                    level={day.level}
+                    name={profile?.displayName ?? null}
+                    unset={isHeroUnset(profile?.hero)}
+                    onPress={() => router.push('/hero')}
+                    crystals={day.crystals}
+                    heroPath={profile?.heroPath}
+                    titleId={displayedTitle(
+                      profile?.equippedTitle,
+                      day.level.level,
+                      profile?.earnedTitles ?? new Set(),
+                    )}
+                    cheer={day.cheer}
+                    aside={<DayRing progress={day.progress} label={ringLabel} />}
+                  />
+                </Animated.View>
               }
-              onPress={() => router.push('/promotion')}
+              missions={day.missions}
+              progress={day.progress}
+              level={day.level}
+              xpTable={day.xpTable}
+              pending={day.pending}
+              awardedXp={day.awardedXp}
+              flashFor={day.flashFor}
+              onToggle={day.toggle}
+              empty={
+                day.hasHabits ? (
+                  <Placeholder
+                    text={
+                      choice === 'today'
+                        ? 'Nenhuma missão hoje. Aproveite o descanso!'
+                        : 'Nenhuma missão ontem.'
+                    }
+                  />
+                ) : (
+                  <>
+                    <Placeholder text="Você ainda não tem hábitos. Crie o primeiro e ele vira uma missão nos dias da agenda." />
+                    <Button title="Criar hábito" onPress={() => router.push('/habit/new')} />
+                  </>
+                )
+              }
             />
-          ) : null}
-          <CrystalToast gain={day.crystalGain} />
-          {day.notice ? <PerfectDayBanner text={day.notice} /> : null}
-          <FormMessage text={day.error} />
-          <DayView
-            top={
-              <Animated.View style={heroStyle}>
-                <HeroCard
-                  hero={hero}
-                  level={day.level}
-                  name={profile?.displayName ?? null}
-                  unset={isHeroUnset(profile?.hero)}
-                  onPress={() => router.push('/hero')}
-                  crystals={day.crystals}
-                  heroPath={profile?.heroPath}
-                  titleId={displayedTitle(
-                    profile?.equippedTitle,
-                    day.level.level,
-                    profile?.earnedTitles ?? new Set(),
-                  )}
-                  cheer={day.cheer}
-                  aside={<DayRing progress={day.progress} label={ringLabel} />}
-                />
-              </Animated.View>
-            }
-            missions={day.missions}
-            progress={day.progress}
-            level={day.level}
-            xpTable={day.xpTable}
-            pending={day.pending}
-            awardedXp={day.awardedXp}
-            flashFor={day.flashFor}
-            onToggle={day.toggle}
-            empty={
-              day.hasHabits ? (
-                <Placeholder
-                  text={
-                    choice === 'today'
-                      ? 'Nenhuma missão hoje. Aproveite o descanso!'
-                      : 'Nenhuma missão ontem.'
-                  }
-                />
-              ) : (
-                <>
-                  <Placeholder text="Você ainda não tem hábitos. Crie o primeiro e ele vira uma missão nos dias da agenda." />
-                  <Button title="Criar hábito" onPress={() => router.push('/habit/new')} />
-                </>
-              )
-            }
-          />
-        </>
-      )}
-    </Screen>
+          </>
+        )}
+      </Screen>
+    </>
   );
 }
 

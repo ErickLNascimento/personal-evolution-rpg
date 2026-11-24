@@ -18,7 +18,9 @@ import { ActivityIndicator, Alert, StyleSheet, Switch, Text, View } from 'react-
 import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
+import { AppTour } from '@/components/tour/AppTour';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/useProfile';
 import { deviceTimeZone } from '@/lib/deviceTimeZone';
 import { supabase } from '@/lib/supabase';
@@ -39,6 +41,8 @@ export default function ProfileScreen() {
 function AccountProfile() {
   const { session } = useAuth();
   const { profile, loading, error, reload, update } = useProfile();
+  const { hero } = useHero();
+  const [tourOpen, setTourOpen] = useState(false);
 
   if (loading && !profile) {
     return (
@@ -85,6 +89,12 @@ function AccountProfile() {
           onChange={(on) => update({ ai_consent_at: on ? new Date().toISOString() : null })}
         />
       </Section>
+
+      <Section title="AJUDA E FEEDBACK">
+        <Button title="Enviar feedback" onPress={() => router.push('/feedback')} />
+        <Button title="Ver o tour do app" onPress={() => setTourOpen(true)} variant="secondary" />
+      </Section>
+      <AppTour visible={tourOpen} hero={hero} onClose={() => setTourOpen(false)} />
 
       <SignOutButton />
       <Button title="Excluir minha conta" onPress={() => router.push('/delete-account')} variant="secondary" />
