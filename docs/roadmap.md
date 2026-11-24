@@ -30,7 +30,7 @@ Objetivo: enxergar os problemas dos testadores e proteger a retenção nos prime
 
 | # | Item | Observação |
 |---|---|---|
-| 3.1 | **Social**: amigos, grupo, streak compartilhado | +22% de conclusão diária no Duolingo; a parte mais cara de construir. |
+| 3.1 | **Social**: amigos, grupo, streak compartilhado | +22% de conclusão diária no Duolingo; a parte mais cara de construir. Feito: amigos (código e busca), grupos de até 6 com chefe em conjunto; amigos veem só o resumo. |
 | 3.2 | **Widget na tela inicial** | Herói e missões do dia sem abrir o app (Finch, Streaks). Exige código nativo. |
 | 3.3 | **Integração com saúde** (Health Connect, Apple Health) | Missões de passos e sono concluídas sozinhas. |
 | 3.4 | **Diário ou check-in de humor** | Combina com a revisão semanal do Oráculo (Finch). |
