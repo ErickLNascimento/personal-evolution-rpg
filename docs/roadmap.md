@@ -34,7 +34,7 @@ Objetivo: enxergar os problemas dos testadores e proteger a retenção nos prime
 | 3.2 | **Widget na tela inicial** | Herói e missões do dia sem abrir o app (Finch, Streaks). Exige código nativo. |
 | 3.3 | **Integração com saúde** (Health Connect, Apple Health) | Missões de passos e sono concluídas sozinhas. |
 | 3.4 | **Diário ou check-in de humor** | Combina com a revisão semanal do Oráculo (Finch). Feito: check-in na tela Hoje (humor, sentimentos, nota; +3 Cristais no dia) e histórico com a relação humor × missões em Progresso. |
-| 3.5 | **Lançamento**: monetização, iOS (TestFlight), exportar dados (LGPD), inglês | Antes da publicação nas lojas. Exportar dados: feito (Perfil → Seus dados, flag `feature_data_export`). |
+| 3.5 | **Lançamento**: monetização, iOS (TestFlight), exportar dados (LGPD), inglês | Antes da publicação nas lojas. Exportar dados: código pronto e **em espera** (sem deploy por decisão do produto; flag `feature_data_export` desligada; falta publicar `delete-account` e testar o download no Storage). |
 
 ## Tarefa: feature flags para os recursos existentes (feita)
 
