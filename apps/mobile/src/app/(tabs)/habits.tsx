@@ -1,5 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { describeSchedule, DIFFICULTY_LABEL, formatReminderTime, parseReminderTime, xpForHabit } from '@per/domain';
+import {
+  describeSchedule,
+  DIFFICULTY_LABEL,
+  formatReminderTime,
+  parseReminderTime,
+  xpForHabit,
+} from '@per/domain';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -7,7 +13,13 @@ import { Button, FormMessage } from '@/components/Form';
 import { OracleCallout } from '@/components/oracle/OracleCallout';
 import { Placeholder, Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { listHabits, listObjectives, type HabitRecord, type ObjectiveRecord, type Result } from '@/features/habits/api';
+import {
+  listHabits,
+  listObjectives,
+  type HabitRecord,
+  type ObjectiveRecord,
+  type Result,
+} from '@/features/habits/api';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 
@@ -23,7 +35,9 @@ export default function HabitsScreen() {
   return <HabitList />;
 }
 
-async function loadHabitList(): Promise<Result<{ habits: HabitRecord[]; objectives: ObjectiveRecord[] }>> {
+async function loadHabitList(): Promise<
+  Result<{ habits: HabitRecord[]; objectives: ObjectiveRecord[] }>
+> {
   const [h, o] = await Promise.all([listHabits(), listObjectives()]);
   if (h.error !== null) return h;
   // Sem os objetivos, a lista ainda funciona (só não mostra o nome do objetivo).
@@ -73,7 +87,11 @@ function HabitList() {
       ) : null}
 
       {active.map((h) => (
-        <HabitRow key={h.id} habit={h} objective={h.objectiveId ? objectiveTitle.get(h.objectiveId) : undefined} />
+        <HabitRow
+          key={h.id}
+          habit={h}
+          objective={h.objectiveId ? objectiveTitle.get(h.objectiveId) : undefined}
+        />
       ))}
 
       {archived.length > 0 && (
@@ -85,7 +103,11 @@ function HabitList() {
             style={styles.archivedToggle}
           >
             <Text style={typography.label}>ARQUIVADOS ({archived.length})</Text>
-            <Ionicons name={showArchived ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+            <Ionicons
+              name={showArchived ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textSecondary}
+            />
           </Pressable>
           {showArchived && archived.map((h) => <HabitRow key={h.id} habit={h} archived />)}
         </>
@@ -94,9 +116,19 @@ function HabitList() {
   );
 }
 
-function HabitRow({ habit, objective, archived = false }: { habit: HabitRecord; objective?: string; archived?: boolean }) {
+function HabitRow({
+  habit,
+  objective,
+  archived = false,
+}: {
+  habit: HabitRecord;
+  objective?: string;
+  archived?: boolean;
+}) {
   const details = [DIFFICULTY_LABEL[habit.difficulty], describeSchedule(habit.scheduleDays)];
-  if (habit.targetQty !== null) details.push(`${String(habit.targetQty).replace('.', ',')} ${habit.unit ?? ''}`.trim());
+  if (habit.kind !== 'do') details.unshift(habit.kind === 'avoid' ? 'Evitar' : 'Contador');
+  if (habit.targetQty !== null)
+    details.push(`${String(habit.targetQty).replace('.', ',')} ${habit.unit ?? ''}`.trim());
   const reminder = parseReminderTime(habit.reminderTime);
   if (reminder && !archived) details.push(`lembrete ${formatReminderTime(reminder)}`);
 
@@ -105,7 +137,9 @@ function HabitRow({ habit, objective, archived = false }: { habit: HabitRecord; 
       onPress={() => router.push({ pathname: '/habit/[id]', params: { id: habit.id } })}
       accessibilityRole="button"
       accessibilityLabel={`${habit.title}, ${details.join(', ')}${objective ? `, objetivo ${objective}` : ''}`}
-      accessibilityHint={archived ? 'Ver detalhes e estatísticas' : 'Ver estatísticas, editar ou arquivar'}
+      accessibilityHint={
+        archived ? 'Ver detalhes e estatísticas' : 'Ver estatísticas, editar ou arquivar'
+      }
       style={({ pressed }) => [styles.row, archived && styles.archived, pressed && styles.pressed]}
     >
       <View style={styles.body}>

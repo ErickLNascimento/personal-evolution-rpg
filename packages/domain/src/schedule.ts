@@ -1,4 +1,5 @@
 import { addDays, compareLocalDates, weekday, type LocalDate } from './dates';
+import type { HabitKind } from './habits';
 import type { Difficulty } from './xp';
 
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -13,6 +14,11 @@ export interface Habit {
   startDate: LocalDate;
   /** Último dia em que valeu, se foi arquivado. */
   archivedOn?: LocalDate | null;
+  /** Tipo do hábito; ausente = `do`. */
+  kind?: HabitKind;
+  /** Meta por dia (no contador, a quantidade que conclui a missão). */
+  targetQty?: number | null;
+  unit?: string | null;
 }
 
 export function isHabitScheduledOn(habit: Habit, date: LocalDate): boolean {

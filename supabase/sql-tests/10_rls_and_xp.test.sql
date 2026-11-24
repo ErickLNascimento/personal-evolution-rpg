@@ -1202,6 +1202,90 @@ do $$ begin
     'B não edita recompensa de outro');
 end $$;
 
+-- ── Tipos de hábito: evitar e contador ──────────────────────
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+insert into public.habits (id, title, kind, target_qty, unit, start_date) values
+  ('aaaaaaaa-3333-3333-3333-333333333333', 'Beber água', 'count', 3, 'copos', pg_temp.today() - 1);
+insert into public.habits (id, title, kind, start_date) values
+  ('aaaaaaaa-4444-4444-4444-444444444444', 'Não fumar', 'avoid', pg_temp.today());
+
+do $$
+declare
+  r jsonb;
+  xp0 integer := public.my_total_xp();
+begin
+  begin
+    insert into public.habits (title, kind, start_date) values ('Sem meta', 'count', pg_temp.today());
+    raise exception 'FALHOU: contador sem meta';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.habits (title, kind, target_qty, start_date) values ('Meta quebrada', 'count', 2.5, pg_temp.today());
+    raise exception 'FALHOU: contador com meta fracionada';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.habit_counts (user_id, habit_id, local_date, qty)
+    values ('aaaaaaaa-1111-1111-1111-111111111111', 'aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 3);
+    raise exception 'FALHOU: app gravou contagem direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 1);
+  perform pg_temp.check((r->>'done')::boolean = false and r->'log' = 'null'::jsonb, '1 de 3 ainda não conclui');
+  perform pg_temp.check(public.my_total_xp() = xp0, 'progresso parcial não dá XP');
+  perform pg_temp.check(not exists (select 1 from public.habit_logs where habit_id = 'aaaaaaaa-3333-3333-3333-333333333333'),
+    'progresso parcial não cria registro');
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 3);
+  perform pg_temp.check((r->>'done')::boolean and (r->'log'->>'logged')::boolean, 'bater a meta conclui a missão');
+  perform pg_temp.check(public.my_total_xp() > xp0, 'bater a meta dá o XP (via log_habit)');
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 4);
+  perform pg_temp.check(r->'log' = 'null'::jsonb, 'passar da meta não dá XP de novo');
+  perform pg_temp.check((select qty from public.habit_logs where habit_id = 'aaaaaaaa-3333-3333-3333-333333333333') = 4,
+    'registro guarda a contagem');
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 2);
+  perform pg_temp.check((r->'undo'->>'undone')::boolean, 'baixar da meta desfaz a missão');
+  perform pg_temp.check(public.my_total_xp() = xp0, 'desfazer estorna o XP');
+  perform pg_temp.check((select qty from public.habit_counts where habit_id = 'aaaaaaaa-3333-3333-3333-333333333333') = 2,
+    'contagem parcial fica salva');
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today() - 1, 3);
+  perform pg_temp.check((r->>'done')::boolean, 'contador também vale para ontem');
+  begin
+    perform public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today() - 2, 3);
+    raise exception 'FALHOU: contou fora da janela';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), -1);
+    raise exception 'FALHOU: contagem negativa';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.set_habit_count('aaaaaaaa-4444-4444-4444-444444444444', pg_temp.today(), 1);
+    raise exception 'FALHOU: contou hábito que não é contador';
+  exception when invalid_parameter_value then null;
+  end;
+
+  r := public.log_habit('aaaaaaaa-4444-4444-4444-444444444444', pg_temp.today());
+  perform pg_temp.check((r->>'logged')::boolean, 'hábito a evitar conclui com um toque');
+end $$;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.habit_counts) = 0, 'B não vê as contagens de Ivo');
+  begin
+    perform public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 3);
+    raise exception 'FALHOU: B contou hábito de outro';
+  exception when no_data_found then null;
+  end;
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

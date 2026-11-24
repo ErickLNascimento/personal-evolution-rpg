@@ -2,6 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
+  HABIT_KIND_HINT,
+  HABIT_KIND_LABEL,
+  HABIT_KINDS,
   OBJECTIVE_CATEGORIES,
   OBJECTIVE_CATEGORY_LABEL,
   toggleScheduleDay,
@@ -39,10 +42,12 @@ const CATEGORY_OPTIONS = OBJECTIVE_CATEGORIES.map((c) => ({
   value: c,
   label: OBJECTIVE_CATEGORY_LABEL[c],
 }));
+const KIND_OPTIONS = HABIT_KINDS.map((k) => ({ value: k, label: HABIT_KIND_LABEL[k] }));
 const NO_OBJECTIVE = '__none__';
 
 export const EMPTY_DRAFT: HabitDraft = {
   title: '',
+  kind: 'do',
   difficulty: 'easy',
   scheduleDays: [0, 1, 2, 3, 4, 5, 6],
   objectiveId: null,
@@ -73,6 +78,7 @@ export function HabitForm({
 
   const set = <K extends keyof HabitDraft>(key: K, value: HabitDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
+  const kind = draft.kind ?? 'do';
 
   async function submit() {
     const result = validateHabitDraft(draft);
@@ -110,6 +116,12 @@ export function HabitForm({
       )}
 
       <View style={styles.group}>
+        <Text style={typography.label}>TIPO</Text>
+        <Chips options={KIND_OPTIONS} selected={[kind]} onToggle={(v) => set('kind', v)} />
+        <Text style={typography.caption}>{HABIT_KIND_HINT[kind]}</Text>
+      </View>
+
+      <View style={styles.group}>
         <Text style={typography.label}>DIFICULDADE</Text>
         <Chips
           options={DIFFICULTY_OPTIONS}
@@ -135,16 +147,16 @@ export function HabitForm({
         error={errors.reminderTime}
       />
 
-      {showTarget ? (
+      {kind === 'avoid' ? null : kind === 'count' || showTarget ? (
         <View style={styles.group}>
           <View style={styles.row}>
             <View style={styles.flex}>
               <Field
-                label="Meta por dia"
+                label={kind === 'count' ? 'Vezes por dia' : 'Meta por dia'}
                 value={draft.targetQty}
                 onChangeText={(v) => set('targetQty', v)}
-                placeholder="quantidade"
-                keyboardType="decimal-pad"
+                placeholder={kind === 'count' ? 'ex.: 8' : 'quantidade'}
+                keyboardType={kind === 'count' ? 'number-pad' : 'decimal-pad'}
                 error={errors.targetQty}
               />
             </View>
@@ -153,23 +165,25 @@ export function HabitForm({
                 label="Unidade"
                 value={draft.unit}
                 onChangeText={(v) => set('unit', v)}
-                placeholder="unidade"
+                placeholder={kind === 'count' ? 'ex.: copos' : 'unidade'}
                 maxLength={20}
                 error={errors.unit}
               />
             </View>
           </View>
-          <Pressable
-            onPress={() => {
-              set('targetQty', '');
-              set('unit', '');
-              setShowTarget(false);
-            }}
-            accessibilityRole="button"
-            style={styles.linkButton}
-          >
-            <Text style={typography.caption}>Remover meta</Text>
-          </Pressable>
+          {kind === 'count' ? null : (
+            <Pressable
+              onPress={() => {
+                set('targetQty', '');
+                set('unit', '');
+                setShowTarget(false);
+              }}
+              accessibilityRole="button"
+              style={styles.linkButton}
+            >
+              <Text style={typography.caption}>Remover meta</Text>
+            </Pressable>
+          )}
         </View>
       ) : (
         <Pressable

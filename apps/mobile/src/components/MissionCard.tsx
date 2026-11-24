@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
+  countLabel,
   DEFAULT_XP_TABLE,
   DIFFICULTY_LABEL,
   missionXp,
@@ -33,6 +34,8 @@ export function MissionCard({
   busy = false,
   awardedXp,
   flash,
+  count,
+  onCount,
 }: {
   mission: Mission;
   onToggle: () => void;
@@ -43,8 +46,15 @@ export function MissionCard({
   awardedXp?: number;
   /** Se esta é a missão relâmpago do dia: prazo e se o bônus já foi concedido. */
   flash?: { deadline: Date; awarded: boolean } | null;
+  /** Contagem do dia, se o hábito é um contador. */
+  count?: number;
+  /** Soma ao contador (+1 / −1). */
+  onCount?: (delta: number) => void;
 }) {
   const { habit, done } = mission;
+  const target = habit.targetQty ?? 0;
+  const counter = habit.kind === 'count' && count !== undefined && target > 0 && onCount;
+  const avoid = habit.kind === 'avoid';
   // Momento em que o card apareceu: a borda relâmpago some com o prazo vencido.
   const [openedAt] = useState(() => new Date());
   const xp = missionXp({ done, difficulty: habit.difficulty }, awardedXp, xpTable);
@@ -96,12 +106,24 @@ export function MissionCard({
   return (
     <Animated.View style={cardStyle}>
       <Pressable
-        onPress={onToggle}
+        onPress={counter ? () => onCount(1) : onToggle}
         disabled={busy}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: done, busy }}
-        accessibilityLabel={`${habit.title}, ${xp} XP`}
-        accessibilityHint={done ? 'Toque para desfazer' : 'Toque para concluir'}
+        accessibilityRole={counter ? 'adjustable' : 'checkbox'}
+        accessibilityState={counter ? { busy } : { checked: done, busy }}
+        accessibilityLabel={`${habit.title}, ${xp} XP${counter ? `, ${countLabel(count, target, habit.unit)}` : ''}`}
+        accessibilityHint={
+          counter
+            ? 'Toque para somar um'
+            : done
+              ? 'Toque para desfazer'
+              : avoid
+                ? 'Toque se você resistiu'
+                : 'Toque para concluir'
+        }
+        accessibilityActions={counter ? [{ name: 'increment' }, { name: 'decrement' }] : undefined}
+        onAccessibilityAction={
+          counter ? (e) => onCount(e.nativeEvent.actionName === 'increment' ? 1 : -1) : undefined
+        }
         style={({ pressed }) => [
           styles.card,
           flash && !done && flash.deadline > openedAt && styles.cardFlash,
@@ -114,7 +136,15 @@ export function MissionCard({
           <Animated.View style={[styles.ring, ringStyle]} />
           <Animated.View style={checkStyle}>
             <Ionicons
-              name={done ? 'checkmark-circle' : 'ellipse-outline'}
+              name={
+                avoid
+                  ? done
+                    ? 'shield-checkmark'
+                    : 'shield-outline'
+                  : done
+                    ? 'checkmark-circle'
+                    : 'ellipse-outline'
+              }
               size={30}
               color={done ? colors.accent : colors.textSecondary}
             />
@@ -122,7 +152,22 @@ export function MissionCard({
         </View>
         <View style={styles.body}>
           <Text style={[typography.body, done && styles.titleDone]}>{habit.title}</Text>
-          <Text style={typography.caption}>{DIFFICULTY_LABEL[habit.difficulty]}</Text>
+          <Text style={typography.caption}>
+            {avoid ? (done ? 'Resistiu · ' : 'Evitar · ') : ''}
+            {DIFFICULTY_LABEL[habit.difficulty]}
+          </Text>
+          {counter ? (
+            <View style={styles.countRow}>
+              <Text style={[styles.countText, done && styles.countDone]}>
+                {countLabel(count, target, habit.unit)}
+              </Text>
+              <View style={styles.track}>
+                <View
+                  style={[styles.fill, { width: `${Math.min(100, (count / target) * 100)}%` }]}
+                />
+              </View>
+            </View>
+          ) : null}
           {flash && (
             <FlashBadge
               deadline={flash.deadline}
@@ -132,14 +177,54 @@ export function MissionCard({
             />
           )}
         </View>
-        <View>
+        <View style={styles.aside}>
           <Text style={[styles.xp, done && styles.xpDone]}>+{xp} XP</Text>
           <Animated.Text style={[styles.floatXp, floatStyle]} pointerEvents="none">
             +{xp} XP
           </Animated.Text>
+          {counter ? (
+            <View style={styles.stepper}>
+              <StepButton
+                icon="remove"
+                label="Tirar um"
+                disabled={busy || count === 0}
+                onPress={() => onCount(-1)}
+              />
+              <StepButton icon="add" label="Somar um" disabled={busy} onPress={() => onCount(1)} />
+            </View>
+          ) : null}
         </View>
       </Pressable>
     </Animated.View>
+  );
+}
+
+function StepButton({
+  icon,
+  label,
+  disabled,
+  onPress,
+}: {
+  icon: 'add' | 'remove';
+  label: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={4}
+      style={({ pressed }) => [
+        styles.step,
+        disabled && styles.stepDisabled,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name={icon} size={20} color={colors.text} />
+    </Pressable>
   );
 }
 
@@ -173,6 +258,24 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: 2 },
   titleDone: { color: colors.textSecondary, textDecorationLine: 'line-through' },
   xp: { fontWeight: '800', color: colors.xp },
+  aside: { alignItems: 'flex-end', gap: spacing.sm },
+  countRow: { gap: 4, marginTop: 2 },
+  countText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  countDone: { color: colors.accent },
+  track: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceRaised, overflow: 'hidden' },
+  fill: { height: 6, borderRadius: 3, backgroundColor: colors.accent },
+  stepper: { flexDirection: 'row', gap: spacing.xs },
+  step: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  stepDisabled: { opacity: 0.4 },
   xpDone: { opacity: 0.6 },
   floatXp: {
     position: 'absolute',

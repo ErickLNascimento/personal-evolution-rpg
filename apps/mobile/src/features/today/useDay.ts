@@ -1,5 +1,6 @@
 import {
   addDays,
+  countShown,
   dayProgress,
   DEFAULT_XP_TABLE,
   levelFromXp,
@@ -15,7 +16,15 @@ import { useToday } from '@/features/profile/useToday';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { fetchFlashMission, type FlashMission } from '@/features/hero/pathApi';
 import { syncReminders } from '@/lib/reminders';
-import { awardKey, fetchDay, logHabit, undoHabitLog, type DayData } from './api';
+import {
+  awardKey,
+  fetchDay,
+  logHabit,
+  setHabitCount,
+  undoHabitLog,
+  type DayData,
+  type LogOutcome,
+} from './api';
 
 export type DayChoice = 'today' | 'yesterday';
 
@@ -85,40 +94,93 @@ export function useDay(choice: DayChoice) {
     if (r.error !== null) {
       setLogged(habitId, wasDone);
       setError(r.error);
-    } else {
-      const outcome = r.data;
-      // O XP total vem do banco: se cruzou um nível, dispara a cena de evolução.
-      const before = levelFromXp(data.totalXp).level;
-      const after = levelFromXp(outcome.totalXp).level;
-      if (after > before) celebrateLevelUp(before, after);
-      if (outcome.titles.length > 0) celebrateTitles(outcome.titles);
-      setData((d) => {
-        if (!d) return d;
-        // Guarda o XP ganho neste registro (ou o tira, ao desfazer) para o card mostrar o valor real.
-        const awarded = new Map(d.awarded);
-        const key = awardKey(date, habitId);
-        if (wasDone) awarded.delete(key);
-        else if (outcome.changed) awarded.set(key, outcome.xp);
-        return { ...d, totalXp: outcome.totalXp, crystals: outcome.crystalBalance, awarded };
-      });
-      // Refaz os avisos: o de streak em risco sai com o dia perfeito; o relâmpago, ao concluir.
-      void syncReminders().catch(() => undefined);
-      // A resposta do banco diz se o bônus relâmpago entrou (ou saiu, ao desfazer).
-      if (flash.data && flash.data.habitId === habitId && date === today) {
-        flash.setData({
-          ...flash.data,
-          done: !wasDone,
-          awarded: !wasDone && outcome.flashBonus > 0,
-        });
-      }
-      if (!wasDone && outcome.crystals > 0)
-        setCrystalGain({ amount: outcome.crystals, key: Date.now() });
-      if (r.data.perfectDayBonus > 0)
-        setNotice(`Todas as missões feitas: +${r.data.perfectDayBonus} XP de bônus.`);
+    } else applyOutcome(habitId, wasDone, r.data);
+
+    pendingRef.current.delete(habitId);
+    setPending(new Set(pendingRef.current));
+  }
+
+  /** Contagem do dia que o contador mostra. */
+  function countOf(habitId: string): number {
+    const habit = data?.habits.find((h) => h.id === habitId);
+    return countShown(
+      data?.counts.get(awardKey(date, habitId)),
+      habit?.targetQty ?? 1,
+      completed.has(habitId),
+    );
+  }
+
+  function setCountLocal(habitId: string, qty: number) {
+    setData((d) => {
+      if (!d) return d;
+      const counts = new Map(d.counts);
+      counts.set(awardKey(date, habitId), qty);
+      return { ...d, counts };
+    });
+  }
+
+  /** Soma `delta` ao contador; ao cruzar a meta, o banco conclui ou desfaz a missão. */
+  async function changeCount(habitId: string, delta: number) {
+    const habit = data?.habits.find((h) => h.id === habitId);
+    if (!data || !habit || habit.targetQty === null || pendingRef.current.has(habitId)) return;
+    const before = countOf(habitId);
+    const next = Math.max(0, Math.min(9999, before + delta));
+    if (next === before) return;
+    pendingRef.current.add(habitId);
+    setPending(new Set(pendingRef.current));
+
+    const wasDone = completed.has(habitId);
+    const nowDone = next >= habit.targetQty;
+    setCountLocal(habitId, next);
+    if (nowDone !== wasDone) setLogged(habitId, nowDone);
+    if (nowDone && !wasDone) setCheer((n) => n + 1);
+    setError(null);
+    setNotice(null);
+
+    const r = await setHabitCount(habitId, date, next);
+    if (r.error !== null) {
+      setCountLocal(habitId, before);
+      setLogged(habitId, wasDone);
+      setError(r.error);
+    } else if (r.data.change) {
+      applyOutcome(habitId, r.data.change.kind === 'undone', r.data.change.outcome);
     }
 
     pendingRef.current.delete(habitId);
     setPending(new Set(pendingRef.current));
+  }
+
+  /** Atualiza XP, Cristais, títulos e avisos depois que o banco registrou ou desfez a missão. */
+  function applyOutcome(habitId: string, wasDone: boolean, outcome: LogOutcome) {
+    if (!data) return;
+    // O XP total vem do banco: se cruzou um nível, dispara a cena de evolução.
+    const before = levelFromXp(data.totalXp).level;
+    const after = levelFromXp(outcome.totalXp).level;
+    if (after > before) celebrateLevelUp(before, after);
+    if (outcome.titles.length > 0) celebrateTitles(outcome.titles);
+    setData((d) => {
+      if (!d) return d;
+      // Guarda o XP ganho neste registro (ou o tira, ao desfazer) para o card mostrar o valor real.
+      const awarded = new Map(d.awarded);
+      const key = awardKey(date, habitId);
+      if (wasDone) awarded.delete(key);
+      else if (outcome.changed) awarded.set(key, outcome.xp);
+      return { ...d, totalXp: outcome.totalXp, crystals: outcome.crystalBalance, awarded };
+    });
+    // Refaz os avisos: o de streak em risco sai com o dia perfeito; o relâmpago, ao concluir.
+    void syncReminders().catch(() => undefined);
+    // A resposta do banco diz se o bônus relâmpago entrou (ou saiu, ao desfazer).
+    if (flash.data && flash.data.habitId === habitId && date === today) {
+      flash.setData({
+        ...flash.data,
+        done: !wasDone,
+        awarded: !wasDone && outcome.flashBonus > 0,
+      });
+    }
+    if (!wasDone && outcome.crystals > 0)
+      setCrystalGain({ amount: outcome.crystals, key: Date.now() });
+    if (outcome.perfectDayBonus > 0)
+      setNotice(`Todas as missões feitas: +${outcome.perfectDayBonus} XP de bônus.`);
   }
 
   return {
@@ -148,6 +210,9 @@ export function useDay(choice: DayChoice) {
     error,
     notice,
     toggle,
+    /** Contagem do dia de um hábito contador. */
+    countOf,
+    changeCount,
     /** Prazo e bônus, se a missão é a relâmpago de hoje (só na aba Hoje). */
     flashFor: (habitId: string) =>
       choice === 'today' && flash.data?.habitId === habitId

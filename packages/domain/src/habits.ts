@@ -13,6 +13,27 @@ export const UNIT_MAX = 20;
 
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
 
+/**
+ * Tipo do hábito (igual ao `check` de `habits.kind`):
+ * - `do`: fazer algo; um toque conclui
+ * - `avoid`: evitar algo; conclui quando o usuário confirma que resistiu no dia
+ * - `count`: contador com meta inteira por dia; conclui ao bater a meta
+ */
+export type HabitKind = 'do' | 'avoid' | 'count';
+export const HABIT_KINDS: readonly HabitKind[] = ['do', 'avoid', 'count'];
+export const HABIT_KIND_LABEL: Record<HabitKind, string> = {
+  do: 'Fazer',
+  avoid: 'Evitar',
+  count: 'Contar',
+};
+export const HABIT_KIND_HINT: Record<HabitKind, string> = {
+  do: 'Um toque conclui a missão do dia.',
+  avoid: 'Algo para deixar de fazer. A missão conclui quando você confirma que resistiu no dia.',
+  count: 'Some aos poucos ao longo do dia. A missão conclui ao bater a meta.',
+};
+/** Maior meta de um contador (igual ao banco). */
+export const COUNT_TARGET_MAX = 1000;
+
 export const OBJECTIVE_CATEGORIES = [
   'health',
   'career',
@@ -63,6 +84,8 @@ export function describeSchedule(days: readonly number[]): string {
 
 export interface HabitDraft {
   title: string;
+  /** Padrão: `do`. */
+  kind?: HabitKind;
   difficulty: Difficulty;
   scheduleDays: readonly number[];
   objectiveId: string | null;
@@ -75,6 +98,7 @@ export interface HabitDraft {
 
 export interface HabitInput {
   title: string;
+  kind: HabitKind;
   difficulty: Difficulty;
   scheduleDays: number[];
   objectiveId: string | null;
@@ -99,15 +123,19 @@ export function validateHabitDraft(
   const scheduleDays = normalizeScheduleDays(draft.scheduleDays);
   if (scheduleDays.length === 0) errors.scheduleDays = 'Escolha pelo menos um dia da semana.';
 
-  const qtyText = draft.targetQty.trim().replace(',', '.');
+  const kind = draft.kind ?? 'do';
+  // Hábito a evitar não tem meta.
+  const qtyText = kind === 'avoid' ? '' : draft.targetQty.trim().replace(',', '.');
   let targetQty: number | null = null;
   if (qtyText) {
     const n = Number(qtyText);
     if (!Number.isFinite(n) || n <= 0) errors.targetQty = 'A meta precisa ser um número maior que zero.';
+    else if (kind === 'count' && (!Number.isInteger(n) || n > COUNT_TARGET_MAX))
+      errors.targetQty = `No contador, a meta é um número inteiro de 1 a ${COUNT_TARGET_MAX}.`;
     else targetQty = n;
-  }
+  } else if (kind === 'count') errors.targetQty = 'Informe quantas vezes por dia (ex.: 8).';
 
-  const unitText = draft.unit.trim();
+  const unitText = kind === 'avoid' ? '' : draft.unit.trim();
   if (unitText.length > UNIT_MAX) errors.unit = `Use no máximo ${UNIT_MAX} caracteres.`;
   else if (unitText && !qtyText) errors.unit = 'Informe a meta para usar uma unidade.';
 
@@ -123,6 +151,7 @@ export function validateHabitDraft(
     ok: true,
     value: {
       title,
+      kind,
       difficulty: draft.difficulty,
       scheduleDays,
       objectiveId: draft.objectiveId,
@@ -158,4 +187,18 @@ export function retireHabit(
   const yesterday = addDays(today, -1);
   if (compareLocalDates(habit.startDate, yesterday) <= 0) return { kind: 'archive', archivedOn: yesterday };
   return { kind: 'delete' };
+}
+
+/**
+ * Valor que o contador mostra no dia. Um dia já concluído nunca aparece abaixo da meta
+ * (ex.: registrado antes de o hábito virar contador).
+ */
+export function countShown(qty: number | undefined, target: number, done: boolean): number {
+  const n = qty ?? 0;
+  return done && n < target ? target : n;
+}
+
+/** "2 de 8 copos" (ou "2 de 8" sem unidade). */
+export function countLabel(qty: number, target: number, unit?: string | null): string {
+  return `${qty} de ${target}${unit ? ` ${unit}` : ''}`;
 }

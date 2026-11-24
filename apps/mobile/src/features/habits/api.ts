@@ -1,10 +1,18 @@
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { Difficulty, HabitInput, LocalDate, ObjectiveCategory, RetireAction } from '@per/domain';
+import type {
+  Difficulty,
+  HabitInput,
+  HabitKind,
+  LocalDate,
+  ObjectiveCategory,
+  RetireAction,
+} from '@per/domain';
 import { supabase } from '@/lib/supabase';
 
 export interface HabitRecord {
   id: string;
   title: string;
+  kind: HabitKind;
   difficulty: Difficulty;
   scheduleDays: number[];
   objectiveId: string | null;
@@ -25,6 +33,8 @@ export interface ObjectiveRecord {
 interface HabitRow {
   id: string;
   title: string;
+  /** Ausente em bancos sem a migration dos tipos. */
+  kind?: HabitKind;
   difficulty: Difficulty;
   schedule_days: number[];
   objective_id: string | null;
@@ -36,12 +46,17 @@ interface HabitRow {
 }
 
 const HABIT_COLUMNS =
-  'id, title, difficulty, schedule_days, objective_id, target_qty, unit, start_date, archived_on, reminder_time';
+  'id, title, kind, difficulty, schedule_days, objective_id, target_qty, unit, start_date, archived_on, reminder_time';
+/** Sem `kind`, para bancos que ainda não receberam a migration dos tipos de hábito. */
+const LEGACY_COLUMNS = HABIT_COLUMNS.replace(' kind,', '');
+/** Postgres: coluna inexistente. */
+const UNDEFINED_COLUMN = '42703';
 
 function fromRow(row: HabitRow): HabitRecord {
   return {
     id: row.id,
     title: row.title,
+    kind: row.kind ?? 'do',
     difficulty: row.difficulty,
     scheduleDays: row.schedule_days,
     objectiveId: row.objective_id,
@@ -57,6 +72,7 @@ function fromRow(row: HabitRow): HabitRecord {
 function toRow(input: HabitInput) {
   return {
     title: input.title,
+    kind: input.kind,
     difficulty: input.difficulty,
     schedule_days: input.scheduleDays,
     objective_id: input.objectiveId,
@@ -69,9 +85,11 @@ function toRow(input: HabitInput) {
 export type Result<T> = { data: T; error: null } | { data: null; error: string };
 
 function failure(error: PostgrestError, fallback: string): { data: null; error: string } {
-  if (error.code === '23001') return { data: null, error: 'Este hábito já tem registros; ele só pode ser arquivado.' };
+  if (error.code === '23001')
+    return { data: null, error: 'Este hábito já tem registros; ele só pode ser arquivado.' };
   if (error.code === '23514' || error.code === '42501') return { data: null, error: fallback };
-  if (/network|fetch/i.test(error.message)) return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+  if (/network|fetch/i.test(error.message))
+    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
   return { data: null, error: fallback };
 }
 
@@ -81,22 +99,33 @@ function client() {
 }
 
 export async function listHabits(): Promise<Result<HabitRecord[]>> {
-  const { data, error } = await client()
-    .from('habits')
-    .select(HABIT_COLUMNS)
-    .order('created_at', { ascending: true })
-    .returns<HabitRow[]>();
+  const query = (columns: string) =>
+    client()
+      .from('habits')
+      .select(columns)
+      .order('created_at', { ascending: true })
+      .returns<HabitRow[]>();
+  let { data, error } = await query(HABIT_COLUMNS);
+  if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(LEGACY_COLUMNS));
   if (error) return failure(error, 'Não foi possível carregar os hábitos.');
+  if (!data) return { data: null, error: 'Não foi possível carregar os hábitos.' };
   return { data: data.map(fromRow), error: null };
 }
 
 export async function getHabit(id: string): Promise<Result<HabitRecord>> {
-  const { data, error } = await client().from('habits').select(HABIT_COLUMNS).eq('id', id).single<HabitRow>();
+  const query = (columns: string) =>
+    client().from('habits').select(columns).eq('id', id).single<HabitRow>();
+  let { data, error } = await query(HABIT_COLUMNS);
+  if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(LEGACY_COLUMNS));
   if (error) return failure(error, 'Hábito não encontrado.');
+  if (!data) return { data: null, error: 'Hábito não encontrado.' };
   return { data: fromRow(data), error: null };
 }
 
-export async function createHabit(input: HabitInput, startDate: LocalDate): Promise<Result<HabitRecord>> {
+export async function createHabit(
+  input: HabitInput,
+  startDate: LocalDate,
+): Promise<Result<HabitRecord>> {
   const { data, error } = await client()
     .from('habits')
     .insert({ ...toRow(input), start_date: startDate })
@@ -150,7 +179,10 @@ export async function listObjectives(): Promise<Result<ObjectiveRecord[]>> {
   return { data, error: null };
 }
 
-export async function createObjective(title: string, category: ObjectiveCategory): Promise<Result<ObjectiveRecord>> {
+export async function createObjective(
+  title: string,
+  category: ObjectiveCategory,
+): Promise<Result<ObjectiveRecord>> {
   const { data, error } = await client()
     .from('objectives')
     .insert({ title, category })

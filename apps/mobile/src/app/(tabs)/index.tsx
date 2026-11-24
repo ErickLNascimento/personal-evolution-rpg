@@ -231,6 +231,8 @@ function RealToday() {
               awardedXp={day.awardedXp}
               flashFor={day.flashFor}
               onToggle={day.toggle}
+              countOf={day.countOf}
+              onCount={day.changeCount}
               empty={
                 day.hasHabits ? (
                   <Placeholder
@@ -264,6 +266,8 @@ function DayView({
   awardedXp,
   flashFor,
   onToggle,
+  countOf,
+  onCount,
   empty,
   top,
 }: {
@@ -275,6 +279,9 @@ function DayView({
   awardedXp?: (habitId: string) => number | undefined;
   flashFor?: (habitId: string) => { deadline: Date; awarded: boolean } | null;
   onToggle: (habitId: string) => void;
+  /** Contagem do dia (hábitos contador). */
+  countOf?: (habitId: string) => number;
+  onCount?: (habitId: string, delta: number) => void;
   empty?: ReactNode;
   /** Cabeçalho no lugar da barra de XP simples (ex.: o cartão do herói). */
   top?: ReactNode;
@@ -307,6 +314,8 @@ function DayView({
           awardedXp={awardedXp?.(m.habit.id)}
           flash={flashFor?.(m.habit.id)}
           onToggle={() => onToggle(m.habit.id)}
+          count={m.habit.kind === 'count' ? countOf?.(m.habit.id) : undefined}
+          onCount={onCount ? (delta) => onCount(m.habit.id, delta) : undefined}
         />
       ))}
     </>

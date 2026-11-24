@@ -14,6 +14,7 @@ import { colors, radius, spacing, typography } from '@/theme/tokens';
 function toDraft(h: HabitRecord): HabitDraft {
   return {
     title: h.title,
+    kind: h.kind,
     difficulty: h.difficulty,
     scheduleDays: h.scheduleDays,
     objectiveId: h.objectiveId,

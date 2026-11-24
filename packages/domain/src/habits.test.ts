@@ -1,4 +1,6 @@
 import {
+  countLabel,
+  countShown,
   describeSchedule,
   normalizeScheduleDays,
   retireHabit,
@@ -42,6 +44,7 @@ describe('formulário de hábito', () => {
       ok: true,
       value: {
         title: 'Ler 10 páginas',
+        kind: 'do',
         difficulty: 'easy',
         scheduleDays: [1, 3, 5],
         objectiveId: null,
@@ -50,6 +53,19 @@ describe('formulário de hábito', () => {
         reminderTime: null,
       },
     });
+  });
+
+  it('contador exige meta inteira', () => {
+    expect(validateHabitDraft({ ...draft, kind: 'count' }).ok).toBe(false);
+    expect(validateHabitDraft({ ...draft, kind: 'count', targetQty: '2,5' }).ok).toBe(false);
+    expect(validateHabitDraft({ ...draft, kind: 'count', targetQty: '1001' }).ok).toBe(false);
+    const r = validateHabitDraft({ ...draft, kind: 'count', targetQty: '8', unit: 'copos' });
+    expect(r.ok && r.value).toMatchObject({ kind: 'count', targetQty: 8, unit: 'copos' });
+  });
+
+  it('hábito a evitar ignora a meta', () => {
+    const r = validateHabitDraft({ ...draft, kind: 'avoid', targetQty: '3', unit: 'cigarros' });
+    expect(r.ok && r.value).toMatchObject({ kind: 'avoid', targetQty: null, unit: null });
   });
 
   it('exige nome e ao menos um dia', () => {
@@ -116,5 +132,19 @@ describe('tirar hábito da rotina', () => {
   it('sem histórico (começa hoje ou depois): exclui', () => {
     expect(retireHabit({ startDate: today }, today, false)).toEqual({ kind: 'delete' });
     expect(retireHabit({ startDate: '2026-11-30' }, today, false)).toEqual({ kind: 'delete' });
+  });
+});
+
+describe('contador', () => {
+  it('dia concluído não aparece abaixo da meta', () => {
+    expect(countShown(undefined, 8, false)).toBe(0);
+    expect(countShown(3, 8, false)).toBe(3);
+    expect(countShown(undefined, 8, true)).toBe(8);
+    expect(countShown(10, 8, true)).toBe(10);
+  });
+
+  it('mostra quantidade, meta e unidade', () => {
+    expect(countLabel(2, 8, 'copos')).toBe('2 de 8 copos');
+    expect(countLabel(2, 8, null)).toBe('2 de 8');
   });
 });
