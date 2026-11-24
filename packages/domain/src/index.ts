@@ -18,3 +18,4 @@ export * from './smartNotifications';
 export * from './rewards';
 export * from './habitStats';
 export * from './challenges';
+export * from './whatsNew';

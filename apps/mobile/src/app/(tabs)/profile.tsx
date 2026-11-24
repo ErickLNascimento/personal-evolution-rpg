@@ -19,6 +19,7 @@ import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
 import { AppTour } from '@/components/tour/AppTour';
+import { latestNewsSlides } from '@/lib/whatsNew';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/useProfile';
@@ -45,6 +46,7 @@ function AccountProfile() {
   const { profile, loading, error, reload, update } = useProfile();
   const { hero } = useHero();
   const [tourOpen, setTourOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
 
   if (loading && !profile) {
     return (
@@ -69,7 +71,10 @@ function AccountProfile() {
       <Section title="CONTA">
         <Text style={typography.caption}>Conectado como</Text>
         <Text style={typography.body}>{session?.user.email}</Text>
-        <DisplayNameForm initial={profile.displayName} onSave={(v) => update({ display_name: v })} />
+        <DisplayNameForm
+          initial={profile.displayName}
+          onSave={(v) => update({ display_name: v })}
+        />
       </Section>
 
       <Section title="FOCO E RITMO">
@@ -82,7 +87,11 @@ function AccountProfile() {
       </Section>
 
       <Section title="FUSO HORÁRIO">
-        <TimeZoneForm key={profile.timezone} current={profile.timezone} onSave={(tz) => update({ timezone: tz })} />
+        <TimeZoneForm
+          key={profile.timezone}
+          current={profile.timezone}
+          onSave={(tz) => update({ timezone: tz })}
+        />
       </Section>
 
       <Section title="ORÁCULO (INTELIGÊNCIA ARTIFICIAL)">
@@ -99,16 +108,36 @@ function AccountProfile() {
       <Section title="AJUDA E FEEDBACK">
         <Button title="Enviar feedback" onPress={() => router.push('/feedback')} />
         <Button title="Ver o tour do app" onPress={() => setTourOpen(true)} variant="secondary" />
+        <Button
+          title="Novidades desta versão"
+          onPress={() => setNewsOpen(true)}
+          variant="secondary"
+        />
       </Section>
       <AppTour visible={tourOpen} hero={hero} onClose={() => setTourOpen(false)} />
+      <AppTour
+        visible={newsOpen}
+        hero={hero}
+        slides={latestNewsSlides()}
+        heading="NOVIDADES"
+        finishLabel="Entendi"
+        onClose={() => setNewsOpen(false)}
+      />
 
       <SignOutButton />
-      <Button title="Excluir minha conta" onPress={() => router.push('/delete-account')} variant="secondary" />
+      <Button
+        title="Excluir minha conta"
+        onPress={() => router.push('/delete-account')}
+        variant="secondary"
+      />
     </Screen>
   );
 }
 
-const AREA_OPTIONS = OBJECTIVE_CATEGORIES.map((c) => ({ value: c, label: OBJECTIVE_CATEGORY_LABEL[c] }));
+const AREA_OPTIONS = OBJECTIVE_CATEGORIES.map((c) => ({
+  value: c,
+  label: OBJECTIVE_CATEGORY_LABEL[c],
+}));
 const DIFFICULTY_OPTIONS = DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] }));
 
 function FocusForm({
@@ -141,9 +170,15 @@ function FocusForm({
   return (
     <>
       <Text style={typography.caption}>
-        Áreas onde você quer evoluir (até {FOCUS_AREAS_MAX}) e o ritmo preferido. O Oráculo usa isso para sugerir missões.
+        Áreas onde você quer evoluir (até {FOCUS_AREAS_MAX}) e o ritmo preferido. O Oráculo usa isso
+        para sugerir missões.
       </Text>
-      <Chips multiple options={AREA_OPTIONS} selected={areas} onToggle={(a) => setAreas((cur) => toggleFocusArea(cur, a))} />
+      <Chips
+        multiple
+        options={AREA_OPTIONS}
+        selected={areas}
+        onToggle={(a) => setAreas((cur) => toggleFocusArea(cur, a))}
+      />
       <Text style={typography.label}>RITMO</Text>
       <Chips options={DIFFICULTY_OPTIONS} selected={[difficulty]} onToggle={setDifficulty} />
       <FormMessage text={message?.text ?? null} tone={message?.tone} />
@@ -184,19 +219,33 @@ function DisplayNameForm({
     setSaving(true);
     const saveError = await onSave(name);
     setSaving(false);
-    setMessage(saveError ? { text: saveError, tone: 'error' } : { text: 'Nome salvo.', tone: 'info' });
+    setMessage(
+      saveError ? { text: saveError, tone: 'error' } : { text: 'Nome salvo.', tone: 'info' },
+    );
   }
 
   return (
     <>
-      <Field label="Nome de exibição" value={value} onChangeText={setValue} placeholder="Como quer ser chamado" maxLength={60} />
+      <Field
+        label="Nome de exibição"
+        value={value}
+        onChangeText={setValue}
+        placeholder="Como quer ser chamado"
+        maxLength={60}
+      />
       <FormMessage text={message?.text ?? null} tone={message?.tone} />
       {dirty && <Button title="Salvar nome" onPress={save} loading={saving} />}
     </>
   );
 }
 
-function TimeZoneForm({ current, onSave }: { current: string; onSave: (tz: string) => Promise<string | null> }) {
+function TimeZoneForm({
+  current,
+  onSave,
+}: {
+  current: string;
+  onSave: (tz: string) => Promise<string | null>;
+}) {
   const device = deviceTimeZone();
   const [value, setValue] = useState(current);
   const [saving, setSaving] = useState(false);
@@ -205,19 +254,25 @@ function TimeZoneForm({ current, onSave }: { current: string; onSave: (tz: strin
   async function save(tz: string) {
     const trimmed = tz.trim();
     if (!isValidTimeZone(trimmed)) {
-      setMessage({ text: 'Use um fuso no formato Região/Cidade, por exemplo America/Manaus.', tone: 'error' });
+      setMessage({
+        text: 'Use um fuso no formato Região/Cidade, por exemplo America/Manaus.',
+        tone: 'error',
+      });
       return;
     }
     setSaving(true);
     const saveError = await onSave(trimmed);
     setSaving(false);
-    setMessage(saveError ? { text: saveError, tone: 'error' } : { text: 'Fuso salvo.', tone: 'info' });
+    setMessage(
+      saveError ? { text: saveError, tone: 'error' } : { text: 'Fuso salvo.', tone: 'info' },
+    );
   }
 
   return (
     <>
       <Text style={typography.caption}>
-        O fuso define quando o seu dia começa e termina: missões, streak e dia perfeito usam a data local.
+        O fuso define quando o seu dia começa e termina: missões, streak e dia perfeito usam a data
+        local.
       </Text>
       {device && device !== current && (
         <View style={styles.notice}>
@@ -234,7 +289,9 @@ function TimeZoneForm({ current, onSave }: { current: string; onSave: (tz: strin
         placeholder="America/Sao_Paulo"
       />
       <FormMessage text={message?.text ?? null} tone={message?.tone} />
-      {value.trim() !== current && <Button title="Salvar fuso" onPress={() => save(value)} loading={saving} />}
+      {value.trim() !== current && (
+        <Button title="Salvar fuso" onPress={() => save(value)} loading={saving} />
+      )}
     </>
   );
 }
@@ -261,10 +318,14 @@ function AiConsent({
       void toggle(true);
       return;
     }
-    Alert.alert('Desativar a IA?', 'A IA deixa de receber seus dados e não vai mais sugerir planos.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Desativar', style: 'destructive', onPress: () => void toggle(false) },
-    ]);
+    Alert.alert(
+      'Desativar a IA?',
+      'A IA deixa de receber seus dados e não vai mais sugerir planos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Desativar', style: 'destructive', onPress: () => void toggle(false) },
+      ],
+    );
   }
 
   return (
@@ -280,12 +341,15 @@ function AiConsent({
         />
       </View>
       <Text style={typography.caption}>
-        Com a permissão, seus objetivos, hábitos e registros (sem nome nem e-mail) são enviados aos provedores de IA —
-        Google Gemini e, quando ele está ocupado, Groq — só para sugerir planos. A IA só propõe: nada muda sem a sua
-        aprovação, e ela nunca altera seu XP. Você pode desativar quando quiser.
+        Com a permissão, seus objetivos, hábitos e registros (sem nome nem e-mail) são enviados aos
+        provedores de IA — Google Gemini e, quando ele está ocupado, Groq — só para sugerir planos.
+        A IA só propõe: nada muda sem a sua aprovação, e ela nunca altera seu XP. Você pode
+        desativar quando quiser.
       </Text>
       {enabled && consentAt && (
-        <Text style={typography.caption}>Permitido em {new Date(consentAt).toLocaleDateString('pt-BR')}.</Text>
+        <Text style={typography.caption}>
+          Permitido em {new Date(consentAt).toLocaleDateString('pt-BR')}.
+        </Text>
       )}
       <FormMessage text={error} />
     </>
@@ -350,8 +414,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  notice: { gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceRaised },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  notice: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceRaised,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
   switchText: { flex: 1, gap: 2 },
   switchLabel: { flex: 1 },
 });

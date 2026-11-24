@@ -8,6 +8,7 @@ import {
   shouldShowTour,
   stageName,
   startOfWeek,
+  unseenReleaseItems,
   type DayProgress,
   type LevelProgress,
   type Mission,
@@ -30,6 +31,7 @@ import { CompactHeroBar } from '@/components/today/CompactHeroBar';
 import { PromotionBanner } from '@/components/today/PromotionBanner';
 import { BossBanner } from '@/components/challenges/BossCard';
 import { AppTour } from '@/components/tour/AppTour';
+import { markNewsSeen, newsSlides, seenNewsVersion } from '@/lib/whatsNew';
 import { DayRing } from '@/components/today/DayRing';
 import { DaySwitch } from '@/components/today/DaySwitch';
 import { XpBar } from '@/components/XpBar';
@@ -93,6 +95,11 @@ function RealToday() {
     Boolean(profile) &&
     !tourClosed &&
     shouldShowTour(profile?.tourSeenVersion ?? 0, profile?.tourVersion ?? null);
+  // Novidades da atualização: só para quem já conhece o app (o tour de quem é novo já cobre tudo).
+  const [newsSeen, setNewsSeen] = useState(seenNewsVersion);
+  const news = unseenReleaseItems(newsSeen);
+  const showNews =
+    Boolean(profile) && !showTour && news.length > 0 && (profile?.tourSeenVersion ?? 0) > 0;
   const hero = heroLook(
     profile?.hero,
     day.level.level,
@@ -139,10 +146,23 @@ function RealToday() {
         hero={hero}
         onClose={() => {
           setTourClosed(true);
+          markNewsSeen();
+          setNewsSeen(seenNewsVersion());
           void update({
             tour_seen_at: new Date().toISOString(),
             tour_seen_version: profile?.tourVersion ?? 0,
           });
+        }}
+      />
+      <AppTour
+        visible={showNews}
+        hero={hero}
+        slides={newsSlides(news)}
+        heading="NOVIDADES"
+        finishLabel="Entendi"
+        onClose={() => {
+          markNewsSeen();
+          setNewsSeen(seenNewsVersion());
         }}
       />
       <Screen
