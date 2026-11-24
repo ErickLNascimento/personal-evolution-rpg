@@ -35,3 +35,28 @@ Objetivo: enxergar os problemas dos testadores e proteger a retenção nos prime
 | 3.3 | **Integração com saúde** (Health Connect, Apple Health) | Missões de passos e sono concluídas sozinhas. |
 | 3.4 | **Diário ou check-in de humor** | Combina com a revisão semanal do Oráculo (Finch). Feito: check-in na tela Hoje (humor, sentimentos, nota; +3 Cristais no dia) e histórico com a relação humor × missões em Progresso. |
 | 3.5 | **Lançamento**: monetização, iOS (TestFlight), exportar dados (LGPD), inglês | Antes da publicação nas lojas. |
+
+## Tarefa: feature flags para os recursos existentes
+
+Regra desde 24/11/2026 (AGENTS.md): todo recurso novo nasce atrás de uma flag `feature_<nome>` em
+`app_settings`. Os recursos abaixo vieram antes da regra e ainda não têm flag.
+
+Como fazer, para cada um:
+- Uma migration insere a linha com **valor 1** (ligada). Esses recursos já estão com os testers; com 0 eles sumiriam do app.
+- Registrar a chave em `FEATURES` (`packages/domain/src/features.ts`) e esconder a UI com `useFeature`.
+- Nas RPCs que gravam para o recurso, recusar com `PR050` quando desligada, com teste SQL dos dois estados.
+- Desligar só esconde e bloqueia novas ações: os dados já gravados (XP, Cristais, registros) continuam.
+
+| Recurso | Flag sugerida | O que esconder ou bloquear | Cuidado |
+|---|---|---|---|
+| Loja (cosméticos e recompensas) | `feature_shop` | Botão Loja, tela `/shop`; `buy_cosmetic`, `redeem_reward` | Cosméticos já comprados continuam no herói. |
+| Desafios (jornadas e chefe da semana) | `feature_challenges` | Tela `/challenges`, atalho do chefe na tela Hoje; `start_journey`, `resolve_journey`, `claim_weekly_boss` | Jornadas em andamento ficam paradas enquanto desligado. |
+| Social (amigos e grupos) | `feature_social` | Aba Social, tela do grupo; RPCs de amizade, busca, grupo e `claim_group_boss` | Amizades e grupos ficam guardados. |
+| Tipos de hábito (Evitar e Contar) | `feature_habit_kinds` | Seletor de tipo no formulário; `set_habit_count` | Hábitos já criados como Contar precisam continuar funcionando (só esconder a criação). |
+| Estatísticas por hábito | `feature_habit_stats` | Cartão na tela do hábito | Só leitura: sem RPC. |
+| Missão relâmpago | `feature_flash_mission` | Selo e prazo no card; bônus em `log_habit` | O bônus é dado dentro de `log_habit`: bloquear só o bônus, nunca o registro. |
+| Escudos de streak | `feature_streak_shields` | Linha de escudos em Progresso, uso automático; `buy_streak_shield`, `use_streak_shield` | Escudos já usados continuam protegendo os dias. |
+| Oráculo (IA) | `feature_oracle` | Chamadas ao Oráculo em Hábitos, Progresso e no formulário; Edge Function `ai-plan` | Útil para cortar custo de IA sem novo build. |
+| Notificações inteligentes | `feature_smart_notifications` | Interruptor no Perfil e o agendamento em `syncReminders` | Ao desligar, cancelar os avisos já agendados. |
+| Caminhos e promoções do herói | `feature_hero_paths` | Banner de promoção, telas `/path` e `/promotion`; `choose_path`, `promote_hero` | Recurso central: avaliar se vale ter flag. |
+| Diário de humor | `feature_mood_journal` | — | **Já tem flag** (padrão do modelo). |
