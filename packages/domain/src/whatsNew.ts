@@ -25,6 +25,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 4,
+    date: '2026-11-28',
+    items: [
+      {
+        icon: 'download',
+        flag: 'feature_data_export',
+        title: 'Baixe os seus dados',
+        text: 'Em Perfil → Seus dados, baixe um arquivo com tudo o que o app guarda sobre você: hábitos, registros, XP, Cristais, diário e mais.',
+        route: '/profile',
+      },
+    ],
+  },
+  {
     version: 3,
     date: '2026-11-27',
     items: [

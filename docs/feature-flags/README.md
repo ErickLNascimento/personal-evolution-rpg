@@ -40,6 +40,18 @@ update public.app_settings set value = 1 where key = 'feature_mood_journal';
 update public.app_settings set value = 0 where key = 'feature_mood_journal';
 ```
 
+### Exportação de dados (LGPD): `feature_data_export`
+
+Botão "Baixar meus dados" em Perfil → Seus dados: um arquivo JSON com tudo o que o app guarda
+sobre a pessoa. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_data_export';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_data_export';
+```
+
 ### Loja: `feature_shop`
 
 Botão e tela da Loja; compra de cosméticos e resgate de recompensas. Cosméticos já comprados
@@ -150,7 +162,7 @@ update public.app_settings set value = 0 where key = 'feature_smart_notification
 
 ## Linha ausente
 
-- **Recursos antigos** (todos acima, menos o diário de humor): sem a linha, contam como **ligados**.
+- **Recursos antigos** (todos acima, menos o diário de humor e a exportação de dados): sem a linha, contam como **ligados**.
   Só `0` desliga.
 - **Recursos novos:** sem a linha, contam como **desligados**. Só `1` liga.
 

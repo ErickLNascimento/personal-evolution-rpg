@@ -1,3 +1,5 @@
+import type { LocalDate } from './dates';
+
 /**
  * Regras de conta e perfil (Sprint 1): fuso horário, nome de exibição,
  * validação de cadastro/login e consentimento da IA.
@@ -42,7 +44,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export type AuthMode = 'sign-in' | 'sign-up';
 
 /** Mensagem de erro em português, ou `null` se os dados podem ir para o Supabase. */
-export function validateCredentials(input: { email: string; password: string; mode: AuthMode }): string | null {
+export function validateCredentials(input: {
+  email: string;
+  password: string;
+  mode: AuthMode;
+}): string | null {
   const email = input.email.trim();
   if (!email) return 'Informe seu e-mail.';
   if (!EMAIL_RE.test(email)) return 'E-mail inválido.';
@@ -60,7 +66,8 @@ export function hasAiConsent(profile: { aiConsentAt: string | null }): boolean {
 
 /** Nova senha (redefinição): mesmo mínimo do cadastro e confirmação igual. */
 export function validateNewPassword(password: string, confirmation: string): string | null {
-  if (password.length < PASSWORD_MIN) return `A senha precisa ter pelo menos ${PASSWORD_MIN} caracteres.`;
+  if (password.length < PASSWORD_MIN)
+    return `A senha precisa ter pelo menos ${PASSWORD_MIN} caracteres.`;
   if (password !== confirmation) return 'As senhas não conferem.';
   return null;
 }
@@ -70,4 +77,9 @@ export const DELETE_ACCOUNT_WORD = 'EXCLUIR';
 
 export function isDeleteConfirmation(text: string): boolean {
   return text.trim().toUpperCase() === DELETE_ACCOUNT_WORD;
+}
+
+/** Nome do arquivo da exportação de dados (LGPD): `personal-evolution-rpg-dados-AAAA-MM-DD.json`. */
+export function dataExportFileName(date: LocalDate): string {
+  return `personal-evolution-rpg-dados-${date}.json`;
 }

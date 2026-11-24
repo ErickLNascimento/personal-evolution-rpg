@@ -23,8 +23,10 @@ import { AppTour } from '@/components/tour/AppTour';
 import { latestNewsSlides } from '@/lib/whatsNew';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useHero } from '@/features/hero/useHero';
+import { exportMyData } from '@/features/account/exportData';
 import { useFeature } from '@/features/profile/useFeature';
 import { useProfile } from '@/features/profile/useProfile';
+import { useToday } from '@/features/profile/useToday';
 import { deviceTimeZone } from '@/lib/deviceTimeZone';
 import { ensureReminderPermission, syncReminders } from '@/lib/reminders';
 import { setSmartNotificationsEnabled, smartNotificationsEnabled } from '@/lib/smartNotifications';
@@ -47,6 +49,7 @@ function AccountProfile() {
   const { session } = useAuth();
   const { profile, loading, error, reload, update } = useProfile();
   const smartOn = useFeature(FEATURES.smartNotifications);
+  const exportOn = useFeature(FEATURES.dataExport);
   const { hero } = useHero();
   const [tourOpen, setTourOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
@@ -129,6 +132,12 @@ function AccountProfile() {
         onClose={() => setNewsOpen(false)}
       />
 
+      {exportOn && profile && (
+        <Section title="SEUS DADOS">
+          <DataExport userId={profile.id} />
+        </Section>
+      )}
+
       <SignOutButton />
       <Button
         title="Excluir minha conta"
@@ -136,6 +145,32 @@ function AccountProfile() {
         variant="secondary"
       />
     </Screen>
+  );
+}
+
+/** Baixar um arquivo com todos os dados pessoais (LGPD). */
+function DataExport({ userId }: { userId: string }) {
+  const { today } = useToday();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <Text style={typography.caption}>
+        Baixe um arquivo (JSON) com tudo o que o app guarda sobre você: perfil, hábitos, registros,
+        XP, Cristais, diário e mais. O link do arquivo vale por 10 minutos.
+      </Text>
+      <FormMessage text={error} />
+      <Button
+        title="Baixar meus dados"
+        variant="secondary"
+        loading={busy}
+        onPress={async () => {
+          setBusy(true);
+          setError(await exportMyData(userId, today));
+          setBusy(false);
+        }}
+      />
+    </>
   );
 }
 

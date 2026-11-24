@@ -7,6 +7,8 @@
 export const FEATURES = {
   /** Diário de humor (check-in na tela Hoje e cartão em Progresso). */
   moodJournal: 'feature_mood_journal',
+  /** Exportação dos dados pessoais (LGPD), no Perfil. */
+  dataExport: 'feature_data_export',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

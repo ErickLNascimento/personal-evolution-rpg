@@ -1736,7 +1736,7 @@ do $$ begin
     'Oráculo desligado bloqueia novos planos');
 end $$;
 reset role;
-update public.app_settings set value = 1 where key like 'feature\_%' and key <> 'feature_mood_journal';
+update public.app_settings set value = 1 where key like 'feature\_%' and key not in ('feature_mood_journal', 'feature_data_export');
 insert into public.app_settings (key, value) values ('feature_social', 1) on conflict (key) do update set value = 1;
 set local role service_role;
 do $$ begin
@@ -1745,6 +1745,40 @@ do $$ begin
     'Oráculo ligado volta ao limite normal');
 end $$;
 reset role;
+
+-- ── Exportação de dados (LGPD) ──────────────────────────────
+reset role;
+update public.app_settings set value = 0 where key = 'feature_data_export';
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.export_my_data();
+    raise exception 'FALHOU: exportou com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_data_export';
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  r := public.export_my_data();
+  perform pg_temp.check(r->'conta'->>'email' = 'mel@teste.dev', 'exporta o e-mail da conta');
+  perform pg_temp.check(r->'perfil'->>'display_name' = 'Mel', 'exporta o perfil');
+  perform pg_temp.check(jsonb_array_length(r->'habits') = 1 and r->'habits'->0->>'title' = 'Segredo da Mel',
+    'exporta os próprios hábitos');
+  perform pg_temp.check(jsonb_array_length(r->'habit_logs') >= 20, 'exporta os registros');
+  perform pg_temp.check(not (r->'habits'->0 ? 'user_id'), 'sem user_id repetido em cada linha');
+  perform pg_temp.check(jsonb_array_length(r->'friendships') = 1, 'exporta o vínculo com a amiga');
+  perform pg_temp.check(not (r::text like '%lia@teste.dev%') and not (r::text like '%"Lia"%'),
+    'nada dos dados pessoais da amiga');
+  perform pg_temp.check(jsonb_array_length(r->'groups') = 1 and (r->'groups'->0->>'sou_dono')::boolean,
+    'exporta o grupo (Mel virou dona)');
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_data_export';
 
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
