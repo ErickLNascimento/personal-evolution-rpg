@@ -38,10 +38,19 @@ interface Props {
   onClaim: () => void;
   /** Rótulo da semana (ex.: "Semana passada"). */
   label?: string;
+  /** Cristais do prêmio. */
+  reward?: number;
 }
 
 /** Chefe da semana: vida, dano e o resgate do prêmio quando derrotado. */
-export function BossCard({ state, claimed, busy, onClaim, label = 'CHEFE DA SEMANA' }: Props) {
+export function BossCard({
+  state,
+  claimed,
+  busy,
+  onClaim,
+  label = 'CHEFE DA SEMANA',
+  reward = BOSS_REWARD,
+}: Props) {
   const { boss, maxHp, hp, damage, defeated } = state;
   const pct = maxHp === 0 ? 0 : (hp / maxHp) * 100;
 
@@ -71,9 +80,9 @@ export function BossCard({ state, claimed, busy, onClaim, label = 'CHEFE DA SEMA
 
       {defeated &&
         (claimed ? (
-          <Text style={styles.claimed}>Prêmio resgatado: +{BOSS_REWARD} Cristais</Text>
+          <Text style={styles.claimed}>Prêmio resgatado: +{reward} Cristais</Text>
         ) : (
-          <Button title={`Resgatar +${BOSS_REWARD} Cristais`} onPress={onClaim} loading={busy} />
+          <Button title={`Resgatar +${reward} Cristais`} onPress={onClaim} loading={busy} />
         ))}
     </View>
   );

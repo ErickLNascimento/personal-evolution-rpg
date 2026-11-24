@@ -23,6 +23,24 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 2,
+    date: '2026-11-26',
+    items: [
+      {
+        icon: 'people',
+        title: 'Amigos',
+        text: 'Na nova aba Social, adicione amigos pelo código ou pelo nome. Vocês veem o herói, o nível, o streak e quantas missões cada um fez hoje. Os nomes dos hábitos continuam só seus.',
+        route: '/social',
+      },
+      {
+        icon: 'shield-half',
+        title: 'Grupos contra o chefe',
+        text: 'Crie um grupo de até 6 pessoas: cada missão de qualquer um tira 1 de vida do chefe da semana do grupo. Derrotado, cada membro ganha 30 Cristais.',
+        route: '/social',
+      },
+    ],
+  },
+  {
     version: 1,
     date: '2026-11-25',
     items: [

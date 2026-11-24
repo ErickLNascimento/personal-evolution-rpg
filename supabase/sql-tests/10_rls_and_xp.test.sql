@@ -1399,6 +1399,201 @@ do $$ begin
   end;
 end $$;
 
+-- ── Social: amigos e grupos ─────────────────────────────────
+-- Lia (sem hábitos) e Mel (um hábito diário secreto, feito nos últimos 20 dias).
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('cccccccc-1111-1111-1111-111111111111', 'lia@teste.dev', '{"display_name":"Lia"}'),
+  ('dddddddd-1111-1111-1111-111111111111', 'mel@teste.dev', '{"display_name":"Mel"}');
+update public.profiles set timezone = 'America/Manaus'
+where id in ('cccccccc-1111-1111-1111-111111111111', 'dddddddd-1111-1111-1111-111111111111');
+update public.profiles set display_name = 'Juca' where id = 'bbbbbbbb-1111-1111-1111-111111111111';
+insert into public.habits (id, user_id, title, start_date) values
+  ('dddddddd-2222-2222-2222-222222222222', 'dddddddd-1111-1111-1111-111111111111', 'Segredo da Mel', pg_temp.today() - 30);
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'dddddddd-1111-1111-1111-111111111111', 'dddddddd-2222-2222-2222-222222222222', pg_temp.today() - d
+from generate_series(1, 20) d;
+select set_config('test.mel_code', (select friend_code from public.profiles where id = 'dddddddd-1111-1111-1111-111111111111'), true);
+select set_config('test.lia_code', (select friend_code from public.profiles where id = 'cccccccc-1111-1111-1111-111111111111'), true);
+do $$ begin
+  perform pg_temp.check(current_setting('test.mel_code') ~ '^[A-HJ-NP-Z2-9]{6}$', 'código de amigo com 6 letras sem ambíguas');
+  perform pg_temp.check(public.user_streak('dddddddd-1111-1111-1111-111111111111') = 20, 'streak no banco segue as regras do app');
+end $$;
+
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  begin
+    update public.profiles set friend_code = 'AAAAAA' where id = 'cccccccc-1111-1111-1111-111111111111';
+    raise exception 'FALHOU: trocou o código de amigo';
+  exception when sqlstate 'PR045' then null;
+  end;
+  begin
+    perform public.send_friend_request(current_setting('test.lia_code'));
+    raise exception 'FALHOU: pediu amizade a si mesma';
+  exception when sqlstate 'PR040' then null;
+  end;
+  begin
+    perform public.send_friend_request('ZZZZZZ');
+    raise exception 'FALHOU: código inexistente';
+  exception when no_data_found then null;
+  end;
+  begin
+    insert into public.friendships (requester, addressee)
+    values ('cccccccc-1111-1111-1111-111111111111', 'dddddddd-1111-1111-1111-111111111111');
+    raise exception 'FALHOU: app criou amizade direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.send_friend_request(lower(substr(current_setting('test.mel_code'), 1, 3) || '-' || substr(current_setting('test.mel_code'), 4)));
+  perform pg_temp.check(r->>'status' = 'pending', 'código com hífen e minúsculas vira pedido pendente');
+  r := public.my_friends();
+  perform pg_temp.check(jsonb_array_length(r->'outgoing') = 1 and jsonb_array_length(r->'friends') = 0,
+    'pedido aparece como enviado, ainda sem amizade');
+  perform pg_temp.check(not (r::text like '%"streak"%'), 'pedido pendente não mostra o resumo');
+end $$;
+
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.my_friends();
+  perform pg_temp.check(jsonb_array_length(r->'incoming') = 1, 'Mel recebe o pedido');
+  perform public.respond_friend_request((r->'incoming'->0->>'request_id')::uuid, true);
+  update public.profiles set discoverable = false where id = 'dddddddd-1111-1111-1111-111111111111';
+end $$;
+
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb; f jsonb;
+begin
+  r := public.my_friends();
+  f := r->'friends'->0;
+  perform pg_temp.check(f->>'display_name' = 'Mel' and (f->>'streak')::int = 20
+    and (f->>'today_total')::int = 1 and (f->>'today_done')::int = 0 and (f->>'level')::int >= 1,
+    'amiga vê nome, streak, nível e missões de hoje');
+  perform pg_temp.check(not (r::text like '%Segredo%'), 'nomes dos hábitos não aparecem para amigos');
+  perform pg_temp.check((select count(*) from public.habits) = 0, 'RLS: Lia não lê os hábitos de Mel');
+  begin
+    perform public.send_friend_request(current_setting('test.mel_code'));
+    raise exception 'FALHOU: pediu amizade a quem já é amiga';
+  exception when sqlstate 'PR041' then null;
+  end;
+
+  -- busca: Mel desligou a busca; Juca aparece
+  perform pg_temp.check(jsonb_array_length(public.search_users('Me')) = 0, 'quem desliga a busca não aparece');
+  r := public.search_users('  juc ');
+  perform pg_temp.check(jsonb_array_length(r) = 1 and r->0->'user'->>'display_name' = 'Juca'
+    and r->0->'relation' = 'null'::jsonb and not (r::text like '%"streak"%'), 'busca acha Juca, só com o cartão curto');
+  perform pg_temp.check(jsonb_array_length(public.search_users('%%')) = 0, 'curinga do LIKE é tratado como texto');
+  begin
+    perform public.search_users('j');
+    raise exception 'FALHOU: busca com 1 letra';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.send_friend_request(p_user => 'dddddddd-1111-1111-1111-111111111111');
+    raise exception 'FALHOU: pediu pela busca a quem não aparece nela';
+  exception when no_data_found then null;
+  end;
+  r := public.send_friend_request(p_user => 'bbbbbbbb-1111-1111-1111-111111111111');
+  perform pg_temp.check(r->>'status' = 'pending', 'pedido pela busca');
+  perform pg_temp.check(public.search_users('Juca')->0->>'relation' = 'pending_out', 'busca mostra pedido enviado');
+end $$;
+
+-- Juca pede de volta: vira amizade na hora; depois desfaz
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.send_friend_request(current_setting('test.lia_code'));
+  perform pg_temp.check(r->>'status' = 'accepted', 'pedido cruzado vira amizade');
+  perform public.remove_friend('cccccccc-1111-1111-1111-111111111111');
+  perform pg_temp.check(jsonb_array_length(public.my_friends()->'friends') = 0, 'desfaz a amizade');
+end $$;
+
+-- Grupos: Lia cria, Mel entra; o chefe soma as missões das duas
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.create_group('  Time   da manhã ');
+  perform set_config('test.group', r->>'id', true);
+  perform set_config('test.group_code', (select invite_code from public.groups where id = (r->>'id')::uuid), true);
+  perform pg_temp.check((select name from public.groups) = 'Time da manhã', 'grupo criado com o nome limpo');
+  begin
+    perform public.create_group('   ');
+    raise exception 'FALHOU: grupo sem nome';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform public.join_group(current_setting('test.group_code'));
+  perform public.join_group(current_setting('test.group_code')); -- de novo: nada muda
+  perform pg_temp.check((select count(*) from public.group_members) = 2, 'Mel entra no grupo uma vez');
+end $$;
+
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb; v_last date := date_trunc('week', pg_temp.today())::date - 7;
+begin
+  r := public.group_detail(current_setting('test.group')::uuid);
+  perform pg_temp.check(jsonb_array_length(r->'members') = 2 and (r->>'is_owner')::boolean, 'detalhe com 2 membros');
+  perform pg_temp.check(not (r::text like '%Segredo%'), 'grupo não expõe nomes de hábitos');
+  perform pg_temp.check((r->'last_boss'->>'max_hp')::int = 6 and (r->'last_boss'->>'damage')::int = 7,
+    'chefe da semana passada: vida 80% de 7 missões, dano 7');
+  r := public.claim_group_boss(current_setting('test.group')::uuid, v_last);
+  perform pg_temp.check((r->>'claimed')::boolean and (r->>'coins_awarded')::int = 30, 'chefe do grupo rende 30 a cada membro');
+  r := public.claim_group_boss(current_setting('test.group')::uuid, v_last);
+  perform pg_temp.check(not (r->>'claimed')::boolean, 'chefe do grupo paga uma vez por membro');
+  perform pg_temp.check(jsonb_array_length(public.my_groups()) = 1, 'grupo aparece na lista');
+end $$;
+
+-- completa 6 membros; o 7º não entra
+reset role;
+insert into public.group_members (group_id, user_id)
+select current_setting('test.group')::uuid, u
+from unnest(array['aaaaaaaa-1111-1111-1111-111111111111', 'bbbbbbbb-1111-1111-1111-111111111111',
+                  '88888888-8888-8888-8888-888888888888', '99999999-9999-9999-9999-999999999999']::uuid[]) u;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.groups) = 0 and (select count(*) from public.friendships) = 0,
+    'B não vê grupos nem amizades dos outros');
+  begin
+    perform public.group_detail(current_setting('test.group')::uuid);
+    raise exception 'FALHOU: B viu grupo de fora';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.claim_group_boss(current_setting('test.group')::uuid, date_trunc('week', pg_temp.today())::date - 7);
+    raise exception 'FALHOU: B resgatou chefe de grupo alheio';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.join_group(current_setting('test.group_code'));
+    raise exception 'FALHOU: entrou no grupo cheio';
+  exception when sqlstate 'PR044' then null;
+  end;
+end $$;
+
+-- a dona sai: o membro mais antigo assume
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform public.leave_group(current_setting('test.group')::uuid);
+  perform pg_temp.check(jsonb_array_length(public.my_groups()) = 0, 'Lia saiu do grupo');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.check(
+    (select owner from public.groups where id = current_setting('test.group')::uuid) = 'dddddddd-1111-1111-1111-111111111111',
+    'Mel vira dona do grupo');
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

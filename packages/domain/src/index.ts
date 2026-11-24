@@ -19,3 +19,4 @@ export * from './rewards';
 export * from './habitStats';
 export * from './challenges';
 export * from './whatsNew';
+export * from './social';

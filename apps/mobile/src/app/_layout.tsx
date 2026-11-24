@@ -93,6 +93,7 @@ function RootNavigator() {
         <Stack.Screen name="feedback" options={{ ...formHeader, title: 'Enviar feedback' }} />
         <Stack.Screen name="shop" options={{ ...formHeader, title: 'Loja' }} />
         <Stack.Screen name="challenges" options={{ ...formHeader, title: 'Desafios' }} />
+        <Stack.Screen name="group/[id]" options={{ ...formHeader, title: 'Grupo' }} />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !onboarded}>
         <Stack.Screen name="onboarding" />
@@ -108,7 +109,8 @@ function RootLayout() {
   // Liga a navegação do Expo Router ao Sentry (tela de cada erro e tempo de abertura).
   const navigationRef = useNavigationContainerRef();
   useEffect(() => {
-    if (sentryEnabled && navigationRef) navigationIntegration.registerNavigationContainer(navigationRef);
+    if (sentryEnabled && navigationRef)
+      navigationIntegration.registerNavigationContainer(navigationRef);
   }, [navigationRef]);
   return (
     <AuthProvider>
