@@ -1,32 +1,35 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BOSS_REWARD, type WeeklyBoss } from '@per/domain';
-import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
+import { BossSprite, useBossAnim } from './BossSprite';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
-
-/** Aparência de cada chefe (o domínio só define nome e frase). */
-export const BOSS_LOOK: Record<string, { icon: IconName; color: string }> = {
-  golem: { icon: 'cube', color: '#A58B6F' },
-  hidra: { icon: 'git-network', color: '#16C79A' },
-  lich: { icon: 'skull', color: '#8B5CF6' },
-  dragao: { icon: 'flame', color: '#F2617A' },
-  sombra: { icon: 'cloudy-night', color: '#6B7280' },
-  basilisco: { icon: 'phone-portrait', color: '#F5B942' },
+/** Cor de cada chefe (moldura e detalhes); o desenho vem do BossSprite. */
+export const BOSS_COLOR: Record<string, string> = {
+  golem: '#A58B6F',
+  hidra: '#16C79A',
+  lich: '#8B5CF6',
+  dragao: '#F2617A',
+  sombra: '#6B7280',
+  basilisco: '#F5B942',
 };
 
+/** Retrato pequeno do chefe (parado), numa moldura redonda na cor dele. */
 export function BossEmblem({ id, size = 56 }: { id: string; size?: number }) {
-  const look = BOSS_LOOK[id] ?? { icon: 'skull' as IconName, color: colors.danger };
   return (
     <View
       style={[
         styles.emblem,
-        { width: size, height: size, borderRadius: size / 2, borderColor: look.color },
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderColor: BOSS_COLOR[id] ?? colors.danger,
+        },
       ]}
     >
-      <Ionicons name={look.icon} size={size * 0.5} color={look.color} />
+      <BossSprite id={id} size={size * 1.15} />
     </View>
   );
 }
@@ -53,12 +56,16 @@ export function BossCard({
 }: Props) {
   const { boss, maxHp, hp, damage, defeated } = state;
   const pct = maxHp === 0 ? 0 : (hp / maxHp) * 100;
+  // Provoca ao abrir com a vida cheia; enfraquece abaixo de 30%; derrotado, dissolve em estrela.
+  const sprite = useBossAnim(state, { tauntOnMount: true });
 
   return (
     <View style={styles.card}>
       <Text style={typography.label}>{label}</Text>
       <View style={styles.header}>
-        <BossEmblem id={boss.id} />
+        <View style={[styles.stage, { borderColor: BOSS_COLOR[boss.id] ?? colors.border }]}>
+          {maxHp > 0 && <BossSprite id={boss.id} size={96} {...sprite} />}
+        </View>
         <View style={styles.flex}>
           <Text style={[typography.heading, defeated && styles.defeated]}>{boss.name}</Text>
           <Text style={styles.taunt}>
@@ -99,6 +106,26 @@ const styles = StyleSheet.create({
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   flex: { flex: 1, gap: 2 },
+  stage: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    backgroundColor: colors.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  mini: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    backgroundColor: colors.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   emblem: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -122,11 +149,15 @@ export function BossBanner({
   id,
   name,
   onPress,
+  hits = 0,
 }: {
   id: string;
   name: string;
   onPress: () => void;
+  /** Sobe a cada missão concluída: o chefe leva um golpe. */
+  hits?: number;
 }) {
+  const sprite = useBossAnim({ maxHp: 1, hp: 1, defeated: false }, { hits });
   return (
     <Pressable
       onPress={onPress}
@@ -134,7 +165,9 @@ export function BossBanner({
       accessibilityLabel={`Chefe da semana: ${name}. Abrir desafios`}
       style={({ pressed }) => [bannerStyles.banner, pressed && bannerStyles.pressed]}
     >
-      <BossEmblem id={id} size={36} />
+      <View style={[styles.mini, { borderColor: BOSS_COLOR[id] ?? colors.border }]}>
+        <BossSprite id={id} size={56} {...sprite} />
+      </View>
       <View style={styles.flex}>
         <Text style={typography.label}>CHEFE DA SEMANA</Text>
         <Text style={typography.body}>{name}</Text>

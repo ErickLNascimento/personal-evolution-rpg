@@ -281,6 +281,7 @@ function RealToday() {
               <BossBanner
                 id={boss.id}
                 name={boss.name}
+                hits={day.cheer}
                 onPress={() => router.push('/challenges')}
               />
             )}

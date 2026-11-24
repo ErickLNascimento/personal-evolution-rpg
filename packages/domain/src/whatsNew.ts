@@ -38,6 +38,12 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         text: 'Crie um grupo de até 6 pessoas: cada missão de qualquer um tira 1 de vida do chefe da semana do grupo. Derrotado, cada membro ganha 30 Cristais.',
         route: '/social',
       },
+      {
+        icon: 'skull',
+        title: 'Os chefes ganharam vida',
+        text: 'Golem, Hidra, Lich, Dragão, Sombra e Basilisco agora são monstros animados: provocam você, sentem cada missão feita, enfraquecem e se desfazem em luz quando derrotados.',
+        route: '/challenges',
+      },
     ],
   },
   {

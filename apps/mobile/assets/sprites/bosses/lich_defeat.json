@@ -1,0 +1,8 @@
+{
+  "image": "lich_defeat.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 12,
+  "fps": 10,
+  "loop": false
+}
