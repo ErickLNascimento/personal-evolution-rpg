@@ -21,6 +21,7 @@ export function CompactHeroBar({
   progress,
   scrollY,
   showAfter = 150,
+  cheer = 0,
 }: {
   hero: HeroLook;
   level: LevelProgress;
@@ -28,6 +29,8 @@ export function CompactHeroBar({
   scrollY: SharedValue<number>;
   /** Rolagem (em dp) a partir da qual a barra entra. */
   showAfter?: number;
+  /** Sobe a cada missão concluída: o herói da barra também comemora. */
+  cheer?: number;
 }) {
   const style = useAnimatedStyle(() => {
     const t = interpolate(scrollY.value, [showAfter, showAfter + 50], [0, 1], Extrapolation.CLAMP);
@@ -41,7 +44,7 @@ export function CompactHeroBar({
       importantForAccessibility="no-hide-descendants"
     >
       <View style={styles.avatar}>
-        <HeroAvatar hero={hero} size={30} />
+        <HeroAvatar hero={hero} size={30} cheer={cheer} />
       </View>
       <View style={styles.info}>
         <Text style={styles.level}>Nível {level.level}</Text>

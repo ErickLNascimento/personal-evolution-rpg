@@ -28,6 +28,7 @@ import { MissionCard } from '@/components/MissionCard';
 import { Placeholder, Screen } from '@/components/Screen';
 import { TodaySkeleton } from '@/components/Skeleton';
 import { CompactHeroBar } from '@/components/today/CompactHeroBar';
+import { HeroCheerPop } from '@/components/today/HeroCheerPop';
 import { PromotionBanner } from '@/components/today/PromotionBanner';
 import { BossBanner } from '@/components/challenges/BossCard';
 import { AppTour } from '@/components/tour/AppTour';
@@ -174,12 +175,16 @@ function RealToday() {
         scrollY={scrollY}
         overlay={
           ready ? (
-            <CompactHeroBar
-              hero={hero}
-              level={day.level}
-              progress={day.progress}
-              scrollY={scrollY}
-            />
+            <>
+              <CompactHeroBar
+                hero={hero}
+                level={day.level}
+                progress={day.progress}
+                scrollY={scrollY}
+                cheer={day.cheer}
+              />
+              <HeroCheerPop hero={hero} cheer={day.cheer} scrollY={scrollY} />
+            </>
           ) : undefined
         }
       >

@@ -45,6 +45,11 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         route: '/challenges',
       },
       {
+        icon: 'happy',
+        title: 'Comemoração sempre à vista',
+        text: 'Concluiu uma missão lá embaixo na lista? Seu herói aparece num balão e comemora com você.',
+      },
+      {
         icon: 'cloud-download',
         title: 'Atualizações avisadas',
         text: 'Quando sair uma versão nova, o app avisa, baixa em segundo plano e aplica na próxima vez que você abrir.',
