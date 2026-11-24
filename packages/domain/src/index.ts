@@ -20,3 +20,4 @@ export * from './habitStats';
 export * from './challenges';
 export * from './whatsNew';
 export * from './social';
+export * from './appUpdates';

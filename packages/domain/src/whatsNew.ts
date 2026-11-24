@@ -44,6 +44,11 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         text: 'Golem, Hidra, Lich, Dragão, Sombra e Basilisco agora são monstros animados: provocam você, sentem cada missão feita, enfraquecem e se desfazem em luz quando derrotados.',
         route: '/challenges',
       },
+      {
+        icon: 'cloud-download',
+        title: 'Atualizações avisadas',
+        text: 'Quando sair uma versão nova, o app avisa, baixa em segundo plano e aplica na próxima vez que você abrir.',
+      },
     ],
   },
   {

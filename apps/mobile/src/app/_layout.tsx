@@ -3,6 +3,7 @@ import { Stack, useNavigationContainerRef } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { CelebrationProvider } from '@/features/celebration/CelebrationProvider';
 import { ProfileProvider, useProfile } from '@/features/profile/ProfileProvider';
@@ -118,6 +119,7 @@ function RootLayout() {
         <CelebrationProvider>
           <StatusBar style="light" />
           <RootNavigator />
+          <UpdateBanner />
         </CelebrationProvider>
       </ProfileProvider>
     </AuthProvider>
