@@ -29,6 +29,11 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     date: '2026-11-27',
     items: [
       {
+        icon: 'shield',
+        title: 'Ícone novo',
+        text: 'O app ganhou um brasão próprio na tela inicial: o escudo com a seta de subir de nível.',
+      },
+      {
         icon: 'happy',
         flag: 'feature_mood_journal',
         title: 'Diário de humor',
