@@ -9,6 +9,7 @@ import {
   type HeroItem,
   type HeroLook,
   type HeroSlot,
+  FEATURES,
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useState } from 'react';
@@ -17,6 +18,7 @@ import { Chips } from '@/components/Chips';
 import { CrystalBadge, CRYSTAL } from '@/components/crystals/Crystals';
 import { Button, Field, FormMessage } from '@/components/Form';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
+import { FeatureGate } from '@/components/FeatureGate';
 import { StackScreen } from '@/components/Screen';
 import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/ProfileProvider';
@@ -41,7 +43,7 @@ const TABS = [
 const DATE = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' });
 
 /** Loja: recompensas da vida real (criadas pelo usuário) e cosméticos do herói, pagos com Cristais. */
-export default function ShopScreen() {
+function ShopScreen() {
   const load = useCallback(() => fetchShop(), []);
   const shop = useFocusLoad<ShopData>(load);
   const [tab, setTab] = useState<Tab>('rewards');
@@ -429,3 +431,11 @@ const styles = StyleSheet.create({
   previewing: { borderColor: colors.primary },
   swatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
 });
+
+export default function ShopScreenRoute() {
+  return (
+    <FeatureGate feature={FEATURES.shop}>
+      <ShopScreen />
+    </FeatureGate>
+  );
+}

@@ -461,8 +461,12 @@ Deno.serve(async (req) => {
   const groqKey = Deno.env.get("GROQ_API_KEY");
   if (!geminiKey && !anthropicKey && !groqKey) return reply(503, { error: "A IA ainda não foi configurada no servidor." });
 
-  // Service role só para o limite de uso e para gravar o plano.
+  // Service role só para o limite de uso, a feature flag e para gravar o plano.
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+
+  // Feature flag do Oráculo (app_settings.feature_oracle; ausente = ligado). Vale também para trocas.
+  const { data: oracleOn } = await admin.rpc("feature_on", { p_key: "feature_oracle", p_default: 1 });
+  if (oracleOn === false) return reply(403, { error: "O Oráculo está desativado no momento. Tente mais tarde." });
 
   type SwapPlan = { id: string; kind: Kind; payload: { summary?: string; habits?: Record<string, unknown>[] }; swaps: number };
   let swapPlan: SwapPlan | null = null;

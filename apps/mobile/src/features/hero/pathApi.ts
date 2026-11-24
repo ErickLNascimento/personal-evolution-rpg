@@ -1,6 +1,7 @@
-import { isPathId, type Branch, type PathId, type Tier } from '@per/domain';
+import { isPathId, type Branch, type PathId, type Tier, FEATURES } from '@per/domain';
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { Result } from '@/features/habits/api';
+import { isFeatureOn } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
 
 /** Estado do caminho como o banco calcula (`my_hero_path`). */
@@ -116,6 +117,7 @@ export interface FlashMission {
 
 /** Missão relâmpago de hoje (o banco sorteia na primeira chamada do dia); null se não houver. */
 export async function fetchFlashMission(): Promise<Result<FlashMission | null>> {
+  if (!isFeatureOn(FEATURES.flashMission)) return { data: null, error: null };
   const { data, error } = await client().rpc('my_flash_mission');
   if (error) return failure(error, 'Não foi possível carregar a missão relâmpago.');
   if (!data) return { data: null, error: null };

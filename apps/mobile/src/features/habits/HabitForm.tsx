@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
+  FEATURES,
   HABIT_KIND_HINT,
   HABIT_KIND_LABEL,
   HABIT_KINDS,
@@ -24,6 +25,7 @@ import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
+import { useFeature } from '@/features/profile/useFeature';
 import { ensureReminderPermission } from '@/lib/reminders';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 import { createObjective, listObjectives, type ObjectiveRecord } from './api';
@@ -79,6 +81,8 @@ export function HabitForm({
   const set = <K extends keyof HabitDraft>(key: K, value: HabitDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
   const kind = draft.kind ?? 'do';
+  // Desligado, some o seletor; hábitos que já são Evitar/Contar seguem editáveis.
+  const kindsOn = useFeature(FEATURES.habitKinds) || (initial.kind ?? 'do') !== 'do';
 
   async function submit() {
     const result = validateHabitDraft(draft);
@@ -115,11 +119,13 @@ export function HabitForm({
         </Pressable>
       )}
 
-      <View style={styles.group}>
-        <Text style={typography.label}>TIPO</Text>
-        <Chips options={KIND_OPTIONS} selected={[kind]} onToggle={(v) => set('kind', v)} />
-        <Text style={typography.caption}>{HABIT_KIND_HINT[kind]}</Text>
-      </View>
+      {kindsOn && (
+        <View style={styles.group}>
+          <Text style={typography.label}>TIPO</Text>
+          <Chips options={KIND_OPTIONS} selected={[kind]} onToggle={(v) => set('kind', v)} />
+          <Text style={typography.caption}>{HABIT_KIND_HINT[kind]}</Text>
+        </View>
+      )}
 
       <View style={styles.group}>
         <Text style={typography.label}>DIFICULDADE</Text>

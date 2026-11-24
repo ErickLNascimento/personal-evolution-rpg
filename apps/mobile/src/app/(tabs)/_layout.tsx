@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FEATURES } from '@per/domain';
 import { Tabs } from 'expo-router/js-tabs';
 import type { ColorValue } from 'react-native';
+import { useFeature } from '@/features/profile/useFeature';
 import { colors } from '@/theme/tokens';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -23,6 +25,7 @@ const icon = (name: IconName) => {
 };
 
 export default function TabsLayout() {
+  const socialOn = useFeature(FEATURES.social);
   return (
     <Tabs
       screenOptions={{
@@ -41,7 +44,12 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="social"
-        options={{ title: 'Social', tabBarIcon: icon('people-outline') }}
+        // Social desligado (feature flag): a aba some da barra.
+        options={{
+          title: 'Social',
+          tabBarIcon: icon('people-outline'),
+          href: socialOn ? undefined : null,
+        }}
       />
       <Tabs.Screen
         name="profile"

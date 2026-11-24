@@ -23,6 +23,7 @@ import {
   type HeroClass,
   type PlanMinutes,
   type SuggestionEdit,
+  FEATURES,
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -32,6 +33,7 @@ import { Chips } from '@/components/Chips';
 import { CRYSTAL } from '@/components/crystals/Crystals';
 import { Button, Field, FormMessage } from '@/components/Form';
 import { OracleHeader } from '@/components/oracle/OracleHeader';
+import { FeatureGate } from '@/components/FeatureGate';
 import { StackScreen } from '@/components/Screen';
 import {
   decidePlan,
@@ -61,7 +63,7 @@ const DIFFICULTY_OPTIONS = DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULT
 
 type Draft = { title: string; difficulty: Difficulty; scheduleDays: number[] };
 
-export default function AiPlanScreen() {
+function AiPlanScreen() {
   const { profile, loading: profileLoading } = useProfile();
   const [plan, setPlan] = useState<AiPlan | null | undefined>(undefined);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -558,3 +560,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
 });
+
+export default function AiPlanScreenRoute() {
+  return (
+    <FeatureGate feature={FEATURES.oracle}>
+      <AiPlanScreen />
+    </FeatureGate>
+  );
+}

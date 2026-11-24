@@ -14,6 +14,7 @@ import {
 } from '@per/domain';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { setFeatureSnapshot } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
 
 export interface Profile {
@@ -123,6 +124,12 @@ function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
   };
 }
 
+/** Guarda as flags também para o código fora do React (lib/featureSnapshot). */
+function snapshot(features: Set<string>): Set<string> {
+  setFeatureSnapshot(features);
+  return features;
+}
+
 async function fetchProfile(
   userId: string,
 ): Promise<{ profile: Profile | null; error: string | null }> {
@@ -140,7 +147,7 @@ async function fetchProfile(
       earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
       tourVersion: tour.data?.find((r) => r.key === 'tour_version')?.value ?? null,
       cosmetics: new Set((cosmetics.data ?? []).map((c) => c.item_id)),
-      features: enabledFeatures(tour.data ?? []),
+      features: snapshot(enabledFeatures(tour.data ?? [])),
     }),
     error: null,
   };

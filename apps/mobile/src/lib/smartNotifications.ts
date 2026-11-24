@@ -1,6 +1,7 @@
-import { smartNotifications, stageName, type SmartNotification } from '@per/domain';
+import { FEATURES, smartNotifications, stageName, type SmartNotification } from '@per/domain';
 import { listHabits } from '@/features/habits/api';
 import { fetchFlashMission, fetchHeroPath } from '@/features/hero/pathApi';
+import { isFeatureOn } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -31,7 +32,8 @@ function deviceNow(now: Date) {
  * relâmpago e promoção). Falhas em alguma parte só deixam aquele aviso de fora.
  */
 export async function buildSmartNotifications(): Promise<SmartNotification[]> {
-  if (!supabase || !smartNotificationsEnabled()) return [];
+  if (!supabase || !smartNotificationsEnabled() || !isFeatureOn(FEATURES.smartNotifications))
+    return [];
   const now = new Date();
   const { today, nowMinutes } = deviceNow(now);
 

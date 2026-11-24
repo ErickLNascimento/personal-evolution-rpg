@@ -9,6 +9,7 @@ import {
   weeklyBoss,
   type JourneyLength,
   type LocalDate,
+  FEATURES,
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useState } from 'react';
@@ -17,6 +18,7 @@ import { BossCard } from '@/components/challenges/BossCard';
 import { Chips } from '@/components/Chips';
 import { CrystalBadge } from '@/components/crystals/Crystals';
 import { Button, FormMessage } from '@/components/Form';
+import { FeatureGate } from '@/components/FeatureGate';
 import { StackScreen } from '@/components/Screen';
 import {
   abandonJourney,
@@ -50,7 +52,7 @@ function logsOf(data: ChallengesData, habitId: string): Set<LocalDate> {
 }
 
 /** Desafios com prazo: o chefe da semana e as jornadas de 21 ou 66 dias. */
-export default function ChallengesScreen() {
+function ChallengesScreen() {
   const { today, ready } = useToday();
 
   // Carrega e já fecha no banco as jornadas com resultado decidido (o banco confere e paga).
@@ -346,3 +348,11 @@ const styles = StyleSheet.create({
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   won: { color: colors.accent, fontWeight: '700' },
 });
+
+export default function ChallengesScreenRoute() {
+  return (
+    <FeatureGate feature={FEATURES.challenges}>
+      <ChallengesScreen />
+    </FeatureGate>
+  );
+}

@@ -1670,6 +1670,82 @@ do $$ begin
   perform pg_temp.check((select count(*) from public.mood_entries) = 0, 'humor é privado, nem amigos veem');
 end $$;
 
+-- ── Feature flags dos recursos antigos ──────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check(
+    (select count(*) from public.app_settings where key like 'feature\_%' and value = 1) >= 9,
+    'flags dos recursos antigos nascem ligadas');
+  perform pg_temp.check(not exists (
+      select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname like '%\_\_impl'
+        and has_function_privilege('authenticated', p.oid, 'execute')),
+    'o app não chama as funções __impl direto (só pelos porteiros)');
+end $$;
+update public.app_settings set value = 0
+where key in ('feature_shop', 'feature_challenges', 'feature_social', 'feature_flash_mission', 'feature_streak_shields');
+
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.buy_cosmetic('aura_fogo');
+    raise exception 'FALHOU: Loja desligada vendeu';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222223', 21);
+    raise exception 'FALHOU: Desafios desligados';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.search_users('Juca');
+    raise exception 'FALHOU: Social desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.my_flash_mission();
+    raise exception 'FALHOU: Missão relâmpago desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.buy_streak_shield();
+    raise exception 'FALHOU: Escudos desligados';
+  exception when sqlstate 'PR050' then null;
+  end;
+  -- ler continua liberado
+  perform public.my_friends();
+  perform public.my_groups();
+end $$;
+
+-- linha ausente = ligada (só para recursos antigos)
+reset role;
+delete from public.app_settings where key = 'feature_social';
+set local role authenticated;
+do $$ begin
+  perform public.search_users('Juca');
+end $$;
+
+-- Oráculo desligado: a Edge Function recebe o motivo do bloqueio
+reset role;
+update public.app_settings set value = 0 where key = 'feature_oracle';
+set local role service_role;
+do $$ begin
+  perform pg_temp.check(
+    public.ai_plan_block_reason('cccccccc-1111-1111-1111-111111111111', 'plan') like '%Oráculo está desativado%',
+    'Oráculo desligado bloqueia novos planos');
+end $$;
+reset role;
+update public.app_settings set value = 1 where key like 'feature\_%' and key <> 'feature_mood_journal';
+insert into public.app_settings (key, value) values ('feature_social', 1) on conflict (key) do update set value = 1;
+set local role service_role;
+do $$ begin
+  perform pg_temp.check(
+    coalesce(public.ai_plan_block_reason('cccccccc-1111-1111-1111-111111111111', 'plan'), '') not like '%desativado%',
+    'Oráculo ligado volta ao limite normal');
+end $$;
+reset role;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

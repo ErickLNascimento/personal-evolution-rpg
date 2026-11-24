@@ -9,6 +9,7 @@ import {
   OBJECTIVE_CATEGORY_LABEL,
   toggleFocusArea,
   validateFocusAreas,
+  FEATURES,
   type Difficulty,
   type ObjectiveCategory,
 } from '@per/domain';
@@ -22,6 +23,7 @@ import { AppTour } from '@/components/tour/AppTour';
 import { latestNewsSlides } from '@/lib/whatsNew';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useHero } from '@/features/hero/useHero';
+import { useFeature } from '@/features/profile/useFeature';
 import { useProfile } from '@/features/profile/useProfile';
 import { deviceTimeZone } from '@/lib/deviceTimeZone';
 import { ensureReminderPermission, syncReminders } from '@/lib/reminders';
@@ -44,6 +46,7 @@ export default function ProfileScreen() {
 function AccountProfile() {
   const { session } = useAuth();
   const { profile, loading, error, reload, update } = useProfile();
+  const smartOn = useFeature(FEATURES.smartNotifications);
   const { hero } = useHero();
   const [tourOpen, setTourOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
@@ -101,9 +104,11 @@ function AccountProfile() {
         />
       </Section>
 
-      <Section title="NOTIFICAÇÕES">
-        <SmartNotificationsToggle />
-      </Section>
+      {smartOn && (
+        <Section title="NOTIFICAÇÕES">
+          <SmartNotificationsToggle />
+        </Section>
+      )}
 
       <Section title="AJUDA E FEEDBACK">
         <Button title="Enviar feedback" onPress={() => router.push('/feedback')} />

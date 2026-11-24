@@ -104,6 +104,8 @@ function RealToday() {
   const [newsSeen, setNewsSeen] = useState(seenNewsVersion);
   const news = unseenReleaseItems(newsSeen, RELEASE_NOTES, profile?.features);
   const moodOn = useFeature(FEATURES.moodJournal);
+  const shopOn = useFeature(FEATURES.shop);
+  const challengesOn = useFeature(FEATURES.challenges);
   const showNews =
     Boolean(profile) && !showTour && news.length > 0 && (profile?.tourSeenVersion ?? 0) > 0;
   const hero = heroLook(
@@ -248,7 +250,7 @@ function RealToday() {
                     unset={isHeroUnset(profile?.hero)}
                     onPress={() => router.push('/hero')}
                     crystals={day.crystals}
-                    onShop={() => router.push('/shop')}
+                    onShop={shopOn ? () => router.push('/shop') : undefined}
                     heroPath={profile?.heroPath}
                     titleId={displayedTitle(
                       profile?.equippedTitle,
@@ -288,7 +290,7 @@ function RealToday() {
               }
             />
             {moodOn && <MoodCheckIn date={day.date} isToday={choice === 'today'} />}
-            {day.hasHabits && (
+            {day.hasHabits && challengesOn && (
               <BossBanner
                 id={boss.id}
                 name={boss.name}

@@ -4,9 +4,11 @@ import {
   streakShieldDates,
   type HabitLogEntry,
   type LocalDate,
+  FEATURES,
 } from '@per/domain';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { listHabits, type Result } from '@/features/habits/api';
+import { isFeatureOn } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
 
 export interface StreakShields {
@@ -54,6 +56,7 @@ export async function buyShield(): Promise<Result<{ held: number; crystals: numb
  * Falhas são silenciosas: na próxima abertura o app tenta de novo.
  */
 export async function autoProtectStreak(today: LocalDate): Promise<LocalDate[]> {
+  if (!isFeatureOn(FEATURES.streakShields)) return [];
   const shields = await fetchShields();
   if (shields.error !== null || shields.data.held <= 0) return [];
 

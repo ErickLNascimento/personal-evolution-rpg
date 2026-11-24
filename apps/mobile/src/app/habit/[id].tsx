@@ -1,12 +1,27 @@
-import { describeSchedule, DIFFICULTY_LABEL, retireHabit, type HabitDraft, type LocalDate } from '@per/domain';
+import {
+  describeSchedule,
+  DIFFICULTY_LABEL,
+  FEATURES,
+  retireHabit,
+  type HabitDraft,
+  type LocalDate,
+} from '@per/domain';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { Button, FormMessage } from '@/components/Form';
 import { StackScreen } from '@/components/Screen';
-import { getHabit, isLoggedOn, listHabitLogDates, retire, updateHabit, type HabitRecord } from '@/features/habits/api';
+import {
+  getHabit,
+  isLoggedOn,
+  listHabitLogDates,
+  retire,
+  updateHabit,
+  type HabitRecord,
+} from '@/features/habits/api';
 import { HabitForm } from '@/features/habits/HabitForm';
 import { HabitStatsCard } from '@/features/habits/HabitStatsCard';
+import { useFeature } from '@/features/profile/useFeature';
 import { useToday } from '@/features/profile/useToday';
 import { syncReminders } from '@/lib/reminders';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -31,6 +46,7 @@ function formatDate(date: string) {
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { today, ready } = useToday();
+  const statsOn = useFeature(FEATURES.habitStats);
   const [habit, setHabit] = useState<HabitRecord | null>(null);
   const [logged, setLogged] = useState<Set<LocalDate> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +76,10 @@ export default function EditHabitScreen() {
     );
   }
 
-  const stats = logged && ready ? <HabitStatsCard habit={habit} logged={logged} today={today} /> : null;
+  const stats =
+    logged && ready && statsOn ? (
+      <HabitStatsCard habit={habit} logged={logged} today={today} />
+    ) : null;
 
   if (habit.archivedOn) {
     return (
@@ -71,7 +90,8 @@ export default function EditHabitScreen() {
             {DIFFICULTY_LABEL[habit.difficulty]} · {describeSchedule(habit.scheduleDays)}
           </Text>
           <Text style={typography.body}>
-            Arquivado. Valeu de {formatDate(habit.startDate)} até {formatDate(habit.archivedOn)}; o XP ganho continua seu.
+            Arquivado. Valeu de {formatDate(habit.startDate)} até {formatDate(habit.archivedOn)}; o
+            XP ganho continua seu.
           </Text>
         </View>
         {stats}
@@ -136,11 +156,17 @@ export default function EditHabitScreen() {
       />
       <View style={styles.divider} />
       <Text style={typography.caption}>
-        Mudanças de dificuldade valem para os próximos registros. Para tirar o hábito da rotina sem perder o histórico,
-        arquive-o.
+        Mudanças de dificuldade valem para os próximos registros. Para tirar o hábito da rotina sem
+        perder o histórico, arquive-o.
       </Text>
       <FormMessage text={error} />
-      <Button title="Arquivar hábito" onPress={() => askRetire(habit)} variant="danger" loading={retiring} disabled={!ready} />
+      <Button
+        title="Arquivar hábito"
+        onPress={() => askRetire(habit)}
+        variant="danger"
+        loading={retiring}
+        disabled={!ready}
+      />
     </StackScreen>
   );
 }

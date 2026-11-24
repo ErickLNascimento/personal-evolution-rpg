@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   describeSchedule,
   DIFFICULTY_LABEL,
+  FEATURES,
   formatReminderTime,
   parseReminderTime,
   xpForHabit,
@@ -13,6 +14,7 @@ import { Button, FormMessage } from '@/components/Form';
 import { OracleCallout } from '@/components/oracle/OracleCallout';
 import { Placeholder, Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useFeature } from '@/features/profile/useFeature';
 import {
   listHabits,
   listObjectives,
@@ -50,6 +52,7 @@ function HabitList() {
   const [showArchived, setShowArchived] = useState(false);
   const habits = data?.habits ?? null;
   const objectives = data?.objectives ?? [];
+  const oracleOn = useFeature(FEATURES.oracle);
 
   if (failed) {
     return (
@@ -67,7 +70,7 @@ function HabitList() {
   return (
     <Screen title="Hábitos" onRefresh={refresh} refreshing={refreshing}>
       <Button title="Nova missão" onPress={() => router.push('/habit/new')} />
-      {habits !== null && (
+      {habits !== null && oracleOn && (
         <OracleCallout
           says={
             active.length === 0

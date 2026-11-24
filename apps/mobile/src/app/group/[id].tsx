@@ -4,6 +4,7 @@ import {
   GROUP_BOSS_REWARD,
   groupBossState,
   MAX_GROUP_MEMBERS,
+  FEATURES,
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -11,6 +12,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Share, StyleSheet, Text, View } from 'react-native';
 import { BossCard } from '@/components/challenges/BossCard';
 import { Button, FormMessage } from '@/components/Form';
+import { FeatureGate } from '@/components/FeatureGate';
 import { StackScreen } from '@/components/Screen';
 import { FriendRow } from '@/components/social/FriendRow';
 import { claimGroupBoss, fetchGroup, leaveGroup, type GroupInfo } from '@/features/social/api';
@@ -18,7 +20,7 @@ import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 /** Grupo: chefe da semana em conjunto, membros com o resumo de cada um e o convite. */
-export default function GroupScreen() {
+function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const load = useCallback(() => fetchGroup(id), [id]);
   const screen = useFocusLoad<GroupInfo>(load);
@@ -154,3 +156,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+export default function GroupScreenRoute() {
+  return (
+    <FeatureGate feature={FEATURES.social}>
+      <GroupScreen />
+    </FeatureGate>
+  );
+}

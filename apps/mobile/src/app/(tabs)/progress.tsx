@@ -64,6 +64,8 @@ function RealProgress() {
   const { today, ready } = useToday();
   const { profile } = useProfile();
   const moodOn = useFeature(FEATURES.moodJournal);
+  const shieldsOn = useFeature(FEATURES.streakShields);
+  const oracleOn = useFeature(FEATURES.oracle);
   const load = useCallback(async () => {
     const p = await fetchProgress(
       addDays(today, -(STREAK_WINDOW - 1)),
@@ -72,14 +74,14 @@ function RealProgress() {
     if (p.error !== null) return p;
     // Escudos guardados seguram sozinhos as faltas que quebrariam o streak.
     const protectedNow = await autoProtectStreak(today);
-    const shields = await fetchShields();
+    const shields = shieldsOn ? await fetchShields() : { data: null };
     // O diário é extra: sem ele (ou sem a migration), o resto da tela segue.
     const mood = moodOn ? await fetchMoodEntries(addDays(today, -59)) : { data: [] };
     return {
       data: { ...p.data, shields: shields.data, protectedNow, mood: mood.data ?? [] },
       error: null,
     };
-  }, [today, moodOn]);
+  }, [today, moodOn, shieldsOn]);
   const { data, error, refreshing, refresh } = useFocusLoad<
     ProgressData & { shields: StreakShields | null; protectedNow: LocalDate[]; mood: MoodEntry[] }
   >(load, ready);
@@ -190,18 +192,20 @@ function RealProgress() {
         <AiReview review={data.review} />
       </Card>
 
-      <Card title="ORÁCULO">
-        <View style={styles.oracle}>
-          <Oracle size={96} />
-          <View style={styles.oracleText}>
-            <Text style={typography.heading}>Peça conselho ao Oráculo</Text>
-            <Text style={typography.caption}>
-              Um plano de missões sob medida para um objetivo, ou uma revisão da sua semana.
-            </Text>
+      {oracleOn && (
+        <Card title="ORÁCULO">
+          <View style={styles.oracle}>
+            <Oracle size={96} />
+            <View style={styles.oracleText}>
+              <Text style={typography.heading}>Peça conselho ao Oráculo</Text>
+              <Text style={typography.caption}>
+                Um plano de missões sob medida para um objetivo, ou uma revisão da sua semana.
+              </Text>
+            </View>
           </View>
-        </View>
-        <Button title="✦ Consultar o Oráculo" onPress={() => router.push('/ai-plan')} />
-      </Card>
+          <Button title="✦ Consultar o Oráculo" onPress={() => router.push('/ai-plan')} />
+        </Card>
+      )}
     </Screen>
   );
 }
