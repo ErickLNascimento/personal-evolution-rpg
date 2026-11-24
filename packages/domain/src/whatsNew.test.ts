@@ -1,4 +1,9 @@
-import { LATEST_RELEASE_NOTE_VERSION, RELEASE_NOTES, unseenReleaseItems, type ReleaseNote } from './whatsNew';
+import {
+  LATEST_RELEASE_NOTE_VERSION,
+  RELEASE_NOTES,
+  unseenReleaseItems,
+  type ReleaseNote,
+} from './whatsNew';
 
 const item = (title: string) => ({ icon: 'star', title, text: '…' });
 const notes: ReleaseNote[] = [
@@ -12,6 +17,21 @@ describe('novidades', () => {
     expect(unseenReleaseItems(1, notes).map((i) => i.title)).toEqual(['c', 'b1', 'b2']);
     expect(unseenReleaseItems(3, notes)).toEqual([]);
     expect(unseenReleaseItems(0, notes)).toHaveLength(4);
+  });
+
+  it('itens de feature flag desligada ficam de fora', () => {
+    const flagged: ReleaseNote[] = [
+      {
+        version: 2,
+        date: '2026-12-01',
+        items: [item('livre'), { ...item('diário'), flag: 'feature_x' }],
+      },
+    ];
+    expect(unseenReleaseItems(0, flagged).map((i) => i.title)).toEqual(['livre']);
+    expect(unseenReleaseItems(0, flagged, new Set(['feature_x'])).map((i) => i.title)).toEqual([
+      'livre',
+      'diário',
+    ]);
   });
 
   it('as notas reais estão em ordem, com versões únicas e itens preenchidos', () => {

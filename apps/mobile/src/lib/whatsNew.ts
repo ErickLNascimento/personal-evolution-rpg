@@ -31,7 +31,7 @@ export function newsSlides(items: readonly ReleaseNoteItem[]): TourSlide[] {
   }));
 }
 
-/** Itens da nota mais recente (para rever pelo Perfil). */
-export function latestNewsSlides(): TourSlide[] {
-  return newsSlides(RELEASE_NOTES[0]?.items ?? []);
+/** Itens da nota mais recente (para rever pelo Perfil), sem os de feature flag desligada. */
+export function latestNewsSlides(features: ReadonlySet<string> = new Set()): TourSlide[] {
+  return newsSlides((RELEASE_NOTES[0]?.items ?? []).filter((i) => !i.flag || features.has(i.flag)));
 }

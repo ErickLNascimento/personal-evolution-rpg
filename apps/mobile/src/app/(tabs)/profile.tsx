@@ -118,7 +118,7 @@ function AccountProfile() {
       <AppTour
         visible={newsOpen}
         hero={hero}
-        slides={latestNewsSlides()}
+        slides={latestNewsSlides(profile?.features)}
         heading="NOVIDADES"
         finishLabel="Entendi"
         onClose={() => setNewsOpen(false)}

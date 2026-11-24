@@ -1,4 +1,5 @@
 import {
+  enabledFeatures,
   isPathId,
   isRace,
   type Branch,
@@ -43,6 +44,8 @@ export interface Profile {
   earnedTitles: ReadonlySet<string>;
   /** Cosméticos comprados na Loja. */
   cosmetics: ReadonlySet<string>;
+  /** Feature flags ligadas (app_settings `feature_*` = 1); ver FEATURES no domínio. */
+  features: ReadonlySet<string>;
 }
 
 /** O que vem de outras tabelas além de `profiles`. */
@@ -50,6 +53,7 @@ interface ProfileExtras {
   earnedTitles: ReadonlySet<string>;
   tourVersion: number | null;
   cosmetics: ReadonlySet<string>;
+  features: ReadonlySet<string>;
 }
 
 interface ProfileRow {
@@ -126,15 +130,17 @@ async function fetchProfile(
   const [profile, titles, tour, cosmetics] = await Promise.all([
     supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>(),
     supabase.from('user_titles').select('title_id').returns<{ title_id: string }[]>(),
-    supabase.from('app_settings').select('value').eq('key', 'tour_version').maybeSingle<{ value: number }>(),
+    // Versão do tour e feature flags (feature_*): a tabela é pequena, lê tudo e filtra aqui.
+    supabase.from('app_settings').select('key, value').returns<{ key: string; value: number }[]>(),
     supabase.from('user_cosmetics').select('item_id').returns<{ item_id: string }[]>(),
   ]);
   if (profile.error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
   return {
     profile: fromRow(profile.data, {
       earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
-      tourVersion: tour.data?.value ?? null,
+      tourVersion: tour.data?.find((r) => r.key === 'tour_version')?.value ?? null,
       cosmetics: new Set((cosmetics.data ?? []).map((c) => c.item_id)),
+      features: enabledFeatures(tour.data ?? []),
     }),
     error: null,
   };
@@ -193,7 +199,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (!supabase || !userId) return 'Você precisa estar conectado.';
       // kit, estágio e raça da aparência são calculados (caminho e perfil): não vão para o jsonb.
       const row = changes.hero
-        ? { ...changes, hero: { ...changes.hero, kit: undefined, tier: undefined, race: undefined } }
+        ? {
+            ...changes,
+            hero: { ...changes.hero, kit: undefined, tier: undefined, race: undefined },
+          }
         : changes;
       const { data, error } = await supabase
         .from('profiles')
@@ -217,8 +226,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 earnedTitles: prev.profile.earnedTitles,
                 tourVersion: prev.profile.tourVersion,
                 cosmetics: prev.profile.cosmetics,
+                features: prev.profile.features,
               }
-            : { earnedTitles: new Set(), tourVersion: null, cosmetics: new Set() },
+            : {
+                earnedTitles: new Set(),
+                tourVersion: null,
+                cosmetics: new Set(),
+                features: new Set(),
+              },
         ),
         error: null,
       }));

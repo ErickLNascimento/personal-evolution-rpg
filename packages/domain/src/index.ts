@@ -22,3 +22,4 @@ export * from './whatsNew';
 export * from './social';
 export * from './appUpdates';
 export * from './mood';
+export * from './features';

@@ -9,6 +9,8 @@ import {
   stageName,
   startOfWeek,
   unseenReleaseItems,
+  FEATURES,
+  RELEASE_NOTES,
   type DayProgress,
   type LevelProgress,
   type Mission,
@@ -30,6 +32,7 @@ import { TodaySkeleton } from '@/components/Skeleton';
 import { CompactHeroBar } from '@/components/today/CompactHeroBar';
 import { HeroCheerPop } from '@/components/today/HeroCheerPop';
 import { MoodCheckIn } from '@/components/mood/MoodCheckIn';
+import { useFeature } from '@/features/profile/useFeature';
 import { PromotionBanner } from '@/components/today/PromotionBanner';
 import { BossBanner } from '@/components/challenges/BossCard';
 import { AppTour } from '@/components/tour/AppTour';
@@ -99,7 +102,8 @@ function RealToday() {
     shouldShowTour(profile?.tourSeenVersion ?? 0, profile?.tourVersion ?? null);
   // Novidades da atualização: só para quem já conhece o app (o tour de quem é novo já cobre tudo).
   const [newsSeen, setNewsSeen] = useState(seenNewsVersion);
-  const news = unseenReleaseItems(newsSeen);
+  const news = unseenReleaseItems(newsSeen, RELEASE_NOTES, profile?.features);
+  const moodOn = useFeature(FEATURES.moodJournal);
   const showNews =
     Boolean(profile) && !showTour && news.length > 0 && (profile?.tourSeenVersion ?? 0) > 0;
   const hero = heroLook(
@@ -283,7 +287,7 @@ function RealToday() {
                 )
               }
             />
-            <MoodCheckIn date={day.date} isToday={choice === 'today'} />
+            {moodOn && <MoodCheckIn date={day.date} isToday={choice === 'today'} />}
             {day.hasHabits && (
               <BossBanner
                 id={boss.id}

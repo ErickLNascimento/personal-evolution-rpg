@@ -3,6 +3,9 @@
 --     curta. Só o dono lê (RLS); nunca aparece para amigos ou grupos.
 --   · Grava-se por save_mood_entry (hoje ou ontem, como as missões). O primeiro registro do dia
 --     rende Cristais uma vez (coins:mood:<usuário>:<data>).
+--   · Feature flag: app_settings.feature_mood_journal (1 liga, 0 desliga; começa desligada).
+--     Desligada, o app esconde o diário e save_mood_entry recusa novos registros. Para ligar:
+--       update public.app_settings set value = 1 where key = 'feature_mood_journal';
 
 create table public.mood_entries (
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -24,6 +27,7 @@ revoke all on public.mood_entries from anon, authenticated;
 grant select on public.mood_entries to authenticated;
 
 insert into public.coin_rules (key, amount) values ('coin_mood_checkin', 3);
+insert into public.app_settings (key, value) values ('feature_mood_journal', 0);
 
 alter table public.coin_transactions drop constraint coin_transactions_source_type_check;
 alter table public.coin_transactions add constraint coin_transactions_source_type_check
@@ -51,6 +55,9 @@ declare
 begin
   if v_user is null then
     raise exception 'Não autenticado' using errcode = '42501';
+  end if;
+  if coalesce((select value from public.app_settings where key = 'feature_mood_journal'), 0) <> 1 then
+    raise exception 'O diário de humor está desativado' using errcode = 'PR050';
   end if;
   v_today := public.user_today(v_user);
   if p_local_date > v_today or p_local_date < v_today - 1 then

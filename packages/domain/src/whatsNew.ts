@@ -11,6 +11,8 @@ export interface ReleaseNoteItem {
   text: string;
   /** Tela para "Ver agora" (rota do Expo Router), se houver. */
   route?: string;
+  /** Só aparece com esta feature flag ligada (ver features.ts). */
+  flag?: string;
 }
 
 export interface ReleaseNote {
@@ -28,11 +30,13 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     items: [
       {
         icon: 'happy',
+        flag: 'feature_mood_journal',
         title: 'Diário de humor',
         text: 'Na tela Hoje, conte como você está com um toque (e, se quiser, sentimentos e uma nota). O primeiro registro do dia rende 3 Cristais. Só você vê.',
       },
       {
         icon: 'analytics',
+        flag: 'feature_mood_journal',
         title: 'O que mexe com o seu humor',
         text: 'Em Progresso, veja seu humor dos últimos 14 dias e se ele melhora nos dias em que você cumpre todas as missões.',
         route: '/progress',
@@ -112,13 +116,18 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
 
 export const LATEST_RELEASE_NOTE_VERSION = RELEASE_NOTES[0]?.version ?? 0;
 
-/** Itens que o usuário ainda não viu (os mais novos primeiro). */
+/**
+ * Itens que o usuário ainda não viu (os mais novos primeiro). Itens de uma feature flag
+ * desligada ficam de fora.
+ */
 export function unseenReleaseItems(
   seenVersion: number,
   notes: readonly ReleaseNote[] = RELEASE_NOTES,
+  features: ReadonlySet<string> = new Set(),
 ): ReleaseNoteItem[] {
   return notes
     .filter((n) => n.version > seenVersion)
     .sort((a, b) => b.version - a.version)
-    .flatMap((n) => n.items);
+    .flatMap((n) => n.items)
+    .filter((i) => !i.flag || features.has(i.flag));
 }

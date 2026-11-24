@@ -1595,7 +1595,28 @@ do $$ begin
 end $$;
 
 -- ── Diário de humor ─────────────────────────────────────────
+-- começa desligado pela feature flag: nada é gravado
 select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_mood_journal') = 0,
+    'diário começa desligado');
+  begin
+    perform public.save_mood_entry(pg_temp.today(), 4);
+    raise exception 'FALHOU: gravou com o diário desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    update public.app_settings set value = 1 where key = 'feature_mood_journal';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_mood_journal') = 0,
+    'o app não liga a flag sozinho');
+end $$;
+update public.app_settings set value = 1 where key = 'feature_mood_journal';
 set local role authenticated;
 do $$
 declare

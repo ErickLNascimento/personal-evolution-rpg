@@ -13,6 +13,7 @@ import {
   weekSummary,
   type LocalDate,
   type MoodEntry,
+  FEATURES,
   type WeekSummary,
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
@@ -27,6 +28,7 @@ import { HeroCard } from '@/components/hero/HeroCard';
 import { MoodHistory } from '@/components/mood/MoodHistory';
 import { Oracle } from '@/components/oracle/Oracle';
 import { fetchMoodEntries } from '@/features/mood/api';
+import { useFeature } from '@/features/profile/useFeature';
 import { XpChart } from '@/components/XpChart';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -61,6 +63,7 @@ export default function ProgressScreen() {
 function RealProgress() {
   const { today, ready } = useToday();
   const { profile } = useProfile();
+  const moodOn = useFeature(FEATURES.moodJournal);
   const load = useCallback(async () => {
     const p = await fetchProgress(
       addDays(today, -(STREAK_WINDOW - 1)),
@@ -71,12 +74,12 @@ function RealProgress() {
     const protectedNow = await autoProtectStreak(today);
     const shields = await fetchShields();
     // O diário é extra: sem ele (ou sem a migration), o resto da tela segue.
-    const mood = await fetchMoodEntries(addDays(today, -59));
+    const mood = moodOn ? await fetchMoodEntries(addDays(today, -59)) : { data: [] };
     return {
       data: { ...p.data, shields: shields.data, protectedNow, mood: mood.data ?? [] },
       error: null,
     };
-  }, [today]);
+  }, [today, moodOn]);
   const { data, error, refreshing, refresh } = useFocusLoad<
     ProgressData & { shields: StreakShields | null; protectedNow: LocalDate[]; mood: MoodEntry[] }
   >(load, ready);
@@ -169,9 +172,11 @@ function RealProgress() {
         )}
       </Card>
 
-      <Card title="HUMOR · ÚLTIMOS 14 DIAS">
-        <MoodHistory entries={data.mood} habits={data.habits} logs={data.logs} today={today} />
-      </Card>
+      {moodOn && (
+        <Card title="HUMOR · ÚLTIMOS 14 DIAS">
+          <MoodHistory entries={data.mood} habits={data.habits} logs={data.logs} today={today} />
+        </Card>
+      )}
 
       <Card title={`XP POR DIA · ÚLTIMOS ${CHART_DAYS} DIAS`}>
         <XpChart days={chart} />
