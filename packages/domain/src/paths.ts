@@ -6,6 +6,7 @@
  */
 import { HERO_CLASSES, sanitizeHero, type HeroClass, type HeroForm, type HeroLook } from './hero';
 import type { ObjectiveCategory } from './habits';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 // ─────────────────────────────────────────────────────────────
 // Raças
@@ -499,9 +500,9 @@ export function flashRemainingMs(deadline: Date, now: Date): number {
 }
 
 /** "3h 12min", "45min", "menos de 1min". */
-export function formatRemaining(ms: number): string {
+export function formatRemaining(ms: number, locale: Locale = DEFAULT_LOCALE): string {
   const totalMin = Math.floor(ms / 60000);
-  if (totalMin < 1) return 'menos de 1min';
+  if (totalMin < 1) return locale === 'en' ? 'less than 1min' : 'menos de 1min';
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   return h > 0 ? `${h}h ${String(m).padStart(2, '0')}min` : `${m}min`;

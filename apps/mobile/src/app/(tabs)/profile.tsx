@@ -27,6 +27,7 @@ import { exportMyData } from '@/features/account/exportData';
 import { useFeature } from '@/features/profile/useFeature';
 import { useProfile } from '@/features/profile/useProfile';
 import { useToday } from '@/features/profile/useToday';
+import { useT } from '@/i18n';
 import { deviceTimeZone } from '@/lib/deviceTimeZone';
 import { ensureReminderPermission, syncReminders } from '@/lib/reminders';
 import { setSmartNotificationsEnabled, smartNotificationsEnabled } from '@/lib/smartNotifications';
@@ -50,6 +51,7 @@ function AccountProfile() {
   const { profile, loading, error, reload, update } = useProfile();
   const smartOn = useFeature(FEATURES.smartNotifications);
   const exportOn = useFeature(FEATURES.dataExport);
+  const englishOn = useFeature(FEATURES.english);
   const { hero } = useHero();
   const [tourOpen, setTourOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
@@ -107,6 +109,8 @@ function AccountProfile() {
         />
       </Section>
 
+      {englishOn && <LanguagePicker />}
+
       {smartOn && (
         <Section title="NOTIFICAÇÕES">
           <SmartNotificationsToggle />
@@ -145,6 +149,22 @@ function AccountProfile() {
         variant="secondary"
       />
     </Screen>
+  );
+}
+
+/** Idioma do app: seguir o celular ou fixar português/inglês (só com a flag feature_english). */
+function LanguagePicker() {
+  const { t, preference, setPreference } = useT();
+  const options = [
+    { value: 'auto' as const, label: t('language.auto') },
+    { value: 'pt-BR' as const, label: t('language.pt') },
+    { value: 'en' as const, label: t('language.en') },
+  ];
+  return (
+    <Section title={t('language.title')}>
+      <Chips options={options} selected={[preference]} onToggle={setPreference} />
+      <Text style={typography.caption}>{t('language.hint')}</Text>
+    </Section>
   );
 }
 

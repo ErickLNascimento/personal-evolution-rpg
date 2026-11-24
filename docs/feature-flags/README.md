@@ -52,6 +52,19 @@ update public.app_settings set value = 1 where key = 'feature_data_export';
 update public.app_settings set value = 0 where key = 'feature_data_export';
 ```
 
+### App em inglês: `feature_english`
+
+Seletor de idioma em Perfil e o app em inglês para quem tem o celular em outro idioma que não
+português. Desligada, o app fica todo em português. A tradução é feita aos poucos: telas ainda
+não traduzidas aparecem em português. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_english';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_english';
+```
+
 ### Loja: `feature_shop`
 
 Botão e tela da Loja; compra de cosméticos e resgate de recompensas. Cosméticos já comprados
@@ -162,7 +175,7 @@ update public.app_settings set value = 0 where key = 'feature_smart_notification
 
 ## Linha ausente
 
-- **Recursos antigos** (todos acima, menos o diário de humor e a exportação de dados): sem a linha, contam como **ligados**.
+- **Recursos antigos** (todos acima, menos o diário de humor, a exportação de dados e o inglês): sem a linha, contam como **ligados**.
   Só `0` desliga.
 - **Recursos novos:** sem a linha, contam como **desligados**. Só `1` liga.
 

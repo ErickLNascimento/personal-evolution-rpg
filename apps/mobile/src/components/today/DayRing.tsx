@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { colors } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -17,7 +18,7 @@ export function DayRing({
   progress,
   size = 64,
   stroke = 7,
-  label = 'hoje',
+  label: labelProp,
 }: {
   progress: DayProgress;
   size?: number;
@@ -25,6 +26,8 @@ export function DayRing({
   /** Texto embaixo do número ("hoje", "ontem"). */
   label?: string;
 }) {
+  const { t } = useT();
+  const label = labelProp ?? t('today.ringToday');
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const fill = useSharedValue(progress.ratio);
@@ -44,7 +47,7 @@ export function DayRing({
       style={{ width: size, height: size }}
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={`Missões de ${label}`}
+      accessibilityLabel={t('today.ringLabel', { day: label })}
       accessibilityValue={{
         min: 0,
         max: progress.total,

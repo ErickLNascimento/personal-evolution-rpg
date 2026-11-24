@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import type { ColorValue } from 'react-native';
 import { useFeature } from '@/features/profile/useFeature';
 import { colors } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -26,6 +27,7 @@ const icon = (name: IconName) => {
 
 export default function TabsLayout() {
   const socialOn = useFeature(FEATURES.social);
+  const { t } = useT();
   return (
     <Tabs
       screenOptions={{
@@ -36,24 +38,30 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Hoje', tabBarIcon: icon('sunny-outline') }} />
-      <Tabs.Screen name="habits" options={{ title: 'Hábitos', tabBarIcon: icon('list-outline') }} />
+      <Tabs.Screen
+        name="index"
+        options={{ title: t('tabs.today'), tabBarIcon: icon('sunny-outline') }}
+      />
+      <Tabs.Screen
+        name="habits"
+        options={{ title: t('tabs.habits'), tabBarIcon: icon('list-outline') }}
+      />
       <Tabs.Screen
         name="progress"
-        options={{ title: 'Progresso', tabBarIcon: icon('trophy-outline') }}
+        options={{ title: t('tabs.progress'), tabBarIcon: icon('trophy-outline') }}
       />
       <Tabs.Screen
         name="social"
         // Social desligado (feature flag): a aba some da barra.
         options={{
-          title: 'Social',
+          title: t('tabs.social'),
           tabBarIcon: icon('people-outline'),
           href: socialOn ? undefined : null,
         }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: 'Perfil', tabBarIcon: icon('person-circle-outline') }}
+        options={{ title: t('tabs.profile'), tabBarIcon: icon('person-circle-outline') }}
       />
     </Tabs>
   );

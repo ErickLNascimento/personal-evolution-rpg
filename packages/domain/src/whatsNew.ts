@@ -25,6 +25,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 5,
+    date: '2026-11-29',
+    items: [
+      {
+        icon: 'language',
+        flag: 'feature_english',
+        title: 'Now in English',
+        text: 'O app agora fala inglês: ele segue o idioma do celular, e dá para escolher em Perfil → Idioma.',
+        route: '/profile',
+      },
+    ],
+  },
+  {
     version: 4,
     date: '2026-11-28',
     items: [

@@ -52,6 +52,7 @@ import { useDay, type DayChoice } from '@/features/today/useDay';
 import { useDemoDay } from '@/features/today/useDemoDay';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 export default function TodayScreen() {
   const { isDemo } = useAuth();
@@ -59,14 +60,12 @@ export default function TodayScreen() {
 }
 
 function DemoToday() {
+  const { t } = useT();
   const { missions, progress, level, toggle, cheer } = useDemoDay();
   return (
-    <Screen title="Hoje">
+    <Screen title={t('today.title')}>
       <View style={styles.banner}>
-        <Text style={typography.caption}>
-          Modo demonstração: os dados ficam só na memória até o Supabase ser configurado no
-          .env.local.
-        </Text>
+        <Text style={typography.caption}>{t('today.demo')}</Text>
       </View>
       <DayView
         top={
@@ -90,6 +89,7 @@ function DemoToday() {
 }
 
 function RealToday() {
+  const { t } = useT();
   const [choice, setChoice] = useState<DayChoice>('today');
   const day = useDay(choice);
   const { profile, update } = useProfile();
@@ -135,7 +135,7 @@ function RealToday() {
   const pathLoad = useCallback(() => fetchHeroPath(), []);
   const pathInfo = useFocusLoad<HeroPathInfo>(pathLoad);
   const heroPath = profile?.heroPath ?? NO_PATH;
-  const ringLabel = choice === 'today' ? 'hoje' : 'ontem';
+  const ringLabel = choice === 'today' ? t('today.ringToday') : t('today.ringYesterday');
   const todayDate = day.days[day.days.length - 1]?.date;
   // O chefe só depende da semana; o placar fica na tela Desafios.
   const boss = bossForWeek(startOfWeek(todayDate ?? day.date));
@@ -167,8 +167,8 @@ function RealToday() {
           visible={showNews}
           hero={hero}
           slides={newsSlides(news)}
-          heading="NOVIDADES"
-          finishLabel="Entendi"
+          heading={t('today.news')}
+          finishLabel={t('today.gotIt')}
           onClose={() => {
             markNewsSeen();
             setNewsSeen(seenNewsVersion());
@@ -176,7 +176,7 @@ function RealToday() {
         />
       )}
       <Screen
-        title="Hoje"
+        title={t('today.title')}
         onRefresh={day.refresh}
         refreshing={day.refreshing}
         scrollY={scrollY}
@@ -200,7 +200,7 @@ function RealToday() {
         ) : day.failed ? (
           <>
             <FormMessage text={day.error} />
-            <Button title="Tentar de novo" onPress={day.refresh} variant="secondary" />
+            <Button title={t('common.retry')} onPress={day.refresh} variant="secondary" />
           </>
         ) : (
           <>
@@ -210,23 +210,28 @@ function RealToday() {
               onSelect={(d) => setChoice(d === todayDate ? 'today' : 'yesterday')}
             />
             {choice === 'yesterday' && (
-              <Text style={typography.caption}>
-                Esqueceu de marcar algo ontem? Dá para registrar até o fim de hoje.
-              </Text>
+              <Text style={typography.caption}>{t('today.yesterdayHint')}</Text>
             )}
             {profile && !heroPath.path ? (
               <PromotionBanner
-                title="Escolha seu caminho"
-                subtitle="Seu herói evolui conforme a área da vida que você cuida."
+                title={t('today.choosePath')}
+                subtitle={t('today.choosePathHint')}
                 onPress={() => router.push('/path')}
               />
             ) : pathInfo.data?.canPromote && heroPath.path && pathInfo.data.next ? (
               <PromotionBanner
-                title="Promoção disponível!"
+                title={t('today.promotion')}
                 subtitle={
                   pathInfo.data.needsBranch
-                    ? 'Escolha o ramo do seu herói.'
-                    : `Toque para virar ${stageName(heroPath.path, heroPath.branch, pathInfo.data.next.tier, hero.form)}.`
+                    ? t('today.promotionBranch')
+                    : t('today.promotionTo', {
+                        stage: stageName(
+                          heroPath.path,
+                          heroPath.branch,
+                          pathInfo.data.next.tier,
+                          hero.form,
+                        ),
+                      })
                 }
                 onPress={() => router.push('/promotion')}
               />
@@ -234,7 +239,11 @@ function RealToday() {
             {shieldSaved > 0 && (
               <FormMessage
                 tone="info"
-                text={`🛡 ${shieldSaved === 1 ? 'Um escudo salvou' : `${shieldSaved} escudos salvaram`} o seu streak!`}
+                text={
+                  shieldSaved === 1
+                    ? t('today.shieldOne')
+                    : t('today.shieldMany', { count: shieldSaved })
+                }
               />
             )}
             <CrystalToast gain={day.crystalGain} />
@@ -277,14 +286,17 @@ function RealToday() {
                   <Placeholder
                     text={
                       choice === 'today'
-                        ? 'Nenhuma missão hoje. Aproveite o descanso!'
-                        : 'Nenhuma missão ontem.'
+                        ? t('today.noMissionsToday')
+                        : t('today.noMissionsYesterday')
                     }
                   />
                 ) : (
                   <>
-                    <Placeholder text="Você ainda não tem hábitos. Crie o primeiro e ele vira uma missão nos dias da agenda." />
-                    <Button title="Criar hábito" onPress={() => router.push('/habit/new')} />
+                    <Placeholder text={t('today.noHabits')} />
+                    <Button
+                      title={t('today.createHabit')}
+                      onPress={() => router.push('/habit/new')}
+                    />
                   </>
                 )
               }
@@ -334,6 +346,7 @@ function DayView({
   /** Cabeçalho no lugar da barra de XP simples (ex.: o cartão do herói). */
   top?: ReactNode;
 }) {
+  const { t } = useT();
   const bonus = xpTable?.perfectDayBonus ?? 20;
   return (
     <>
@@ -344,10 +357,10 @@ function DayView({
       )}
 
       <View style={styles.sectionHeader}>
-        <Text style={typography.label}>MISSÕES</Text>
+        <Text style={typography.label}>{t('today.missions')}</Text>
         <Text style={typography.caption}>
           {progress.done}/{progress.total}
-          {progress.perfect && bonus > 0 ? `  ·  Dia perfeito +${bonus} XP` : ''}
+          {progress.perfect && bonus > 0 ? `  ·  ${t('today.perfectBonus', { xp: bonus })}` : ''}
         </Text>
       </View>
 

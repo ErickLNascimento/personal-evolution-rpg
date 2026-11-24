@@ -18,6 +18,7 @@ import { CrystalBadge } from '@/components/crystals/Crystals';
 import { XpBar } from '@/components/XpBar';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { HeroAvatar } from './HeroAvatar';
+import { useT } from '@/i18n';
 
 /** Cores da moldura por faixa de título (Aprendiz → Lenda). */
 export const TIER_COLORS = ['#3A3F4E', '#16C79A', '#3D7BFF', '#8B5CF6', '#F5B942', '#FF5E7E'];
@@ -61,14 +62,15 @@ export function HeroCard({
   const titleColor = RARITY_COLOR[titleInfo(shownTitle).rarity];
   const next = nextUnlock(level.level, hero.form);
   const frame = tierColor(level.level);
+  const { t } = useT();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={
         unset
-          ? 'Criar seu herói'
-          : `Seu herói, ${titleName(shownTitle, hero.form)}, nível ${level.level}. Toque para personalizar.`
+          ? t('hero.create')
+          : t('hero.a11y', { title: titleName(shownTitle, hero.form), level: level.level })
       }
       style={({ pressed }) => [styles.card, { borderColor: frame }, pressed && styles.pressed]}
     >
@@ -81,14 +83,14 @@ export function HeroCard({
             {titleName(shownTitle, hero.form).toUpperCase()}
           </Text>
           <Text style={typography.heading} numberOfLines={1}>
-            {name ?? 'Herói sem nome'}
+            {name ?? t('hero.noName')}
           </Text>
           <Text style={typography.caption}>
             {heroPath?.path
               ? stageName(heroPath.path, heroPath.branch, heroPath.stage, hero.form)
-              : 'Sem caminho'}
+              : t('hero.noPath')}
           </Text>
-          {unset && <Text style={styles.cta}>Toque para criar seu herói ›</Text>}
+          {unset && <Text style={styles.cta}>{t('hero.tapToCreate')}</Text>}
           {crystals !== undefined && (
             <View style={styles.wallet}>
               <CrystalBadge amount={crystals} />
@@ -96,12 +98,12 @@ export function HeroCard({
                 <Pressable
                   onPress={onShop}
                   accessibilityRole="button"
-                  accessibilityLabel="Abrir a Loja"
+                  accessibilityLabel={t('hero.shop')}
                   hitSlop={8}
                   style={({ pressed }) => [styles.shop, pressed && styles.pressed]}
                 >
                   <Ionicons name="storefront" size={14} color={colors.text} />
-                  <Text style={styles.shopText}>Loja</Text>
+                  <Text style={styles.shopText}>{t('hero.shop')}</Text>
                 </Pressable>
               )}
             </View>
@@ -112,7 +114,7 @@ export function HeroCard({
       <XpBar progress={level} />
       {next && (
         <Text style={typography.caption}>
-          No nível {next.level}: {next.label}
+          {t('hero.nextUnlock', { level: next.level, label: next.label })}
         </Text>
       )}
     </Pressable>

@@ -8,6 +8,7 @@ import type {
   RetireAction,
 } from '@per/domain';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 export interface HabitRecord {
   id: string;
@@ -85,11 +86,9 @@ function toRow(input: HabitInput) {
 export type Result<T> = { data: T; error: null } | { data: null; error: string };
 
 function failure(error: PostgrestError, fallback: string): { data: null; error: string } {
-  if (error.code === '23001')
-    return { data: null, error: 'Este hábito já tem registros; ele só pode ser arquivado.' };
+  if (error.code === '23001') return { data: null, error: t('errors.hasLogs') };
   if (error.code === '23514' || error.code === '42501') return { data: null, error: fallback };
-  if (/network|fetch/i.test(error.message))
-    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+  if (/network|fetch/i.test(error.message)) return { data: null, error: t('common.noConnection') };
   return { data: null, error: fallback };
 }
 
@@ -107,8 +106,8 @@ export async function listHabits(): Promise<Result<HabitRecord[]>> {
       .returns<HabitRow[]>();
   let { data, error } = await query(HABIT_COLUMNS);
   if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(LEGACY_COLUMNS));
-  if (error) return failure(error, 'Não foi possível carregar os hábitos.');
-  if (!data) return { data: null, error: 'Não foi possível carregar os hábitos.' };
+  if (error) return failure(error, t('errors.loadHabits'));
+  if (!data) return { data: null, error: t('errors.loadHabits') };
   return { data: data.map(fromRow), error: null };
 }
 
@@ -117,8 +116,8 @@ export async function getHabit(id: string): Promise<Result<HabitRecord>> {
     client().from('habits').select(columns).eq('id', id).single<HabitRow>();
   let { data, error } = await query(HABIT_COLUMNS);
   if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(LEGACY_COLUMNS));
-  if (error) return failure(error, 'Hábito não encontrado.');
-  if (!data) return { data: null, error: 'Hábito não encontrado.' };
+  if (error) return failure(error, t('errors.habitNotFound'));
+  if (!data) return { data: null, error: t('errors.habitNotFound') };
   return { data: fromRow(data), error: null };
 }
 
@@ -131,7 +130,7 @@ export async function createHabit(
     .insert({ ...toRow(input), start_date: startDate })
     .select(HABIT_COLUMNS)
     .single<HabitRow>();
-  if (error) return failure(error, 'Não foi possível criar o hábito.');
+  if (error) return failure(error, t('errors.createHabit'));
   return { data: fromRow(data), error: null };
 }
 
@@ -142,7 +141,7 @@ export async function updateHabit(id: string, input: HabitInput): Promise<Result
     .eq('id', id)
     .select(HABIT_COLUMNS)
     .single<HabitRow>();
-  if (error) return failure(error, 'Não foi possível salvar o hábito.');
+  if (error) return failure(error, t('errors.saveHabit'));
   return { data: fromRow(data), error: null };
 }
 
@@ -153,7 +152,7 @@ export async function isLoggedOn(habitId: string, date: LocalDate): Promise<Resu
     .select('id', { count: 'exact', head: true })
     .eq('habit_id', habitId)
     .eq('local_date', date);
-  if (error) return failure(error, 'Não foi possível verificar os registros.');
+  if (error) return failure(error, t('errors.checkLogs'));
   return { data: (count ?? 0) > 0, error: null };
 }
 
@@ -164,7 +163,7 @@ export async function retire(habitId: string, action: RetireAction): Promise<Res
       ? client().from('habits').update({ archived_on: action.archivedOn }).eq('id', habitId)
       : client().from('habits').delete().eq('id', habitId);
   const { error } = await query;
-  if (error) return failure(error, 'Não foi possível arquivar o hábito.');
+  if (error) return failure(error, t('errors.archiveHabit'));
   return { data: true, error: null };
 }
 
@@ -175,7 +174,7 @@ export async function listObjectives(): Promise<Result<ObjectiveRecord[]>> {
     .eq('status', 'active')
     .order('created_at', { ascending: true })
     .returns<ObjectiveRecord[]>();
-  if (error) return failure(error, 'Não foi possível carregar os objetivos.');
+  if (error) return failure(error, t('errors.loadObjectives'));
   return { data, error: null };
 }
 
@@ -188,7 +187,7 @@ export async function createObjective(
     .insert({ title, category })
     .select('id, title, category')
     .single<ObjectiveRecord>();
-  if (error) return failure(error, 'Não foi possível criar o objetivo.');
+  if (error) return failure(error, t('errors.createObjective'));
   return { data, error: null };
 }
 
@@ -204,7 +203,7 @@ export async function listHabitLogDates(habitId: string): Promise<Result<Set<Loc
       .order('local_date')
       .range(from, from + PAGE - 1)
       .returns<{ local_date: string }[]>();
-    if (error) return failure(error, 'Não foi possível carregar o histórico do hábito.');
+    if (error) return failure(error, t('errors.loadHistory'));
     for (const row of data) dates.add(row.local_date);
     if (data.length < PAGE) return { data: dates, error: null };
   }

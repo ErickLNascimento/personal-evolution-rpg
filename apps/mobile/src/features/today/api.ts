@@ -2,6 +2,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { xpTableFromRules, type LocalDate, type XpTable } from '@per/domain';
 import { listHabits, type HabitRecord, type Result } from '@/features/habits/api';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 export interface DayData {
   habits: HabitRecord[];
@@ -31,11 +32,10 @@ function rpcFailure(error: PostgrestError, fallback: string): { data: null; erro
   if (error.code === '22023')
     return {
       data: null,
-      error: 'Só dá para registrar hoje ou ontem, nos dias da agenda do hábito.',
+      error: t('errors.loggableOnly'),
     };
-  if (error.code === 'P0002') return { data: null, error: 'Hábito não encontrado.' };
-  if (/network|fetch/i.test(error.message))
-    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+  if (error.code === 'P0002') return { data: null, error: t('errors.habitNotFound') };
+  if (/network|fetch/i.test(error.message)) return { data: null, error: t('common.noConnection') };
   return { data: null, error: fallback };
 }
 
@@ -67,8 +67,8 @@ export async function fetchDay(dates: readonly LocalDate[]): Promise<Result<DayD
   ]);
 
   if (habits.error !== null) return habits;
-  if (logs.error) return rpcFailure(logs.error, 'Não foi possível carregar os registros.');
-  if (xp.error) return rpcFailure(xp.error, 'Não foi possível carregar o seu XP.');
+  if (logs.error) return rpcFailure(logs.error, t('errors.loadLogs'));
+  if (xp.error) return rpcFailure(xp.error, t('errors.loadXp'));
 
   const logged = new Map<LocalDate, Set<string>>(dates.map((d) => [d, new Set<string>()]));
   for (const l of logs.data) logged.get(l.local_date)?.add(l.habit_id);
@@ -122,7 +122,7 @@ export async function logHabit(habitId: string, date: LocalDate): Promise<Result
     p_habit_id: habitId,
     p_local_date: date,
   });
-  if (error) return rpcFailure(error, 'Não foi possível registrar. Tente de novo.');
+  if (error) return rpcFailure(error, t('errors.log'));
   return { data: logOutcome(data as LogResponse), error: null };
 }
 
@@ -176,7 +176,7 @@ export async function undoHabitLog(habitId: string, date: LocalDate): Promise<Re
     p_habit_id: habitId,
     p_local_date: date,
   });
-  if (error) return rpcFailure(error, 'Não foi possível desfazer. Tente de novo.');
+  if (error) return rpcFailure(error, t('errors.undo'));
   return { data: undoOutcome(data as UndoResponse), error: null };
 }
 
@@ -198,7 +198,7 @@ export async function setHabitCount(
     p_local_date: date,
     p_qty: qty,
   });
-  if (error) return rpcFailure(error, 'Não foi possível salvar a contagem. Tente de novo.');
+  if (error) return rpcFailure(error, t('errors.count'));
   const r = data as {
     qty: number;
     done: boolean;

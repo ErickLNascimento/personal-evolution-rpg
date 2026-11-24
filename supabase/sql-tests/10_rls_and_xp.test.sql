@@ -1736,7 +1736,7 @@ do $$ begin
     'Oráculo desligado bloqueia novos planos');
 end $$;
 reset role;
-update public.app_settings set value = 1 where key like 'feature\_%' and key not in ('feature_mood_journal', 'feature_data_export');
+update public.app_settings set value = 1 where key in ('feature_shop', 'feature_challenges', 'feature_flash_mission', 'feature_streak_shields', 'feature_oracle', 'feature_habit_kinds', 'feature_habit_stats', 'feature_smart_notifications');
 insert into public.app_settings (key, value) values ('feature_social', 1) on conflict (key) do update set value = 1;
 set local role service_role;
 do $$ begin
@@ -1779,6 +1779,13 @@ begin
 end $$;
 reset role;
 update public.app_settings set value = 0 where key = 'feature_data_export';
+
+-- ── App em inglês ───────────────────────────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_english') = 0,
+    'inglês começa desligado');
+end $$;
 
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;

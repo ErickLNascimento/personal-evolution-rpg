@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   countLabel,
   DEFAULT_XP_TABLE,
-  DIFFICULTY_LABEL,
+  DIFFICULTY_LABELS,
   missionXp,
   type Mission,
   type XpTable,
@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { FLASH_COLOR, FlashBadge } from '@/components/today/FlashBadge';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 const DIFFICULTY_COLOR = {
   easy: colors.accent,
@@ -52,6 +53,7 @@ export function MissionCard({
   onCount?: (delta: number) => void;
 }) {
   const { habit, done } = mission;
+  const { t, locale } = useT();
   const target = habit.targetQty ?? 0;
   const counter = habit.kind === 'count' && count !== undefined && target > 0 && onCount;
   const avoid = habit.kind === 'avoid';
@@ -110,15 +112,15 @@ export function MissionCard({
         disabled={busy}
         accessibilityRole={counter ? 'adjustable' : 'checkbox'}
         accessibilityState={counter ? { busy } : { checked: done, busy }}
-        accessibilityLabel={`${habit.title}, ${xp} XP${counter ? `, ${countLabel(count, target, habit.unit)}` : ''}`}
+        accessibilityLabel={`${habit.title}, ${xp} XP${counter ? `, ${countLabel(count, target, habit.unit, locale)}` : ''}`}
         accessibilityHint={
           counter
-            ? 'Toque para somar um'
+            ? t('mission.tapCount')
             : done
-              ? 'Toque para desfazer'
+              ? t('mission.tapUndo')
               : avoid
-                ? 'Toque se você resistiu'
-                : 'Toque para concluir'
+                ? t('mission.tapResisted')
+                : t('mission.tapComplete')
         }
         accessibilityActions={counter ? [{ name: 'increment' }, { name: 'decrement' }] : undefined}
         onAccessibilityAction={
@@ -153,13 +155,13 @@ export function MissionCard({
         <View style={styles.body}>
           <Text style={[typography.body, done && styles.titleDone]}>{habit.title}</Text>
           <Text style={typography.caption}>
-            {avoid ? (done ? 'Resistiu · ' : 'Evitar · ') : ''}
-            {DIFFICULTY_LABEL[habit.difficulty]}
+            {avoid ? (done ? t('mission.resisted') : t('mission.avoid')) : ''}
+            {DIFFICULTY_LABELS[locale][habit.difficulty]}
           </Text>
           {counter ? (
             <View style={styles.countRow}>
               <Text style={[styles.countText, done && styles.countDone]}>
-                {countLabel(count, target, habit.unit)}
+                {countLabel(count, target, habit.unit, locale)}
               </Text>
               <View style={styles.track}>
                 <View
@@ -186,11 +188,16 @@ export function MissionCard({
             <View style={styles.stepper}>
               <StepButton
                 icon="remove"
-                label="Tirar um"
+                label={t('mission.minusOne')}
                 disabled={busy || count === 0}
                 onPress={() => onCount(-1)}
               />
-              <StepButton icon="add" label="Somar um" disabled={busy} onPress={() => onCount(1)} />
+              <StepButton
+                icon="add"
+                label={t('mission.plusOne')}
+                disabled={busy}
+                onPress={() => onCount(1)}
+              />
             </View>
           ) : null}
         </View>

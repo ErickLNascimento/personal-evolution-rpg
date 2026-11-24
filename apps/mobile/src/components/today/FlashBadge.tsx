@@ -3,6 +3,7 @@ import { FLASH_CRYSTALS, flashBonusXp, flashRemainingMs, formatRemaining } from 
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 const AMBER = '#FFB020';
 
@@ -30,7 +31,8 @@ export function FlashBadge({
   }, [done]);
 
   const remaining = flashRemainingMs(deadline, now);
-  const bonus = `+${flashBonusXp(missionXp)} XP · +${FLASH_CRYSTALS} Cristais`;
+  const { t, locale } = useT();
+  const bonus = t('mission.flashBonus', { xp: flashBonusXp(missionXp), crystals: FLASH_CRYSTALS });
   if (done ? !awarded : remaining === 0) return null;
 
   return (
@@ -39,13 +41,15 @@ export function FlashBadge({
       accessible
       accessibilityLabel={
         done
-          ? `Missão relâmpago concluída: ${bonus}`
-          : `Missão relâmpago: faltam ${formatRemaining(remaining)}. Bônus ${bonus}`
+          ? t('mission.flashDone', { bonus })
+          : t('mission.flashLeft', { time: formatRemaining(remaining, locale), bonus })
       }
     >
       <Ionicons name="flash" size={12} color={done ? colors.accent : AMBER} />
       <Text style={[styles.text, done && { color: colors.accent }]}>
-        {done ? `Relâmpago ${bonus}` : `Relâmpago · ${formatRemaining(remaining)} · ${bonus}`}
+        {done
+          ? t('mission.flashDoneShort', { bonus })
+          : t('mission.flashShort', { time: formatRemaining(remaining, locale), bonus })}
       </Text>
     </View>
   );

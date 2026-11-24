@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { colors, MIN_TOUCH, radius, spacing } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 const DOT = 26;
 const STROKE = 3;
@@ -22,14 +23,23 @@ export function DaySwitch({
   selected: LocalDate;
   onSelect: (date: LocalDate) => void;
 }) {
+  const { t } = useT();
   return (
-    <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="Dia das missões">
+    <View
+      style={styles.row}
+      accessibilityRole="radiogroup"
+      accessibilityLabel={t('day.switchLabel')}
+    >
       {days.map((d) => {
         const active = d.date === selected;
         const { done, total, perfect, ratio } = d.progress;
-        const name = d.isToday ? 'Hoje' : 'Ontem';
+        const name = d.isToday ? t('day.today') : t('day.yesterday');
         const status =
-          total === 0 ? 'sem missões' : perfect ? 'dia perfeito' : `${done} de ${total}`;
+          total === 0
+            ? t('day.none')
+            : perfect
+              ? t('day.perfect')
+              : t('day.count', { done, total });
         return (
           <Pressable
             key={d.date}

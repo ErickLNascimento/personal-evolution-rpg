@@ -25,6 +25,7 @@ import {
   type DayData,
   type LogOutcome,
 } from './api';
+import { t } from '@/i18n';
 
 export type DayChoice = 'today' | 'yesterday';
 
@@ -180,7 +181,7 @@ export function useDay(choice: DayChoice) {
     if (!wasDone && outcome.crystals > 0)
       setCrystalGain({ amount: outcome.crystals, key: Date.now() });
     if (outcome.perfectDayBonus > 0)
-      setNotice(`Todas as missões feitas: +${outcome.perfectDayBonus} XP de bônus.`);
+      setNotice(t('today.perfectNotice', { xp: outcome.perfectDayBonus }));
   }
 
   return {

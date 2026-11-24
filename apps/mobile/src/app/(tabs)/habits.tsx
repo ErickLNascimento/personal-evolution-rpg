@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   describeSchedule,
-  DIFFICULTY_LABEL,
+  DIFFICULTY_LABELS,
   FEATURES,
   formatReminderTime,
   parseReminderTime,
@@ -24,13 +24,15 @@ import {
 } from '@/features/habits/api';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 export default function HabitsScreen() {
+  const { t } = useT();
   const { isDemo } = useAuth();
   if (isDemo) {
     return (
-      <Screen title="Hábitos">
-        <Placeholder text="Modo demonstração: configure o Supabase no .env.local para criar seus hábitos." />
+      <Screen title={t('habits.title')}>
+        <Placeholder text={t('common.demoHabits')} />
       </Screen>
     );
   }
@@ -47,6 +49,7 @@ async function loadHabitList(): Promise<
 }
 
 function HabitList() {
+  const { t } = useT();
   // Recarrega ao voltar da tela de criar/editar e ao puxar a tela.
   const { data, error, failed, refreshing, refresh } = useFocusLoad(loadHabitList);
   const [showArchived, setShowArchived] = useState(false);
@@ -56,9 +59,9 @@ function HabitList() {
 
   if (failed) {
     return (
-      <Screen title="Hábitos" onRefresh={refresh} refreshing={refreshing}>
+      <Screen title={t('habits.title')} onRefresh={refresh} refreshing={refreshing}>
         <FormMessage text={error} />
-        <Button title="Tentar de novo" onPress={refresh} variant="secondary" />
+        <Button title={t('common.retry')} onPress={refresh} variant="secondary" />
       </Screen>
     );
   }
@@ -68,16 +71,12 @@ function HabitList() {
   const archived = habits?.filter((h) => h.archivedOn) ?? [];
 
   return (
-    <Screen title="Hábitos" onRefresh={refresh} refreshing={refreshing}>
-      <Button title="Nova missão" onPress={() => router.push('/habit/new')} />
+    <Screen title={t('habits.title')} onRefresh={refresh} refreshing={refreshing}>
+      <Button title={t('habits.newMission')} onPress={() => router.push('/habit/new')} />
       {habits !== null && oracleOn && (
         <OracleCallout
-          says={
-            active.length === 0
-              ? 'Não sabe por onde começar? Me conte um objetivo e eu monto as suas primeiras missões.'
-              : 'Quer ir mais longe? Me conte um novo objetivo e eu sugiro missões para ele.'
-          }
-          action="Consultar o Oráculo"
+          says={active.length === 0 ? t('habits.oracleStart') : t('habits.oracleMore')}
+          action={t('habits.consultOracle')}
           onPress={() => router.push('/ai-plan')}
         />
       )}
@@ -85,9 +84,7 @@ function HabitList() {
 
       {habits === null && !error ? <ActivityIndicator color={colors.primary} /> : null}
 
-      {habits !== null && active.length === 0 ? (
-        <Placeholder text="Nenhum hábito ainda. Crie o primeiro: cada hábito vira uma missão nos dias da agenda e rende XP." />
-      ) : null}
+      {habits !== null && active.length === 0 ? <Placeholder text={t('habits.empty')} /> : null}
 
       {active.map((h) => (
         <HabitRow
@@ -105,7 +102,7 @@ function HabitList() {
             accessibilityState={{ expanded: showArchived }}
             style={styles.archivedToggle}
           >
-            <Text style={typography.label}>ARQUIVADOS ({archived.length})</Text>
+            <Text style={typography.label}>{t('habits.archived', { count: archived.length })}</Text>
             <Ionicons
               name={showArchived ? 'chevron-up' : 'chevron-down'}
               size={18}
@@ -128,21 +125,25 @@ function HabitRow({
   objective?: string;
   archived?: boolean;
 }) {
-  const details = [DIFFICULTY_LABEL[habit.difficulty], describeSchedule(habit.scheduleDays)];
-  if (habit.kind !== 'do') details.unshift(habit.kind === 'avoid' ? 'Evitar' : 'Contador');
+  const { t, locale } = useT();
+  const details = [
+    DIFFICULTY_LABELS[locale][habit.difficulty],
+    describeSchedule(habit.scheduleDays, locale),
+  ];
+  if (habit.kind !== 'do')
+    details.unshift(habit.kind === 'avoid' ? t('habits.kindAvoid') : t('habits.kindCount'));
   if (habit.targetQty !== null)
-    details.push(`${String(habit.targetQty).replace('.', ',')} ${habit.unit ?? ''}`.trim());
+    details.push(`${habit.targetQty.toLocaleString(locale)} ${habit.unit ?? ''}`.trim());
   const reminder = parseReminderTime(habit.reminderTime);
-  if (reminder && !archived) details.push(`lembrete ${formatReminderTime(reminder)}`);
+  if (reminder && !archived)
+    details.push(t('habits.reminderAt', { time: formatReminderTime(reminder) }));
 
   return (
     <Pressable
       onPress={() => router.push({ pathname: '/habit/[id]', params: { id: habit.id } })}
       accessibilityRole="button"
-      accessibilityLabel={`${habit.title}, ${details.join(', ')}${objective ? `, objetivo ${objective}` : ''}`}
-      accessibilityHint={
-        archived ? 'Ver detalhes e estatísticas' : 'Ver estatísticas, editar ou arquivar'
-      }
+      accessibilityLabel={`${habit.title}, ${details.join(', ')}${objective ? `, ${t('habits.objective', { name: objective })}` : ''}`}
+      accessibilityHint={archived ? t('habits.hintArchived') : t('habits.hintActive')}
       style={({ pressed }) => [styles.row, archived && styles.archived, pressed && styles.pressed]}
     >
       <View style={styles.body}>

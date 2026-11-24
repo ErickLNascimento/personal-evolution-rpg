@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
 import { colors, radius, spacing } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /** Quanto tempo o balão fica na tela (a comemoração do herói cabe aqui). */
 const SHOW_MS = 1700;
@@ -32,6 +33,7 @@ export function HeroCheerPop({
   /** Rolagem (em dp) a partir da qual o card do herói já saiu da tela. */
   showAfter?: number;
 }) {
+  const { t } = useT();
   const [seen, setSeen] = useState(cheer);
   const [pop, setPop] = useState(0);
   if (cheer !== seen) {
@@ -61,7 +63,7 @@ export function HeroCheerPop({
         <View style={styles.avatar}>
           <HeroAvatar hero={hero} size={64} entrance="celebrate" />
         </View>
-        <Text style={styles.text}>Missão concluída!</Text>
+        <Text style={styles.text}>{t('today.missionDone')}</Text>
       </Animated.View>
     </Animated.View>
   );

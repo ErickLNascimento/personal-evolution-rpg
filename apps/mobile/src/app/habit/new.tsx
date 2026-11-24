@@ -8,8 +8,10 @@ import { useToday } from '@/features/profile/useToday';
 import { useFeature } from '@/features/profile/useFeature';
 import { syncReminders } from '@/lib/reminders';
 import { colors } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 export default function NewHabitScreen() {
+  const { t } = useT();
   const oracleOn = useFeature(FEATURES.oracle);
   const { today, ready } = useToday();
 
@@ -25,7 +27,7 @@ export default function NewHabitScreen() {
     <StackScreen>
       <HabitForm
         initial={EMPTY_DRAFT}
-        submitLabel="Criar missão"
+        submitLabel={t('habitForm.create')}
         onConsultOracle={
           oracleOn
             ? (title) =>

@@ -39,7 +39,11 @@ describe('agenda', () => {
 
 describe('formulário de hábito', () => {
   it('aceita e limpa um hábito válido', () => {
-    const r = validateHabitDraft({ ...draft, title: '  Ler   10 páginas ', scheduleDays: [5, 1, 3, 3] });
+    const r = validateHabitDraft({
+      ...draft,
+      title: '  Ler   10 páginas ',
+      scheduleDays: [5, 1, 3, 3],
+    });
     expect(r).toEqual({
       ok: true,
       value: {
@@ -110,7 +114,10 @@ describe('lembrete no formulário', () => {
 
 describe('objetivo', () => {
   it('valida o título', () => {
-    expect(validateObjectiveTitle('  Ter   mais saúde ')).toEqual({ value: 'Ter mais saúde', error: null });
+    expect(validateObjectiveTitle('  Ter   mais saúde ')).toEqual({
+      value: 'Ter mais saúde',
+      error: null,
+    });
     expect(validateObjectiveTitle(' ').error).not.toBeNull();
     expect(validateObjectiveTitle('a'.repeat(121)).error).not.toBeNull();
   });
@@ -120,13 +127,25 @@ describe('tirar hábito da rotina', () => {
   const today = '2026-11-22';
 
   it('feito hoje: arquiva com hoje como último dia', () => {
-    expect(retireHabit({ startDate: '2026-11-01' }, today, true)).toEqual({ kind: 'archive', archivedOn: today });
-    expect(retireHabit({ startDate: today }, today, true)).toEqual({ kind: 'archive', archivedOn: today });
+    expect(retireHabit({ startDate: '2026-11-01' }, today, true)).toEqual({
+      kind: 'archive',
+      archivedOn: today,
+    });
+    expect(retireHabit({ startDate: today }, today, true)).toEqual({
+      kind: 'archive',
+      archivedOn: today,
+    });
   });
 
   it('não feito hoje: arquiva com ontem como último dia', () => {
-    expect(retireHabit({ startDate: '2026-11-01' }, today, false)).toEqual({ kind: 'archive', archivedOn: '2026-11-21' });
-    expect(retireHabit({ startDate: '2026-11-21' }, today, false)).toEqual({ kind: 'archive', archivedOn: '2026-11-21' });
+    expect(retireHabit({ startDate: '2026-11-01' }, today, false)).toEqual({
+      kind: 'archive',
+      archivedOn: '2026-11-21',
+    });
+    expect(retireHabit({ startDate: '2026-11-21' }, today, false)).toEqual({
+      kind: 'archive',
+      archivedOn: '2026-11-21',
+    });
   });
 
   it('sem histórico (começa hoje ou depois): exclui', () => {
@@ -146,5 +165,18 @@ describe('contador', () => {
   it('mostra quantidade, meta e unidade', () => {
     expect(countLabel(2, 8, 'copos')).toBe('2 de 8 copos');
     expect(countLabel(2, 8, null)).toBe('2 de 8');
+  });
+});
+
+describe('formulário em inglês', () => {
+  it('mensagens e agenda no idioma pedido', () => {
+    const r = validateHabitDraft({ ...draft, title: ' ', scheduleDays: [] }, 'en');
+    expect(!r.ok && r.errors).toMatchObject({
+      title: 'Give the habit a name.',
+      scheduleDays: 'Pick at least one day of the week.',
+    });
+    expect(describeSchedule([1, 2, 3, 4, 5], 'en')).toBe('Weekdays');
+    expect(describeSchedule([1, 3], 'en')).toBe('Mon, Wed');
+    expect(countLabel(2, 8, 'glasses', 'en')).toBe('2 of 8 glasses');
   });
 });

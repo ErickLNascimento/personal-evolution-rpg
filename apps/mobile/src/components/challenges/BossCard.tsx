@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
 import { BossSprite, useBossAnim } from './BossSprite';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /** Cor de cada chefe (moldura e detalhes); o desenho vem do BossSprite. */
 export const BOSS_COLOR: Record<string, string> = {
@@ -54,6 +55,7 @@ export function BossCard({
   label = 'CHEFE DA SEMANA',
   reward = BOSS_REWARD,
 }: Props) {
+  const { t } = useT();
   const { boss, maxHp, hp, damage, defeated } = state;
   const pct = maxHp === 0 ? 0 : (hp / maxHp) * 100;
   // Provoca ao abrir com a vida cheia; enfraquece abaixo de 30%; derrotado, dissolve em estrela.
@@ -68,28 +70,30 @@ export function BossCard({
         </View>
         <View style={styles.flex}>
           <Text style={[typography.heading, defeated && styles.defeated]}>{boss.name}</Text>
-          <Text style={styles.taunt}>
-            {defeated ? 'Derrotado! Sua rotina venceu.' : `“${boss.taunt}”`}
-          </Text>
+          <Text style={styles.taunt}>{defeated ? t('boss.defeated') : `“${boss.taunt}”`}</Text>
         </View>
       </View>
 
-      <View style={styles.track} accessible accessibilityLabel={`Vida do chefe: ${hp} de ${maxHp}`}>
+      <View
+        style={styles.track}
+        accessible
+        accessibilityLabel={t('boss.hpLabel', { hp, max: maxHp })}
+      >
         <View style={[styles.hp, { width: `${pct}%` }]} />
       </View>
       <Text style={typography.caption}>
         {maxHp === 0
-          ? 'Sem missões na agenda desta semana: o chefe não apareceu.'
+          ? t('boss.noMissions')
           : defeated
-            ? `${damage} missões feitas. Vida zerada!`
-            : `Vida ${hp}/${maxHp}. Cada missão feita tira 1 de vida.`}
+            ? t('boss.zeroed', { damage })
+            : t('boss.hp', { hp, max: maxHp })}
       </Text>
 
       {defeated &&
         (claimed ? (
-          <Text style={styles.claimed}>Prêmio resgatado: +{reward} Cristais</Text>
+          <Text style={styles.claimed}>{t('boss.claimed', { reward })}</Text>
         ) : (
-          <Button title={`Resgatar +${reward} Cristais`} onPress={onClaim} loading={busy} />
+          <Button title={t('boss.claim', { reward })} onPress={onClaim} loading={busy} />
         ))}
     </View>
   );
@@ -157,22 +161,23 @@ export function BossBanner({
   /** Sobe a cada missão concluída: o chefe leva um golpe. */
   hits?: number;
 }) {
+  const { t } = useT();
   const sprite = useBossAnim({ maxHp: 1, hp: 1, defeated: false }, { hits });
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Chefe da semana: ${name}. Abrir desafios`}
+      accessibilityLabel={t('boss.banner', { name })}
       style={({ pressed }) => [bannerStyles.banner, pressed && bannerStyles.pressed]}
     >
       <View style={[styles.mini, { borderColor: BOSS_COLOR[id] ?? colors.border }]}>
         <BossSprite id={id} size={56} {...sprite} />
       </View>
       <View style={styles.flex}>
-        <Text style={typography.label}>CHEFE DA SEMANA</Text>
+        <Text style={typography.label}>{t('boss.weekly')}</Text>
         <Text style={typography.body}>{name}</Text>
       </View>
-      <Text style={bannerStyles.link}>Desafios</Text>
+      <Text style={bannerStyles.link}>{t('boss.challenges')}</Text>
       <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
     </Pressable>
   );

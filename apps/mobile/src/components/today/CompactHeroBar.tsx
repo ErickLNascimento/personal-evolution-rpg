@@ -9,6 +9,7 @@ import Animated, {
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { DayRing } from './DayRing';
+import { useT } from '@/i18n';
 
 /**
  * Barra fina que aparece no topo quando o card do herói sai da tela ao rolar:
@@ -37,6 +38,7 @@ export function CompactHeroBar({
     return { opacity: t, transform: [{ translateY: (t - 1) * 12 }] };
   });
   const pct = Math.round(level.progress * 100);
+  const { t } = useT();
   return (
     <Animated.View
       style={[styles.bar, style]}
@@ -47,7 +49,7 @@ export function CompactHeroBar({
         <HeroAvatar hero={hero} size={30} cheer={cheer} />
       </View>
       <View style={styles.info}>
-        <Text style={styles.level}>Nível {level.level}</Text>
+        <Text style={styles.level}>{t('hero.level', { level: level.level })}</Text>
         <View style={styles.track}>
           <View style={[styles.fill, { width: `${pct}%` }]} />
         </View>

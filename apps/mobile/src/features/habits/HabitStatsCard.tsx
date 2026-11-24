@@ -9,10 +9,10 @@ import {
 } from '@per/domain';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 const CELL = 16;
 const GAP = 4;
-const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
 const CELL_STYLE: Record<HabitDayStatus, object> = {
   done: { backgroundColor: colors.accent },
@@ -22,13 +22,12 @@ const CELL_STYLE: Record<HabitDayStatus, object> = {
   outside: {},
 };
 
-const STATUS_LABEL: Record<HabitDayStatus, string> = {
-  done: 'feito',
-  missed: 'perdido',
-  open: 'em aberto',
-  off: 'fora da agenda',
-  outside: '',
-};
+const STATUS_KEY = {
+  done: 'stats.statusDone',
+  missed: 'stats.statusMissed',
+  open: 'stats.statusOpen',
+  off: 'stats.statusOff',
+} as const;
 
 function percent(rate: number | null) {
   return rate === null ? '—' : `${Math.round(rate * 100)}%`;
@@ -42,24 +41,30 @@ interface Props {
 
 /** Taxa de conclusão, sequências e mapa de calor de um hábito. */
 export function HabitStatsCard({ habit, logged, today }: Props) {
+  const { t } = useT();
   const stats = habitStats(habit, logged, today);
   const weeks = habitHeatmap(habit, logged, today);
   const archived = Boolean(habit.archivedOn);
 
   const tiles = [
-    { label: `Últimos ${RECENT_DAYS} dias`, value: percent(stats.recentRate) },
-    { label: 'Desde o início', value: percent(stats.rate) },
-    ...(archived ? [] : [{ label: 'Sequência atual', value: String(stats.currentStreak) }]),
-    { label: 'Melhor sequência', value: String(stats.bestStreak) },
+    { label: t('stats.recent', { days: RECENT_DAYS }), value: percent(stats.recentRate) },
+    { label: t('stats.sinceStart'), value: percent(stats.rate) },
+    ...(archived ? [] : [{ label: t('stats.current'), value: String(stats.currentStreak) }]),
+    { label: t('stats.best'), value: String(stats.bestStreak) },
   ];
 
   return (
     <View style={styles.card}>
-      <Text style={typography.label}>ESTATÍSTICAS</Text>
+      <Text style={typography.label}>{t('stats.title')}</Text>
 
       <View style={styles.tiles}>
         {tiles.map((t) => (
-          <View key={t.label} style={styles.tile} accessible accessibilityLabel={`${t.label}: ${t.value}`}>
+          <View
+            key={t.label}
+            style={styles.tile}
+            accessible
+            accessibilityLabel={`${t.label}: ${t.value}`}
+          >
             <Text style={styles.value}>{t.value}</Text>
             <Text style={typography.caption}>{t.label}</Text>
           </View>
@@ -67,21 +72,26 @@ export function HabitStatsCard({ habit, logged, today }: Props) {
       </View>
       <Text style={typography.caption}>
         {stats.scheduled === 0
-          ? 'Ainda sem dias para avaliar. Hoje e ontem só contam depois de feitos.'
-          : `Feito ${stats.done} de ${stats.scheduled} ${stats.scheduled === 1 ? 'dia' : 'dias'} da agenda.`}
+          ? t('stats.noData')
+          : t(stats.scheduled === 1 ? 'stats.doneOne' : 'stats.doneMany', {
+              done: stats.done,
+              total: stats.scheduled,
+            })}
       </Text>
 
       <View
         style={styles.heatmap}
         accessible
-        accessibilityLabel={`Mapa das últimas ${HEATMAP_WEEKS} semanas: ${stats.done} dias feitos`}
+        accessibilityLabel={t('stats.heatmap', { weeks: HEATMAP_WEEKS, done: stats.done })}
       >
         <View style={styles.column}>
-          {WEEKDAYS.map((d, i) => (
-            <Text key={i} style={styles.weekday}>
-              {d}
-            </Text>
-          ))}
+          {t('stats.weekdays')
+            .split(',')
+            .map((d, i) => (
+              <Text key={i} style={styles.weekday}>
+                {d}
+              </Text>
+            ))}
         </View>
         {weeks.map((w) => (
           <View key={w.start} style={styles.column}>
@@ -89,7 +99,7 @@ export function HabitStatsCard({ habit, logged, today }: Props) {
               <View
                 key={d.date}
                 style={[styles.cell, CELL_STYLE[d.status], d.date === today && styles.today]}
-                accessibilityLabel={STATUS_LABEL[d.status] || undefined}
+                accessibilityLabel={d.status === 'outside' ? undefined : t(STATUS_KEY[d.status])}
               />
             ))}
           </View>
@@ -100,7 +110,7 @@ export function HabitStatsCard({ habit, logged, today }: Props) {
         {(['done', 'missed', 'off'] as const).map((s) => (
           <View key={s} style={styles.legendItem}>
             <View style={[styles.cell, CELL_STYLE[s]]} />
-            <Text style={typography.caption}>{STATUS_LABEL[s]}</Text>
+            <Text style={typography.caption}>{t(STATUS_KEY[s])}</Text>
           </View>
         ))}
       </View>
@@ -128,7 +138,14 @@ const styles = StyleSheet.create({
   value: { fontSize: 22, fontWeight: '700', color: colors.text },
   heatmap: { flexDirection: 'row', gap: GAP, alignSelf: 'center', marginTop: spacing.sm },
   column: { gap: GAP },
-  weekday: { width: CELL, height: CELL, fontSize: 10, lineHeight: CELL, textAlign: 'center', color: colors.textSecondary },
+  weekday: {
+    width: CELL,
+    height: CELL,
+    fontSize: 10,
+    lineHeight: CELL,
+    textAlign: 'center',
+    color: colors.textSecondary,
+  },
   cell: { width: CELL, height: CELL, borderRadius: 3 },
   today: { borderWidth: 1.5, borderColor: colors.text },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: spacing.md },

@@ -1,19 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   DIFFICULTIES,
-  DIFFICULTY_LABEL,
+  DIFFICULTY_LABELS,
   FEATURES,
-  HABIT_KIND_HINT,
-  HABIT_KIND_LABEL,
+  HABIT_KIND_HINTS,
+  HABIT_KIND_LABELS,
   HABIT_KINDS,
   OBJECTIVE_CATEGORIES,
-  OBJECTIVE_CATEGORY_LABEL,
+  OBJECTIVE_CATEGORY_LABELS,
   toggleScheduleDay,
   validateHabitDraft,
   formatReminderTime,
   parseReminderTime,
   validateObjectiveTitle,
-  WEEKDAY_SHORT,
+  WEEKDAY_SHORTS,
   xpForHabit,
   type HabitDraft,
   type HabitDraftErrors,
@@ -29,23 +29,31 @@ import { useFeature } from '@/features/profile/useFeature';
 import { ensureReminderPermission } from '@/lib/reminders';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 import { createObjective, listObjectives, type ObjectiveRecord } from './api';
+import { useT } from '@/i18n';
 
-const WEEKDAY_FULL = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-const DAY_OPTIONS = WEEKDAY_SHORT.map((label, value) => ({
-  value,
-  label,
-  accessibilityLabel: WEEKDAY_FULL[value],
-}));
-const DIFFICULTY_OPTIONS = DIFFICULTIES.map((d) => ({
-  value: d,
-  label: `${DIFFICULTY_LABEL[d]} · ${xpForHabit(d)} XP`,
-}));
-const CATEGORY_OPTIONS = OBJECTIVE_CATEGORIES.map((c) => ({
-  value: c,
-  label: OBJECTIVE_CATEGORY_LABEL[c],
-}));
-const KIND_OPTIONS = HABIT_KINDS.map((k) => ({ value: k, label: HABIT_KIND_LABEL[k] }));
 const NO_OBJECTIVE = '__none__';
+
+/** Opções dos seletores no idioma atual. */
+function useOptions() {
+  const { t, locale } = useT();
+  const fullDays = t('habitForm.weekdaysFull').split(',');
+  return {
+    days: WEEKDAY_SHORTS[locale].map((label, value) => ({
+      value,
+      label,
+      accessibilityLabel: fullDays[value],
+    })),
+    difficulties: DIFFICULTIES.map((d) => ({
+      value: d,
+      label: `${DIFFICULTY_LABELS[locale][d]} · ${xpForHabit(d)} XP`,
+    })),
+    categories: OBJECTIVE_CATEGORIES.map((c) => ({
+      value: c,
+      label: OBJECTIVE_CATEGORY_LABELS[locale][c],
+    })),
+    kinds: HABIT_KINDS.map((k) => ({ value: k, label: HABIT_KIND_LABELS[locale][k] })),
+  };
+}
 
 export const EMPTY_DRAFT: HabitDraft = {
   title: '',
@@ -71,6 +79,8 @@ export function HabitForm({
   /** Se presente, mostra o atalho sutil para pedir ajuda ao Oráculo (com o que já foi escrito). */
   onConsultOracle?: (title: string) => void;
 }) {
+  const { t, locale } = useT();
+  const options = useOptions();
   const [draft, setDraft] = useState<HabitDraft>(initial);
   // Meta diária fica escondida até a pessoa pedir (ou se o hábito já tiver uma).
   const [showTarget, setShowTarget] = useState(Boolean(initial.targetQty || initial.unit));
@@ -85,7 +95,7 @@ export function HabitForm({
   const kindsOn = useFeature(FEATURES.habitKinds) || (initial.kind ?? 'do') !== 'do';
 
   async function submit() {
-    const result = validateHabitDraft(draft);
+    const result = validateHabitDraft(draft, locale);
     if (!result.ok) {
       setErrors(result.errors);
       return;
@@ -99,10 +109,10 @@ export function HabitForm({
   return (
     <View style={styles.form}>
       <Field
-        label="Nome da missão"
+        label={t('habitForm.name')}
         value={draft.title}
         onChangeText={(v) => set('title', v)}
-        placeholder="O que você quer fazer?"
+        placeholder={t('habitForm.namePlaceholder')}
         maxLength={120}
         error={errors.title}
       />
@@ -110,37 +120,35 @@ export function HabitForm({
         <Pressable
           onPress={() => onConsultOracle(draft.title)}
           accessibilityRole="button"
-          accessibilityLabel="Consultar o Oráculo para montar esta missão"
+          accessibilityLabel={t('habitForm.oracleA11y')}
           style={({ pressed }) => [styles.oracle, pressed && styles.pressed]}
         >
-          <Text style={styles.oracleText}>
-            ✦ Não sabe como montar esta missão? Consulte o Oráculo
-          </Text>
+          <Text style={styles.oracleText}>{t('habitForm.oracleLink')}</Text>
         </Pressable>
       )}
 
       {kindsOn && (
         <View style={styles.group}>
-          <Text style={typography.label}>TIPO</Text>
-          <Chips options={KIND_OPTIONS} selected={[kind]} onToggle={(v) => set('kind', v)} />
-          <Text style={typography.caption}>{HABIT_KIND_HINT[kind]}</Text>
+          <Text style={typography.label}>{t('habitForm.kind')}</Text>
+          <Chips options={options.kinds} selected={[kind]} onToggle={(v) => set('kind', v)} />
+          <Text style={typography.caption}>{HABIT_KIND_HINTS[locale][kind]}</Text>
         </View>
       )}
 
       <View style={styles.group}>
-        <Text style={typography.label}>DIFICULDADE</Text>
+        <Text style={typography.label}>{t('habitForm.difficulty')}</Text>
         <Chips
-          options={DIFFICULTY_OPTIONS}
+          options={options.difficulties}
           selected={[draft.difficulty]}
           onToggle={(v) => set('difficulty', v)}
         />
       </View>
 
       <View style={styles.group}>
-        <Text style={typography.label}>DIAS DA SEMANA</Text>
+        <Text style={typography.label}>{t('habitForm.weekdays')}</Text>
         <Chips
           multiple
-          options={DAY_OPTIONS}
+          options={options.days}
           selected={draft.scheduleDays}
           onToggle={(day) => set('scheduleDays', toggleScheduleDay(draft.scheduleDays, day))}
         />
@@ -158,20 +166,26 @@ export function HabitForm({
           <View style={styles.row}>
             <View style={styles.flex}>
               <Field
-                label={kind === 'count' ? 'Vezes por dia' : 'Meta por dia'}
+                label={kind === 'count' ? t('habitForm.timesPerDay') : t('habitForm.targetPerDay')}
                 value={draft.targetQty}
                 onChangeText={(v) => set('targetQty', v)}
-                placeholder={kind === 'count' ? 'ex.: 8' : 'quantidade'}
+                placeholder={
+                  kind === 'count' ? t('habitForm.countPlaceholder') : t('habitForm.qtyPlaceholder')
+                }
                 keyboardType={kind === 'count' ? 'number-pad' : 'decimal-pad'}
                 error={errors.targetQty}
               />
             </View>
             <View style={styles.flex}>
               <Field
-                label="Unidade"
+                label={t('habitForm.unit')}
                 value={draft.unit}
                 onChangeText={(v) => set('unit', v)}
-                placeholder={kind === 'count' ? 'ex.: copos' : 'unidade'}
+                placeholder={
+                  kind === 'count'
+                    ? t('habitForm.unitCountPlaceholder')
+                    : t('habitForm.unitPlaceholder')
+                }
                 maxLength={20}
                 error={errors.unit}
               />
@@ -187,7 +201,7 @@ export function HabitForm({
               accessibilityRole="button"
               style={styles.linkButton}
             >
-              <Text style={typography.caption}>Remover meta</Text>
+              <Text style={typography.caption}>{t('habitForm.removeTarget')}</Text>
             </Pressable>
           )}
         </View>
@@ -197,7 +211,7 @@ export function HabitForm({
           accessibilityRole="button"
           style={styles.linkButton}
         >
-          <Text style={styles.linkText}>＋ Definir meta diária (opcional)</Text>
+          <Text style={styles.linkText}>{t('habitForm.addTarget')}</Text>
         </Pressable>
       )}
 
@@ -221,6 +235,7 @@ function ReminderField({
   onChange: (value: string | null) => void;
   error?: string;
 }) {
+  const { t } = useT();
   const [denied, setDenied] = useState(false);
   const [androidOpen, setAndroidOpen] = useState(false);
   const time = parseReminderTime(value);
@@ -250,17 +265,17 @@ function ReminderField({
           size={18}
           color={time ? colors.primary : colors.textSecondary}
         />
-        <Text style={[typography.label, styles.flex]}>LEMBRETE</Text>
+        <Text style={[typography.label, styles.flex]}>{t('habitForm.reminder')}</Text>
         <Switch
           value={time !== null}
           onValueChange={(on) => void toggle(on)}
-          accessibilityLabel="Lembrete"
+          accessibilityLabel={t('habitForm.reminder')}
           trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
         />
       </View>
       {time && Platform.OS === 'ios' && (
         <View style={styles.switchRow}>
-          <Text style={[typography.body, styles.flex]}>Horário</Text>
+          <Text style={[typography.body, styles.flex]}>{t('habitForm.reminderTime')}</Text>
           <DateTimePicker
             value={pickerDate}
             mode="time"
@@ -276,7 +291,7 @@ function ReminderField({
           <Pressable
             onPress={() => setAndroidOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Horário do lembrete: ${value}`}
+            accessibilityLabel={t('habitForm.reminderA11y', { time: value ?? '' })}
             style={styles.timeButton}
           >
             <Text style={typography.body}>{value}</Text>
@@ -294,10 +309,10 @@ function ReminderField({
       )}
       <Text style={typography.caption}>
         {denied
-          ? 'As notificações estão bloqueadas. Ative-as nos Ajustes do aparelho para usar lembretes.'
+          ? t('habitForm.reminderBlocked')
           : time
-            ? 'Você recebe um aviso neste aparelho nos dias da agenda, mesmo que a missão já esteja feita.'
-            : 'Receba um aviso no horário escolhido, nos dias da agenda.'}
+            ? t('habitForm.reminderOn')
+            : t('habitForm.reminderOff')}
       </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
@@ -311,6 +326,8 @@ function ObjectivePicker({
   value: string | null;
   onChange: (id: string | null) => void;
 }) {
+  const { t, locale } = useT();
+  const categoryOptions = useOptions().categories;
   const [objectives, setObjectives] = useState<ObjectiveRecord[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -332,7 +349,7 @@ function ObjectivePicker({
   }, []);
 
   async function create() {
-    const { value: clean, error } = validateObjectiveTitle(title);
+    const { value: clean, error } = validateObjectiveTitle(title, locale);
     if (error) {
       setTitleError(error);
       return;
@@ -352,16 +369,14 @@ function ObjectivePicker({
   }
 
   const options = [
-    { value: NO_OBJECTIVE, label: 'Nenhum' },
+    { value: NO_OBJECTIVE, label: t('habitForm.noObjective') },
     ...objectives.map((o) => ({ value: o.id, label: o.title })),
   ];
 
   return (
     <View style={styles.group}>
-      <Text style={typography.label}>OBJETIVO</Text>
-      <Text style={typography.caption}>
-        Ligue o hábito a um objetivo para ver o que cada missão ajuda a conquistar.
-      </Text>
+      <Text style={typography.label}>{t('habitForm.objective')}</Text>
+      <Text style={typography.caption}>{t('habitForm.objectiveHint')}</Text>
       <Chips
         options={options}
         selected={[value ?? NO_OBJECTIVE]}
@@ -372,25 +387,29 @@ function ObjectivePicker({
       {creating ? (
         <View style={styles.panel}>
           <Field
-            label="Novo objetivo"
+            label={t('habitForm.newObjective')}
             value={title}
             onChangeText={setTitle}
-            placeholder="Ex.: Ter mais saúde"
+            placeholder={t('habitForm.objectivePlaceholder')}
             maxLength={120}
             error={titleError}
           />
-          <Text style={typography.label}>CATEGORIA</Text>
-          <Chips options={CATEGORY_OPTIONS} selected={[category]} onToggle={setCategory} />
-          <Button title="Criar objetivo" onPress={create} loading={saving} />
+          <Text style={typography.label}>{t('habitForm.category')}</Text>
+          <Chips options={categoryOptions} selected={[category]} onToggle={setCategory} />
+          <Button title={t('habitForm.createObjective')} onPress={create} loading={saving} />
           <Button
-            title="Cancelar"
+            title={t('common.cancel')}
             onPress={() => setCreating(false)}
             variant="secondary"
             disabled={saving}
           />
         </View>
       ) : (
-        <Button title="Novo objetivo" onPress={() => setCreating(true)} variant="secondary" />
+        <Button
+          title={t('habitForm.newObjective')}
+          onPress={() => setCreating(true)}
+          variant="secondary"
+        />
       )}
     </View>
   );

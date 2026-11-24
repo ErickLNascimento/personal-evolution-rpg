@@ -7,6 +7,7 @@ import { UpdateBanner } from '@/components/UpdateBanner';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { CelebrationProvider } from '@/features/celebration/CelebrationProvider';
 import { ProfileProvider, useProfile } from '@/features/profile/ProfileProvider';
+import { LocaleProvider } from '@/i18n';
 import { useReminderSync, useReminderTapOpensToday } from '@/features/reminders/useReminderSync';
 import { navigationIntegration, sentryEnabled, setSentryUser, withSentry } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
@@ -116,11 +117,13 @@ function RootLayout() {
   return (
     <AuthProvider>
       <ProfileProvider>
-        <CelebrationProvider>
-          <StatusBar style="light" />
-          <RootNavigator />
-          <UpdateBanner />
-        </CelebrationProvider>
+        <LocaleProvider>
+          <CelebrationProvider>
+            <StatusBar style="light" />
+            <RootNavigator />
+            <UpdateBanner />
+          </CelebrationProvider>
+        </LocaleProvider>
       </ProfileProvider>
     </AuthProvider>
   );
