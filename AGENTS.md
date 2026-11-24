@@ -12,7 +12,7 @@ This is an Expo/React Native mobile application (monorepo: `apps/mobile`, `packa
   - a row `feature_<name>` in `public.app_settings`, inserted by the feature's migration with value `0` (off; `1` = on);
   - the key registered in `FEATURES` (`packages/domain/src/features.ts`) and read in the app with `useFeature`;
   - when off, the app hides the feature's UI, and every RPC that writes for it raises `PR050` (see `save_mood_entry`), with a SQL test for both states;
-  - its "Novidades" items carry `flag: 'feature_<name>'`.
+  - its "Novidades" items carry `flag: 'feature_<name>'`;
   - add the flag and its on/off commands to `docs/feature-flags/README.md`.
 
 ## Expo has changed — do not trust your training data
