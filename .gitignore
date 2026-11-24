@@ -56,3 +56,6 @@ coverage/
 # Python (gerador de sprites)
 __pycache__/
 tools/sprites/out/
+
+# Skia no web: copiado de canvaskit-wasm pelo postinstall (8 MB)
+apps/mobile/public/canvaskit.wasm

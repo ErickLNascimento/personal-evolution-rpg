@@ -2,13 +2,14 @@
   "name": "@per/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "./index",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "postinstall": "setup-skia-web public"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
