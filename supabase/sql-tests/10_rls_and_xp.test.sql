@@ -1028,6 +1028,76 @@ do $$ begin
   end;
 end $$;
 
+-- ── Escudos de streak ────────────────────────────────────────
+-- Ivo: um hábito diário há 10 dias; fez tudo menos há 3 dias; tem 200 Cristais.
+reset role;
+insert into auth.users (id, email) values ('aaaaaaaa-1111-1111-1111-111111111111', 'ivo@teste.dev');
+update public.profiles set timezone = 'America/Manaus' where id = 'aaaaaaaa-1111-1111-1111-111111111111';
+insert into public.habits (id, user_id, title, start_date) values
+  ('aaaaaaaa-2222-2222-2222-222222222222', 'aaaaaaaa-1111-1111-1111-111111111111', 'Alongar', pg_temp.today() - 10);
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'aaaaaaaa-1111-1111-1111-111111111111', 'aaaaaaaa-2222-2222-2222-222222222222', pg_temp.today() - d
+from generate_series(1, 10) d where d <> 3;
+insert into public.coin_transactions (user_id, amount, source_type, local_date, idempotency_key)
+values ('aaaaaaaa-1111-1111-1111-111111111111', 200, 'level_up', pg_temp.today(), 'seed:ivo-coins');
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.my_streak_shields();
+  perform pg_temp.check((r->>'held')::int = 0 and (r->>'max')::int = 2 and (r->>'price')::int = 60, 'sem escudos; limite 2; preço 60');
+  begin
+    perform public.use_streak_shield(pg_temp.today() - 3);
+    raise exception 'FALHOU: usou escudo sem ter';
+  exception when sqlstate 'PR022' then null;
+  end;
+
+  r := public.buy_streak_shield();
+  perform pg_temp.check((r->>'held')::int = 1 and (r->>'coin_balance')::int = 140, 'compra 1 escudo por 60');
+  r := public.buy_streak_shield();
+  perform pg_temp.check((r->>'held')::int = 2, 'compra o 2º escudo');
+  begin
+    perform public.buy_streak_shield();
+    raise exception 'FALHOU: passou do limite de escudos';
+  exception when sqlstate 'PR020' then null;
+  end;
+
+  r := public.use_streak_shield(pg_temp.today() - 3);
+  perform pg_temp.check((r->>'used')::boolean and (r->>'held')::int = 1, 'escudo protege o dia perdido');
+  r := public.use_streak_shield(pg_temp.today() - 3);
+  perform pg_temp.check(not (r->>'used')::boolean and (r->>'held')::int = 1, 'repetir o dia não gasta outro escudo');
+  perform pg_temp.check(
+    (public.my_streak_shields()->'used_dates') @> to_jsonb(array[(pg_temp.today() - 3)::text]), 'dia protegido aparece na lista');
+
+  begin
+    perform public.use_streak_shield(pg_temp.today() - 1);
+    raise exception 'FALHOU: usou escudo em dia que ainda aceita registro';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.use_streak_shield(pg_temp.today() - 9);
+    raise exception 'FALHOU: usou escudo fora da janela de 7 dias';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.use_streak_shield(pg_temp.today() - 4);
+    raise exception 'FALHOU: usou escudo em dia completo';
+  exception when sqlstate 'PR021' then null;
+  end;
+  begin
+    insert into public.streak_shield_uses (user_id, local_date) values ('aaaaaaaa-1111-1111-1111-111111111111', pg_temp.today() - 5);
+    raise exception 'FALHOU: gravou escudo direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.streak_shield_uses) = 0, 'B não vê os escudos de Ivo');
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

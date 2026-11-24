@@ -11,10 +11,12 @@ import {
   startOfWeek,
   streakFrom,
   weekSummary,
+  type LocalDate,
   type WeekSummary,
 } from '@per/domain';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
@@ -28,6 +30,12 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useProfile } from '@/features/profile/ProfileProvider';
 import { useToday } from '@/features/profile/useToday';
 import { fetchProgress, type ProgressData, type WeeklyReview } from '@/features/progress/api';
+import {
+  autoProtectStreak,
+  buyShield,
+  fetchShields,
+  type StreakShields,
+} from '@/features/streak/api';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 /** Dias lidos para o streak. Sequências maiores aparecem como "90+". */
@@ -50,11 +58,20 @@ export default function ProgressScreen() {
 function RealProgress() {
   const { today, ready } = useToday();
   const { profile } = useProfile();
-  const load = useCallback(
-    () => fetchProgress(addDays(today, -(STREAK_WINDOW - 1)), addDays(today, -(CHART_DAYS - 1))),
-    [today],
-  );
-  const { data, error, refreshing, refresh } = useFocusLoad<ProgressData>(load, ready);
+  const load = useCallback(async () => {
+    const p = await fetchProgress(
+      addDays(today, -(STREAK_WINDOW - 1)),
+      addDays(today, -(CHART_DAYS - 1)),
+    );
+    if (p.error !== null) return p;
+    // Escudos guardados seguram sozinhos as faltas que quebrariam o streak.
+    const protectedNow = await autoProtectStreak(today);
+    const shields = await fetchShields();
+    return { data: { ...p.data, shields: shields.data, protectedNow }, error: null };
+  }, [today]);
+  const { data, error, refreshing, refresh } = useFocusLoad<
+    ProgressData & { shields: StreakShields | null; protectedNow: LocalDate[] }
+  >(load, ready);
 
   if (!data) {
     return (
@@ -72,7 +89,10 @@ function RealProgress() {
   }
 
   const level = levelFromXp(data.totalXp);
-  const streak = streakFrom(data.habits, data.logs, today, STREAK_WINDOW);
+  const streak = streakFrom(data.habits, data.logs, today, STREAK_WINDOW, {
+    openDays: 1,
+    shielded: data.shields?.usedDates ?? new Set(),
+  });
   const chart = dailyXp(data.xp, addDays(today, -(CHART_DAYS - 1)), today);
   const thisWeek = weekSummary(data.habits, data.logs, data.xp, today, today);
   const lastWeekDate = addDays(startOfWeek(today), -1);
@@ -123,8 +143,16 @@ function RealProgress() {
           {streak.restDaysUsed > 0
             ? ` (${streak.restDaysUsed} ${streak.restDaysUsed === 1 ? 'usada' : 'usadas'} nesta sequência).`
             : '.'}{' '}
-          Hoje só conta quando terminar.
+          Hoje e ontem ainda podem ser completados, então não quebram a sequência.
         </Text>
+        {data.shields && (
+          <ShieldRow
+            shields={data.shields}
+            savedNow={data.protectedNow}
+            savedInStreak={streak.shieldsUsed}
+            onBought={refresh}
+          />
+        )}
       </Card>
 
       <Card title={`XP POR DIA · ÚLTIMOS ${CHART_DAYS} DIAS`}>
@@ -152,6 +180,77 @@ function RealProgress() {
         <Button title="✦ Consultar o Oráculo" onPress={() => router.push('/ai-plan')} />
       </Card>
     </Screen>
+  );
+}
+
+const DAY = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+/** Escudos de streak: quantos tem, comprar mais e o aviso quando um escudo acabou de salvar o streak. */
+function ShieldRow({
+  shields,
+  savedNow,
+  savedInStreak,
+  onBought,
+}: {
+  shields: StreakShields;
+  savedNow: LocalDate[];
+  savedInStreak: number;
+  onBought: () => void;
+}) {
+  const [buying, setBuying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const full = shields.held >= shields.max;
+
+  async function buy() {
+    setBuying(true);
+    setError(null);
+    const r = await buyShield();
+    setBuying(false);
+    if (r.error !== null) return setError(r.error);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onBought();
+  }
+
+  return (
+    <View style={styles.shields}>
+      {savedNow.length > 0 && (
+        <FormMessage
+          tone="info"
+          text={`🛡 ${savedNow.length === 1 ? 'Um escudo salvou' : `${savedNow.length} escudos salvaram`} o seu streak (${savedNow
+            .map((d) => DAY.format(new Date(`${d}T00:00:00Z`)))
+            .join(', ')}).`}
+        />
+      )}
+      <View style={styles.shieldHead}>
+        <Text
+          style={styles.shieldIcons}
+          accessibilityLabel={`${shields.held} de ${shields.max} escudos`}
+        >
+          {'🛡'.repeat(shields.held)}
+          <Text style={styles.shieldEmpty}>
+            {'🛡'.repeat(Math.max(0, shields.max - shields.held))}
+          </Text>
+        </Text>
+        <Text style={typography.caption}>
+          {shields.held} de {shields.max} escudos
+          {savedInStreak > 0
+            ? ` · ${savedInStreak} usado${savedInStreak > 1 ? 's' : ''} nesta sequência`
+            : ''}
+        </Text>
+      </View>
+      <Text style={typography.caption}>
+        Um escudo protege sozinho um dia perdido além da folga da semana (até 7 dias atrás), e o
+        streak continua.
+      </Text>
+      <FormMessage text={error} />
+      <Button
+        title={full ? 'Escudos no máximo' : `Comprar escudo · ${shields.price} Cristais`}
+        onPress={buy}
+        loading={buying}
+        disabled={full}
+        variant="secondary"
+      />
+    </View>
   );
 }
 
@@ -230,6 +329,10 @@ function AiReview({ review }: { review: WeeklyReview | null }) {
 }
 
 const styles = StyleSheet.create({
+  shields: { gap: spacing.sm, marginTop: spacing.xs },
+  shieldHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  shieldIcons: { fontSize: 20 },
+  shieldEmpty: { opacity: 0.25 },
   oracle: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   oracleText: { flex: 1, gap: 2 },
   card: {

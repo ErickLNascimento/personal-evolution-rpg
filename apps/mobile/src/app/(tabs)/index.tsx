@@ -11,7 +11,7 @@ import {
   type Mission,
   type XpTable,
 } from '@per/domain';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -35,6 +35,8 @@ import { CrystalToast } from '@/components/crystals/Crystals';
 import { HeroCard } from '@/components/hero/HeroCard';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { fetchHeroPath, type HeroPathInfo } from '@/features/hero/pathApi';
+import { useToday } from '@/features/profile/useToday';
+import { autoProtectStreak } from '@/features/streak/api';
 import { useProfile } from '@/features/profile/ProfileProvider';
 import { useDay, type DayChoice } from '@/features/today/useDay';
 import { useDemoDay } from '@/features/today/useDemoDay';
@@ -95,6 +97,21 @@ function RealToday() {
     profile?.race,
   );
   const scrollY = useSharedValue(0);
+  // Escudos de streak: usados sozinhos ao abrir o app, se algum dia fechado quebraria a sequência.
+  const { today, ready: todayReady } = useToday();
+  const [shieldSaved, setShieldSaved] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      if (!todayReady) return;
+      let alive = true;
+      void autoProtectStreak(today).then((dates) => {
+        if (alive && dates.length > 0) setShieldSaved(dates.length);
+      });
+      return () => {
+        alive = false;
+      };
+    }, [today, todayReady]),
+  );
   // Promoção disponível? (o banco confere nível e missões na área do caminho)
   const pathLoad = useCallback(() => fetchHeroPath(), []);
   const pathInfo = useFocusLoad<HeroPathInfo>(pathLoad);
@@ -174,6 +191,12 @@ function RealToday() {
                 onPress={() => router.push('/promotion')}
               />
             ) : null}
+            {shieldSaved > 0 && (
+              <FormMessage
+                tone="info"
+                text={`🛡 ${shieldSaved === 1 ? 'Um escudo salvou' : `${shieldSaved} escudos salvaram`} o seu streak!`}
+              />
+            )}
             <CrystalToast gain={day.crystalGain} />
             {day.notice ? <PerfectDayBanner text={day.notice} /> : null}
             <FormMessage text={day.error} />
