@@ -1,4 +1,5 @@
 import {
+  bossForWeek,
   DEFAULT_HERO,
   displayedTitle,
   isHeroUnset,
@@ -6,6 +7,7 @@ import {
   NO_PATH,
   shouldShowTour,
   stageName,
+  startOfWeek,
   type DayProgress,
   type LevelProgress,
   type Mission,
@@ -26,6 +28,7 @@ import { Placeholder, Screen } from '@/components/Screen';
 import { TodaySkeleton } from '@/components/Skeleton';
 import { CompactHeroBar } from '@/components/today/CompactHeroBar';
 import { PromotionBanner } from '@/components/today/PromotionBanner';
+import { BossBanner } from '@/components/challenges/BossCard';
 import { AppTour } from '@/components/tour/AppTour';
 import { DayRing } from '@/components/today/DayRing';
 import { DaySwitch } from '@/components/today/DaySwitch';
@@ -119,6 +122,8 @@ function RealToday() {
   const heroPath = profile?.heroPath ?? NO_PATH;
   const ringLabel = choice === 'today' ? 'hoje' : 'ontem';
   const todayDate = day.days[day.days.length - 1]?.date;
+  // O chefe só depende da semana; o placar fica na tela Desafios.
+  const boss = bossForWeek(startOfWeek(todayDate ?? day.date));
 
   // O card do herói encolhe e esmaece ao rolar; a barra compacta assume o lugar dele.
   const heroStyle = useAnimatedStyle(() => ({
@@ -250,6 +255,13 @@ function RealToday() {
                 )
               }
             />
+            {day.hasHabits && (
+              <BossBanner
+                id={boss.id}
+                name={boss.name}
+                onPress={() => router.push('/challenges')}
+              />
+            )}
           </>
         )}
       </Screen>

@@ -92,6 +92,7 @@ function RootNavigator() {
         />
         <Stack.Screen name="feedback" options={{ ...formHeader, title: 'Enviar feedback' }} />
         <Stack.Screen name="shop" options={{ ...formHeader, title: 'Loja' }} />
+        <Stack.Screen name="challenges" options={{ ...formHeader, title: 'Desafios' }} />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !onboarded}>
         <Stack.Screen name="onboarding" />

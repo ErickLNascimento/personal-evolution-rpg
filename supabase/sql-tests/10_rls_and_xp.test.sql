@@ -1286,6 +1286,119 @@ do $$ begin
   end;
 end $$;
 
+-- ── Desafios: jornadas e chefe da semana ────────────────────
+-- Juca: Meditar (feito de −25 a −5), Correr (nunca feito), Ler e Alongar (novos).
+reset role;
+insert into auth.users (id, email) values ('bbbbbbbb-1111-1111-1111-111111111111', 'juca@teste.dev');
+update public.profiles set timezone = 'America/Manaus' where id = 'bbbbbbbb-1111-1111-1111-111111111111';
+insert into public.habits (id, user_id, title, start_date) values
+  ('bbbbbbbb-2222-2222-2222-222222222221', 'bbbbbbbb-1111-1111-1111-111111111111', 'Meditar', pg_temp.today() - 40),
+  ('bbbbbbbb-2222-2222-2222-222222222222', 'bbbbbbbb-1111-1111-1111-111111111111', 'Correr', pg_temp.today() - 40),
+  ('bbbbbbbb-2222-2222-2222-222222222223', 'bbbbbbbb-1111-1111-1111-111111111111', 'Ler', pg_temp.today()),
+  ('bbbbbbbb-2222-2222-2222-222222222224', 'bbbbbbbb-1111-1111-1111-111111111111', 'Alongar', pg_temp.today());
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'bbbbbbbb-1111-1111-1111-111111111111', 'bbbbbbbb-2222-2222-2222-222222222221', pg_temp.today() - d
+from generate_series(5, 25) d;
+-- jornadas que começaram no passado (o app só começa hoje, via start_journey)
+insert into public.journeys (id, user_id, habit_id, length_days, start_date) values
+  ('bbbbbbbb-3333-3333-3333-333333333331', 'bbbbbbbb-1111-1111-1111-111111111111',
+   'bbbbbbbb-2222-2222-2222-222222222221', 21, pg_temp.today() - 25),
+  ('bbbbbbbb-3333-3333-3333-333333333332', 'bbbbbbbb-1111-1111-1111-111111111111',
+   'bbbbbbbb-2222-2222-2222-222222222222', 21, pg_temp.today() - 20);
+-- semana passada inteira feita (Meditar e Correr agendados todo dia → 14 missões, vida 12)
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'bbbbbbbb-1111-1111-1111-111111111111', h, date_trunc('week', pg_temp.today())::date - 7 + d
+from generate_series(0, 6) d,
+     unnest(array['bbbbbbbb-2222-2222-2222-222222222221', 'bbbbbbbb-2222-2222-2222-222222222222']::uuid[]) h
+on conflict (habit_id, local_date) do nothing;
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+do $$
+declare
+  r jsonb;
+  coins0 integer := (select coalesce(sum(amount), 0) from public.coin_transactions);
+begin
+  begin
+    insert into public.journeys (user_id, habit_id, length_days, start_date)
+    values ('bbbbbbbb-1111-1111-1111-111111111111', 'bbbbbbbb-2222-2222-2222-222222222223', 21, pg_temp.today() - 30);
+    raise exception 'FALHOU: app criou jornada direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.resolve_journey('bbbbbbbb-3333-3333-3333-333333333331');
+  perform pg_temp.check(r->>'status' = 'won' and (r->>'coins_awarded')::int = 120, 'jornada de 21 dias vencida rende 120');
+  r := public.resolve_journey('bbbbbbbb-3333-3333-3333-333333333331');
+  perform pg_temp.check((select coalesce(sum(amount), 0) from public.coin_transactions) = coins0 + 120,
+    'resolver de novo não paga outra vez');
+
+  r := public.resolve_journey('bbbbbbbb-3333-3333-3333-333333333332');
+  perform pg_temp.check(r->>'status' = 'lost', 'faltas demais perdem a jornada antes do fim');
+
+  r := public.start_journey('bbbbbbbb-2222-2222-2222-222222222223', 21);
+  perform pg_temp.check(
+    (select start_date from public.journeys where id = (r->>'id')::uuid) = pg_temp.today(), 'jornada começa hoje');
+  perform pg_temp.check(public.resolve_journey((r->>'id')::uuid)->>'status' = 'active', 'jornada nova segue ativa');
+  begin
+    perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222223', 66);
+    raise exception 'FALHOU: duas jornadas no mesmo hábito';
+  exception when sqlstate 'PR030' then null;
+  end;
+  begin
+    perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222224', 30);
+    raise exception 'FALHOU: duração inválida';
+  exception when invalid_parameter_value then null;
+  end;
+  perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222224', 66);
+  perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222221', 21); -- a anterior foi vencida
+  begin
+    perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222222', 21);
+    raise exception 'FALHOU: passou do limite de jornadas';
+  exception when sqlstate 'PR031' then null;
+  end;
+  perform public.abandon_journey((r->>'id')::uuid);
+  perform pg_temp.check((select status from public.journeys where id = (r->>'id')::uuid) = 'abandoned', 'abandona a jornada');
+
+  -- chefe da semana passada derrotado
+  r := public.claim_weekly_boss(date_trunc('week', pg_temp.today())::date - 7);
+  perform pg_temp.check((r->>'claimed')::boolean and (r->>'coins_awarded')::int = 40, 'chefe derrotado rende 40');
+  r := public.claim_weekly_boss(date_trunc('week', pg_temp.today())::date - 7);
+  perform pg_temp.check(not (r->>'claimed')::boolean, 'chefe só paga uma vez');
+  begin
+    perform public.claim_weekly_boss(date_trunc('week', pg_temp.today())::date - 14);
+    raise exception 'FALHOU: resgatou chefe antigo';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+
+-- o chefe desta semana ainda está de pé (precisa de missões em dias que ainda não chegaram)
+reset role;
+delete from public.habit_logs where user_id = 'bbbbbbbb-1111-1111-1111-111111111111'
+  and local_date >= date_trunc('week', pg_temp.today())::date;
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.claim_weekly_boss(date_trunc('week', pg_temp.today())::date);
+    raise exception 'FALHOU: resgatou chefe não derrotado';
+  exception when sqlstate 'PR032' then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.journeys) = 0, 'B não vê as jornadas de Juca');
+  begin
+    perform public.resolve_journey('bbbbbbbb-3333-3333-3333-333333333332');
+    raise exception 'FALHOU: B resolveu jornada de outro';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.abandon_journey('bbbbbbbb-3333-3333-3333-333333333332');
+    raise exception 'FALHOU: B abandonou jornada de outro';
+  exception when no_data_found then null;
+  end;
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';
