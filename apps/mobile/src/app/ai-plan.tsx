@@ -31,6 +31,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'rea
 import { Chips } from '@/components/Chips';
 import { CRYSTAL } from '@/components/crystals/Crystals';
 import { Button, Field, FormMessage } from '@/components/Form';
+import { OracleHeader } from '@/components/oracle/OracleHeader';
 import { StackScreen } from '@/components/Screen';
 import {
   decidePlan,
@@ -111,6 +112,7 @@ export default function AiPlanScreen() {
   if (!profile || !hasAiConsent(profile)) {
     return (
       <StackScreen>
+        <OracleHeader says="Para eu ler a sua jornada, preciso da sua permissão. É rápido: ative no Perfil." />
         <Text style={typography.body}>
           Para receber sugestões, ative “Permitir que a IA use meus dados” no Perfil. Seus
           objetivos, hábitos e registros (sem nome nem e-mail) vão para os provedores de IA (Google
@@ -214,8 +216,15 @@ export default function AiPlanScreen() {
   const generating = busy === 'initial' || busy === 'weekly';
   const swapsLeft = plan ? MAX_SWAPS - plan.swaps : 0;
 
+  const oracleSays = generating
+    ? 'Estou lendo a sua jornada… um instante.'
+    : plan && pending
+      ? 'Eis o que vejo para você. Escolha o que aceitar — ajuste ou troque o que quiser.'
+      : 'Conte um objetivo e eu monto um plano de missões sob medida. Ou peça que eu revise a sua semana.';
+
   return (
     <StackScreen>
+      <OracleHeader says={oracleSays} />
       <FormMessage text={notice} tone="info" />
       <FormMessage text={error} />
 

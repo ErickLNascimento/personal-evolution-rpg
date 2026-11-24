@@ -84,6 +84,21 @@ def write_atlas(rows, names, out_dir, name, fps, loop):
         fh.write("\n")
 
 
+def write_color_sheet(frames, out_dir, name, fps, loop):
+    """Spritesheet com as cores finais (sem troca de paleta): frames lado a lado + JSON."""
+    os.makedirs(out_dir, exist_ok=True)
+    w, h = frames[0].size
+    sheet = Image.new("RGBA", (w * len(frames), h), (0, 0, 0, 0))
+    for i, f in enumerate(frames):
+        sheet.paste(f, (i * w, 0))
+    sheet.save(os.path.join(out_dir, f"{name}.png"), optimize=True)
+    meta = {"image": f"{name}.png", "frameWidth": w, "frameHeight": h,
+            "frameCount": len(frames), "fps": fps, "loop": loop}
+    with open(os.path.join(out_dir, f"{name}.json"), "w", newline="\n") as fh:
+        json.dump(meta, fh, indent=2)
+        fh.write("\n")
+
+
 def write_index_sheet(grids, out_dir, name, fps, loop):
     os.makedirs(out_dir, exist_ok=True)
     frames = [grid_to_index(g) for g in grids]

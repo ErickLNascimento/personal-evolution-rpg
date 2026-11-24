@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, FormMessage } from '@/components/Form';
+import { OracleCallout } from '@/components/oracle/OracleCallout';
 import { Placeholder, Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { listHabits, listObjectives, type HabitRecord, type ObjectiveRecord, type Result } from '@/features/habits/api';
@@ -52,6 +53,17 @@ function HabitList() {
   return (
     <Screen title="Hábitos" onRefresh={refresh} refreshing={refreshing}>
       <Button title="Nova missão" onPress={() => router.push('/habit/new')} />
+      {habits !== null && (
+        <OracleCallout
+          says={
+            active.length === 0
+              ? 'Não sabe por onde começar? Me conte um objetivo e eu monto as suas primeiras missões.'
+              : 'Quer ir mais longe? Me conte um novo objetivo e eu sugiro missões para ele.'
+          }
+          action="Consultar o Oráculo"
+          onPress={() => router.push('/ai-plan')}
+        />
+      )}
       <FormMessage text={error} />
 
       {habits === null && !error ? <ActivityIndicator color={colors.primary} /> : null}

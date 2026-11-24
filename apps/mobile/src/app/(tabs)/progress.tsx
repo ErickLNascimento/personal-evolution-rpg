@@ -21,6 +21,7 @@ import { Placeholder, Screen } from '@/components/Screen';
 import { AttributeSheet } from '@/components/hero/AttributeSheet';
 import { ObjectivesCard } from '@/components/ObjectivesCard';
 import { HeroCard } from '@/components/hero/HeroCard';
+import { Oracle } from '@/components/oracle/Oracle';
 import { XpChart } from '@/components/XpChart';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -136,11 +137,19 @@ function RealProgress() {
         <WeekRow label="Semana passada" week={lastWeek} />
         <View style={styles.divider} />
         <AiReview review={data.review} />
-        <Button
-          title="✦ Consultar o Oráculo"
-          onPress={() => router.push('/ai-plan')}
-          variant="secondary"
-        />
+      </Card>
+
+      <Card title="ORÁCULO">
+        <View style={styles.oracle}>
+          <Oracle size={96} />
+          <View style={styles.oracleText}>
+            <Text style={typography.heading}>Peça conselho ao Oráculo</Text>
+            <Text style={typography.caption}>
+              Um plano de missões sob medida para um objetivo, ou uma revisão da sua semana.
+            </Text>
+          </View>
+        </View>
+        <Button title="✦ Consultar o Oráculo" onPress={() => router.push('/ai-plan')} />
       </Card>
     </Screen>
   );
@@ -221,6 +230,8 @@ function AiReview({ review }: { review: WeeklyReview | null }) {
 }
 
 const styles = StyleSheet.create({
+  oracle: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  oracleText: { flex: 1, gap: 2 },
   card: {
     gap: spacing.sm,
     padding: spacing.md,
