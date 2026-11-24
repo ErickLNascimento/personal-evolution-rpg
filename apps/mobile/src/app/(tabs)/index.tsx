@@ -154,17 +154,19 @@ function RealToday() {
           });
         }}
       />
-      <AppTour
-        visible={showNews}
-        hero={hero}
-        slides={newsSlides(news)}
-        heading="NOVIDADES"
-        finishLabel="Entendi"
-        onClose={() => {
-          markNewsSeen();
-          setNewsSeen(seenNewsVersion());
-        }}
-      />
+      {news.length > 0 && (
+        <AppTour
+          visible={showNews}
+          hero={hero}
+          slides={newsSlides(news)}
+          heading="NOVIDADES"
+          finishLabel="Entendi"
+          onClose={() => {
+            markNewsSeen();
+            setNewsSeen(seenNewsVersion());
+          }}
+        />
+      )}
       <Screen
         title="Hoje"
         onRefresh={day.refresh}

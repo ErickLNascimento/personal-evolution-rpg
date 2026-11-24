@@ -89,7 +89,8 @@ export function AppTour({
   finishLabel?: string;
 }) {
   const [index, setIndex] = useState(0);
-  const slide = slides[Math.min(index, slides.length - 1)]!;
+  // Sem slides (ex.: nenhuma novidade pendente) não há o que mostrar.
+  const slide = slides[Math.min(index, slides.length - 1)];
   const last = index >= slides.length - 1;
 
   function close() {
@@ -102,6 +103,8 @@ export function AppTour({
     if (last) close();
     else setIndex((i) => i + 1);
   }
+
+  if (!slide) return null;
 
   return (
     <Modal
