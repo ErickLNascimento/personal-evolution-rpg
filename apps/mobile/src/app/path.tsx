@@ -43,7 +43,7 @@ export default function PathScreen() {
     );
   }
 
-  const look = heroLook(profile.hero, level.level, current, profile.race);
+  const look = heroLook(profile.hero, level.level, current, profile.race, profile.cosmetics);
   const first = current.path === null;
   const availableAt = pathChangeAvailableAt(profile.pathChangedAt, now);
   const samePath = path === current.path;

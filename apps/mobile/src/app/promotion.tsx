@@ -44,7 +44,7 @@ export default function PromotionScreen() {
       </StackScreen>
     );
   }
-  const look = heroLook(profile.hero, level.level, profile.heroPath, profile.race);
+  const look = heroLook(profile.hero, level.level, profile.heroPath, profile.race, profile.cosmetics);
   return <Ceremony info={info.data} look={look} />;
 }
 

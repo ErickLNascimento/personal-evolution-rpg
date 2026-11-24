@@ -11,6 +11,7 @@ import {
   type LevelProgress,
   type TitleId,
 } from '@per/domain';
+import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CrystalBadge } from '@/components/crystals/Crystals';
@@ -33,6 +34,7 @@ export function HeroCard({
   unset,
   onPress,
   crystals,
+  onShop,
   heroPath,
   titleId,
   cheer,
@@ -43,8 +45,9 @@ export function HeroCard({
   name: string | null;
   unset: boolean;
   onPress: () => void;
-  /** Saldo de Cristais. */
+  /** Saldo de Cristais; com `onShop`, mostra também o botão da Loja. */
   crystals?: number;
+  onShop?: () => void;
   /** Caminho e estágio: dão o nome da classe (ex.: "Lutadora"). */
   heroPath?: HeroPathState;
   /** Título exibido (escolhido ou o de nível); padrão: o de nível. */
@@ -89,6 +92,18 @@ export function HeroCard({
           {crystals !== undefined && (
             <View style={styles.wallet}>
               <CrystalBadge amount={crystals} />
+              {onShop && (
+                <Pressable
+                  onPress={onShop}
+                  accessibilityRole="button"
+                  accessibilityLabel="Abrir a Loja"
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.shop, pressed && styles.pressed]}
+                >
+                  <Ionicons name="storefront" size={14} color={colors.text} />
+                  <Text style={styles.shopText}>Loja</Text>
+                </Pressable>
+              )}
             </View>
           )}
         </View>
@@ -127,5 +142,15 @@ const styles = StyleSheet.create({
   info: { flex: 1, gap: 2 },
   title: { fontSize: 12, fontWeight: '800', letterSpacing: 1.2 },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+  shop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  shopText: { fontSize: 13, fontWeight: '800', color: colors.text },
   cta: { ...typography.caption, color: colors.primary, marginTop: spacing.xs },
 });

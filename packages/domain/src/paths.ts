@@ -473,8 +473,11 @@ export function heroLook(
   level: number,
   state: HeroPathState,
   race: Race = 'humano',
+  /** Cosméticos comprados na Loja. */
+  owned: ReadonlySet<string> = new Set(),
 ): HeroLook {
-  const look = sanitizeHero(raw, level, new Set(HERO_CLASSES));
+  // A classe vem do caminho (lookAtStage), então a posse de classes não importa aqui.
+  const look = sanitizeHero(raw, level, new Set([...HERO_CLASSES, ...owned]));
   return { ...lookAtStage(look, state.path ?? 'marcial', state.branch, state.stage), race };
 }
 

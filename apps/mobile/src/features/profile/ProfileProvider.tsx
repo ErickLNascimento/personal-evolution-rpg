@@ -41,12 +41,15 @@ export interface Profile {
   equippedTitle: string | null;
   /** Títulos especiais já concedidos pelo banco. */
   earnedTitles: ReadonlySet<string>;
+  /** Cosméticos comprados na Loja. */
+  cosmetics: ReadonlySet<string>;
 }
 
 /** O que vem de outras tabelas além de `profiles`. */
 interface ProfileExtras {
   earnedTitles: ReadonlySet<string>;
   tourVersion: number | null;
+  cosmetics: ReadonlySet<string>;
 }
 
 interface ProfileRow {
@@ -120,16 +123,18 @@ async function fetchProfile(
   userId: string,
 ): Promise<{ profile: Profile | null; error: string | null }> {
   if (!supabase) return { profile: null, error: 'Supabase não configurado.' };
-  const [profile, titles, tour] = await Promise.all([
+  const [profile, titles, tour, cosmetics] = await Promise.all([
     supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>(),
     supabase.from('user_titles').select('title_id').returns<{ title_id: string }[]>(),
     supabase.from('app_settings').select('value').eq('key', 'tour_version').maybeSingle<{ value: number }>(),
+    supabase.from('user_cosmetics').select('item_id').returns<{ item_id: string }[]>(),
   ]);
   if (profile.error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
   return {
     profile: fromRow(profile.data, {
       earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
       tourVersion: tour.data?.value ?? null,
+      cosmetics: new Set((cosmetics.data ?? []).map((c) => c.item_id)),
     }),
     error: null,
   };
@@ -208,8 +213,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         profile: fromRow(
           data,
           prev?.userId === userId && prev.profile
-            ? { earnedTitles: prev.profile.earnedTitles, tourVersion: prev.profile.tourVersion }
-            : { earnedTitles: new Set(), tourVersion: null },
+            ? {
+                earnedTitles: prev.profile.earnedTitles,
+                tourVersion: prev.profile.tourVersion,
+                cosmetics: prev.profile.cosmetics,
+              }
+            : { earnedTitles: new Set(), tourVersion: null, cosmetics: new Set() },
         ),
         error: null,
       }));

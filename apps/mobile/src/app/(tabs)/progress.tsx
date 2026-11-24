@@ -103,7 +103,7 @@ function RealProgress() {
       <FormMessage text={error} />
 
       <HeroCard
-        hero={heroLook(profile?.hero, level.level, profile?.heroPath ?? NO_PATH, profile?.race)}
+        hero={heroLook(profile?.hero, level.level, profile?.heroPath ?? NO_PATH, profile?.race, profile?.cosmetics)}
         heroPath={profile?.heroPath}
         level={level}
         name={profile?.displayName ?? null}

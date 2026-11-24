@@ -205,6 +205,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
             slot={slot}
             value={look[SLOT_KEY[slot]]}
             level={level}
+            owned={profile?.cosmetics ?? new Set()}
             onChoose={(id) => choose({ [SLOT_KEY[slot]]: id })}
           />
         ))}
@@ -337,11 +338,14 @@ function SlotPicker({
   slot,
   value,
   level,
+  owned,
   onChoose,
 }: {
   slot: HeroSlot;
   value: string;
   level: number;
+  /** Cosméticos comprados na Loja. */
+  owned: ReadonlySet<string>;
   onChoose: (id: string) => void;
 }) {
   const { label, items } = HERO_SLOTS[slot];
@@ -351,16 +355,23 @@ function SlotPicker({
       <Text style={typography.label}>{label.toUpperCase()}</Text>
       <View style={styles.options}>
         {items.map((item: HeroItem) => {
-          const unlocked = isUnlocked(item, level);
+          const unlocked = isUnlocked(item, level, owned);
+          const fromShop = item.price !== undefined;
           const active = item.id === value;
-          const a11y = unlocked ? item.label : `${item.label}, bloqueado até o nível ${item.level}`;
+          const a11y = unlocked
+            ? item.label
+            : fromShop
+              ? `${item.label}, na Loja por ${item.price} Cristais`
+              : `${item.label}, bloqueado até o nível ${item.level}`;
           return (
             <Pressable
               key={item.id}
               onPress={() =>
                 unlocked
                   ? onChoose(item.id)
-                  : Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+                  : fromShop
+                    ? router.push('/shop')
+                    : Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
               }
               accessibilityRole="radio"
               accessibilityState={{ selected: active, disabled: !unlocked }}
@@ -383,8 +394,8 @@ function SlotPicker({
               )}
               {!unlocked && (
                 <View style={styles.lockBadge}>
-                  <Ionicons name="lock-closed" size={10} color={colors.text} />
-                  <Text style={styles.lockText}>{item.level}</Text>
+                  <Ionicons name={fromShop ? 'diamond' : 'lock-closed'} size={10} color={colors.text} />
+                  <Text style={styles.lockText}>{fromShop ? item.price : item.level}</Text>
                 </View>
               )}
             </Pressable>

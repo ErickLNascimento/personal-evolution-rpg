@@ -18,13 +18,13 @@ Objetivo: enxergar os problemas dos testadores e proteger a retenção nos prime
 
 ## 2. Próximo ciclo: mais motivos para voltar
 
-| # | Item | Por quê |
-|---|---|---|
-| 2.1 | **Loja de cosméticos** (fase 4 da evolução do herói) | Os Cristais se acumulam sem ter onde gastar. |
-| 2.2 | **Recompensas personalizadas** ("ver um episódio = 50 Cristais") | Liga o jogo à vida real, como no Habitica; barato de fazer. |
-| 2.3 | **Desafios com prazo**: jornada de 21/66 dias, chefe da semana | Objetivo maior que o dia a dia (Life Reset, Habitica). |
-| 2.4 | **Estatísticas por hábito**: mapa de calor, taxa de conclusão, melhor sequência | Crítica mais comum ao Life Reset: "não mostra resultados". |
-| 2.5 | **Tipos de hábito**: hábitos a evitar e contador com progresso parcial | "Não fumar", "2 de 8 copos". |
+| # | Item | Por quê | Status |
+|---|---|---|---|
+| 2.1 | **Loja de cosméticos** (fase 4 da evolução do herói) | Os Cristais se acumulam sem ter onde gastar. | Feito: auras, roupas e cabelos exclusivos |
+| 2.2 | **Recompensas personalizadas** ("ver um episódio = 50 Cristais") | Liga o jogo à vida real, como no Habitica; barato de fazer. | Feito: criar, editar, resgatar e histórico |
+| 2.3 | **Desafios com prazo**: jornada de 21/66 dias, chefe da semana | Objetivo maior que o dia a dia (Life Reset, Habitica). |  |
+| 2.4 | **Estatísticas por hábito**: mapa de calor, taxa de conclusão, melhor sequência | Crítica mais comum ao Life Reset: "não mostra resultados". | Próximo |
+| 2.5 | **Tipos de hábito**: hábitos a evitar e contador com progresso parcial | "Não fumar", "2 de 8 copos". |  |
 
 ## 3. Mais adiante
 

@@ -95,6 +95,7 @@ function RealToday() {
     day.level.level,
     profile?.heroPath ?? NO_PATH,
     profile?.race,
+    profile?.cosmetics,
   );
   const scrollY = useSharedValue(0);
   // Escudos de streak: usados sozinhos ao abrir o app, se algum dia fechado quebraria a sequência.
@@ -210,6 +211,7 @@ function RealToday() {
                     unset={isHeroUnset(profile?.hero)}
                     onPress={() => router.push('/hero')}
                     crystals={day.crystals}
+                    onShop={() => router.push('/shop')}
                     heroPath={profile?.heroPath}
                     titleId={displayedTitle(
                       profile?.equippedTitle,

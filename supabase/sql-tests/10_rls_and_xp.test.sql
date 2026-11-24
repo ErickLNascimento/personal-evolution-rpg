@@ -1098,6 +1098,110 @@ do $$ begin
   perform pg_temp.check((select count(*) from public.streak_shield_uses) = 0, 'B não vê os escudos de Ivo');
 end $$;
 
+-- ── Loja: cosméticos e recompensas ───────────────────────────
+-- Ivo tem 80 Cristais (200 − 2 escudos de 60).
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+do $$ begin
+  perform pg_temp.check(public.my_coin_balance() = 80, 'Ivo começa com 80 Cristais');
+  begin
+    perform public.buy_cosmetic('loja-cabelo-rosa');
+    raise exception 'FALHOU: comprou cabelo de 100 com 80';
+  exception when sqlstate 'PR004' then null;
+  end;
+  perform pg_temp.check(not exists (select 1 from public.user_cosmetics), 'compra recusada não deixa rastro');
+end $$;
+
+-- mais Cristais (só o backend grava)
+reset role;
+insert into public.coin_transactions (user_id, amount, source_type, local_date, idempotency_key)
+values ('aaaaaaaa-1111-1111-1111-111111111111', 300, 'level_up', pg_temp.today(), 'seed:ivo-loja');
+set local role authenticated;
+
+do $$
+declare r jsonb; v_reward uuid;
+begin
+  r := public.buy_cosmetic('loja-cabelo-rosa');
+  perform pg_temp.check((r->>'coin_balance')::int = 280, 'cabelo rosa por 100 (380 → 280)');
+  perform pg_temp.check(exists (select 1 from public.user_cosmetics where item_id = 'loja-cabelo-rosa'), 'cosmético na conta');
+  begin
+    perform public.buy_cosmetic('loja-cabelo-rosa');
+    raise exception 'FALHOU: comprou o mesmo cosmético duas vezes';
+  exception when sqlstate 'PR002' then null;
+  end;
+  begin
+    perform public.buy_cosmetic('loja-dragao');
+    raise exception 'FALHOU: comprou item inexistente';
+  exception when no_data_found then null;
+  end;
+  begin
+    insert into public.user_cosmetics (user_id, item_id) values ('aaaaaaaa-1111-1111-1111-111111111111', 'loja-aura-sombra');
+    raise exception 'FALHOU: ganhou cosmético direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- recompensas: o usuário cria, edita e resgata
+  insert into public.custom_rewards (title, emoji, price) values ('Ver um episódio', '🎬', 50) returning id into v_reward;
+  update public.custom_rewards set price = 60 where id = v_reward;
+  r := public.redeem_reward(v_reward);
+  perform pg_temp.check((r->>'coin_balance')::int = 220, 'resgate desconta 60 (280 → 220)');
+  perform pg_temp.check(
+    (select count(*) from public.reward_redemptions where title = 'Ver um episódio' and price = 60) = 1,
+    'resgate no histórico');
+  begin
+    insert into public.custom_rewards (title, price) values ('Barato demais', 1);
+    raise exception 'FALHOU: aceitou preço abaixo do mínimo';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.custom_rewards (user_id, title, price) values ('22222222-2222-2222-2222-222222222222', 'De outro', 50);
+    raise exception 'FALHOU: criou recompensa para outro usuário';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.reward_redemptions (user_id, title, price) values ('aaaaaaaa-1111-1111-1111-111111111111', 'grátis', 0);
+    raise exception 'FALHOU: gravou resgate direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- recompensa cara demais para o saldo
+  insert into public.custom_rewards (title, price) values ('Viagem', 5000) returning id into v_reward;
+  begin
+    perform public.redeem_reward(v_reward);
+    raise exception 'FALHOU: resgatou sem Cristais';
+  exception when sqlstate 'PR004' then null;
+  end;
+
+  -- apagar a recompensa mantém o histórico
+  delete from public.custom_rewards where title = 'Ver um episódio';
+  perform pg_temp.check(
+    (select reward_id from public.reward_redemptions where title = 'Ver um episódio') is null, 'histórico fica sem o vínculo');
+end $$;
+
+-- guarda o id de uma recompensa de Ivo para tentar resgatá-la como Bia
+reset role;
+select set_config('test.ivo_reward', (select id::text from public.custom_rewards where title = 'Viagem'), true);
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.custom_rewards) = 0, 'B não vê as recompensas de Ivo');
+  perform pg_temp.check((select count(*) from public.user_cosmetics) = 0, 'B não vê os cosméticos de Ivo');
+  begin
+    perform public.redeem_reward(current_setting('test.ivo_reward')::uuid);
+    raise exception 'FALHOU: B resgatou recompensa de outro';
+  exception when no_data_found then null;
+  end;
+  update public.custom_rewards set price = 5 where id = current_setting('test.ivo_reward')::uuid;
+end $$;
+
+reset role;
+do $$ begin
+  perform pg_temp.check(
+    (select price from public.custom_rewards where id = current_setting('test.ivo_reward')::uuid) = 5000,
+    'B não edita recompensa de outro');
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

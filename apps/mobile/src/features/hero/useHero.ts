@@ -18,7 +18,7 @@ export function useHero() {
   const load = useCallback(() => fetchTotalXp(), []);
   const xp = useFocusLoad<number>(load, Boolean(profile));
   const level: LevelProgress = levelFromXp(xp.data ?? 0);
-  const hero: HeroLook = profile ? heroLook(profile.hero, level.level, profile.heroPath, profile.race) : DEFAULT_HERO;
+  const hero: HeroLook = profile ? heroLook(profile.hero, level.level, profile.heroPath, profile.race, profile.cosmetics) : DEFAULT_HERO;
 
   return {
     hero,

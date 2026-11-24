@@ -100,6 +100,8 @@ export interface HeroItem {
   level: number;
   /** Cor principal da peça (quando é uma cor). */
   color?: string;
+  /** Item exclusivo da Loja: comprado com Cristais (em vez de liberado por nível). */
+  price?: number;
 }
 
 export const SKIN_TONES: readonly HeroItem[] = [
@@ -136,6 +138,11 @@ export const HAIR_COLORS: readonly HeroItem[] = [
   { id: 'prata', label: 'Prata', level: 5, color: '#D7DCE3' },
   { id: 'azul', label: 'Azul elétrico', level: 9, color: '#3D7BFF' },
   { id: 'violeta', label: 'Violeta', level: 12, color: '#9B5CF6' },
+  // Loja
+  { id: 'loja-cabelo-rosa', label: 'Rosa chiclete', level: 1, color: '#F472B6', price: 100 },
+  { id: 'loja-cabelo-menta', label: 'Menta', level: 1, color: '#34D399', price: 100 },
+  { id: 'loja-cabelo-fogo', label: 'Fogo', level: 1, color: '#F97316', price: 100 },
+  { id: 'loja-cabelo-neve', label: 'Neve', level: 1, color: '#F5F5F5', price: 150 },
 ];
 
 export const EYE_COLORS: readonly HeroItem[] = [
@@ -156,6 +163,11 @@ export const OUTFIT_COLORS: readonly HeroItem[] = [
   { id: 'obsidiana', label: 'Obsidiana', level: 6, color: '#23232B' },
   { id: 'aurora', label: 'Aurora', level: 11, color: '#16A99A' },
   { id: 'ouro', label: 'Ouro real', level: 14, color: '#C9962B' },
+  // Loja
+  { id: 'loja-roupa-marfim', label: 'Marfim', level: 1, color: '#E8DCC2', price: 120 },
+  { id: 'loja-roupa-vinho', label: 'Vinho', level: 1, color: '#7A2236', price: 120 },
+  { id: 'loja-roupa-celeste', label: 'Celeste', level: 1, color: '#5DADE2', price: 120 },
+  { id: 'loja-roupa-grafite', label: 'Grafite', level: 1, color: '#52606D', price: 120 },
 ];
 
 export const AURAS: readonly HeroItem[] = [
@@ -165,6 +177,12 @@ export const AURAS: readonly HeroItem[] = [
   { id: 'relampago', label: 'Relâmpago', level: 10, color: '#F5E642' },
   { id: 'eclipse', label: 'Eclipse', level: 15, color: '#A855F7' },
   { id: 'solar', label: 'Solar', level: 20, color: '#FFD36B' },
+  // Loja
+  { id: 'loja-aura-gelo', label: 'Gelo eterno', level: 1, color: '#9EE7FF', price: 200 },
+  { id: 'loja-aura-rubi', label: 'Rubi', level: 1, color: '#E0245E', price: 200 },
+  { id: 'loja-aura-esmeralda', label: 'Esmeralda', level: 1, color: '#2EE59D', price: 200 },
+  { id: 'loja-aura-sakura', label: 'Sakura', level: 1, color: '#FF8FC7', price: 250 },
+  { id: 'loja-aura-sombra', label: 'Sombra', level: 1, color: '#6B4FBB', price: 300 },
 ];
 
 export const ACCESSORIES: readonly HeroItem[] = [
@@ -222,14 +240,21 @@ export function findItem(slot: HeroSlot, id: string): HeroItem | undefined {
   return HERO_SLOTS[slot].items.find((i) => i.id === id);
 }
 
-export function isUnlocked(item: HeroItem, level: number): boolean {
-  return level >= item.level;
+/** Liberado: itens comuns pelo nível; itens da Loja, só se comprados (`owned`). */
+export function isUnlocked(item: HeroItem, level: number, owned: ReadonlySet<string> = new Set()): boolean {
+  return item.price !== undefined ? owned.has(item.id) : level >= item.level;
 }
+
+/** Cosméticos vendidos na Loja (espelha `cosmetic_catalog` do banco). */
+export const SHOP_COSMETICS: readonly { slot: HeroSlot; item: HeroItem }[] = (
+  ['aura', 'outfit', 'hairColor'] as HeroSlot[]
+).flatMap((slot) => HERO_SLOTS[slot].items.filter((i) => i.price !== undefined).map((item) => ({ slot, item })));
 
 /**
  * Lê a aparência salva (jsonb livre) e garante que só há peças existentes e
  * já desbloqueadas no nível atual; o resto volta ao padrão.
  */
+/** `owned`: ids comprados (cosméticos da Loja e, no legado, classes pagas). */
 export function sanitizeHero(raw: unknown, level: number, owned: ReadonlySet<string> = new Set()): HeroLook {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const known = HERO_CLASSES.includes(obj.heroClass as HeroClass) ? (obj.heroClass as HeroClass) : null;
@@ -238,7 +263,7 @@ export function sanitizeHero(raw: unknown, level: number, owned: ReadonlySet<str
   const form = HERO_FORMS.includes(obj.form as HeroForm) ? (obj.form as HeroForm) : DEFAULT_HERO.form;
   const pick = (slot: HeroSlot, key: keyof Omit<HeroLook, 'heroClass' | 'form' | 'kit' | 'tier' | 'race'>) => {
     const item = typeof obj[key] === 'string' ? findItem(slot, obj[key] as string) : undefined;
-    return item && isUnlocked(item, level) ? item.id : DEFAULT_HERO[key];
+    return item && isUnlocked(item, level, owned) ? item.id : DEFAULT_HERO[key];
   };
   return {
     heroClass,
