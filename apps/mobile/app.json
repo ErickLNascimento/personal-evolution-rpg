@@ -39,7 +39,9 @@
           "organization": "myliferpg",
           "project": "personal-evolution-rpg"
         }
-      ]
+      ],
+      "./plugins/withGradleMemory",
+      "./plugins/withLocalCmake"
     ],
     "experiments": {
       "typedRoutes": true
