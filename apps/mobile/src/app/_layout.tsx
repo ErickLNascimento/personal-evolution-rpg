@@ -1,4 +1,5 @@
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, useNavigationContainerRef } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
@@ -6,6 +7,7 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { CelebrationProvider } from '@/features/celebration/CelebrationProvider';
 import { ProfileProvider, useProfile } from '@/features/profile/ProfileProvider';
 import { useReminderSync, useReminderTapOpensToday } from '@/features/reminders/useReminderSync';
+import { navigationIntegration, sentryEnabled, setSentryUser, withSentry } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography } from '@/theme/tokens';
 
@@ -35,6 +37,9 @@ function RootNavigator() {
     isLoading,
   );
   useReminderTapOpensToday();
+  // Erros no Sentry ligados à conta (só o id), para cruzar com o feedback.
+  const userId = isDemo ? null : (session?.user.id ?? null);
+  useEffect(() => setSentryUser(userId), [userId]);
 
   // Espera ler a sessão salva para não piscar a tela de login.
   if (isLoading) return <Loading />;
@@ -97,7 +102,12 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
+  // Liga a navegação do Expo Router ao Sentry (tela de cada erro e tempo de abertura).
+  const navigationRef = useNavigationContainerRef();
+  useEffect(() => {
+    if (sentryEnabled && navigationRef) navigationIntegration.registerNavigationContainer(navigationRef);
+  }, [navigationRef]);
   return (
     <AuthProvider>
       <ProfileProvider>
@@ -120,3 +130,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 });
+
+export default withSentry(RootLayout);

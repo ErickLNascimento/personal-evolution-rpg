@@ -5,16 +5,16 @@ Life Reset, Habitify) e no que o app já tem: missões diárias, XP e níveis, s
 (raça, caminho, promoções), Cristais, missão relâmpago, Oráculo (IA), lembretes por hábito, tour e
 feedback.
 
-## 1. Antes de ampliar o grupo de testes
+## 1. Antes de ampliar o grupo de testes (concluído)
 
 Objetivo: enxergar os problemas dos testadores e proteger a retenção nos primeiros dias.
 
 | # | Item | Por quê | Status |
 |---|---|---|---|
-| 1.1 | **Relatório de erros e analytics** (ex.: Sentry + PostHog) | Hoje um travamento só chega se o testador escrever. Com analytics, dá para ver onde as pessoas desistem (onboarding, primeira missão) e se voltam no dia seguinte. | Aguardando a escolha dos serviços e a criação das contas |
+| 1.1 | **Relatório de erros** (Sentry) | Hoje um travamento só chega se o testador escrever. | Feito: erros, desempenho, logs e replay só em erros (mascarado). Analytics de uso (PostHog) adiado. |
 | 1.2 | **Atualizações sem reinstalar** (expo-updates + EAS Update) | Correções de JavaScript chegam aos testadores sozinhas, sem novo APK. | Configurado; vale a partir do próximo build |
 | 1.3 | **Proteção de streak** (escudos com Cristais) | Recurso de retenção mais forte do Duolingo e do Finch: perder o streak é quando mais gente abandona. | Feito: até 2 escudos (60 Cristais cada), usados sozinhos |
-| 1.4 | **Notificações inteligentes**: streak em risco à noite, missão relâmpago sorteada, promoção disponível | Os avisos com mais efeito sobre a volta ao app. Aproveitam os lembretes e a missão relâmpago que já existem. | Próximo |
+| 1.4 | **Notificações inteligentes**: streak em risco à noite, missão relâmpago sorteada, promoção disponível | Os avisos com mais efeito sobre a volta ao app. Aproveitam os lembretes e a missão relâmpago que já existem. | Feito: locais, com interruptor no Perfil |
 
 ## 2. Próximo ciclo: mais motivos para voltar
 

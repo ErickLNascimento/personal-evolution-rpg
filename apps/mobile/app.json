@@ -31,7 +31,15 @@
       "expo-sqlite",
       "expo-font",
       "expo-localization",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "organization": "myliferpg",
+          "project": "personal-evolution-rpg"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
