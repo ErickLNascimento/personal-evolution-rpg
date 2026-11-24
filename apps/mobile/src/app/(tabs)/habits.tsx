@@ -105,7 +105,7 @@ function HabitRow({ habit, objective, archived = false }: { habit: HabitRecord; 
       onPress={() => router.push({ pathname: '/habit/[id]', params: { id: habit.id } })}
       accessibilityRole="button"
       accessibilityLabel={`${habit.title}, ${details.join(', ')}${objective ? `, objetivo ${objective}` : ''}`}
-      accessibilityHint={archived ? 'Ver detalhes' : 'Editar ou arquivar'}
+      accessibilityHint={archived ? 'Ver detalhes e estatísticas' : 'Ver estatísticas, editar ou arquivar'}
       style={({ pressed }) => [styles.row, archived && styles.archived, pressed && styles.pressed]}
     >
       <View style={styles.body}>

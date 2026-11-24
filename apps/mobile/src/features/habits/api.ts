@@ -159,3 +159,21 @@ export async function createObjective(title: string, category: ObjectiveCategory
   if (error) return failure(error, 'Não foi possível criar o objetivo.');
   return { data, error: null };
 }
+
+/** Todas as datas em que o hábito foi registrado (para as estatísticas). */
+export async function listHabitLogDates(habitId: string): Promise<Result<Set<LocalDate>>> {
+  const PAGE = 1000;
+  const dates = new Set<LocalDate>();
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await client()
+      .from('habit_logs')
+      .select('local_date')
+      .eq('habit_id', habitId)
+      .order('local_date')
+      .range(from, from + PAGE - 1)
+      .returns<{ local_date: string }[]>();
+    if (error) return failure(error, 'Não foi possível carregar o histórico do hábito.');
+    for (const row of data) dates.add(row.local_date);
+    if (data.length < PAGE) return { data: dates, error: null };
+  }
+}

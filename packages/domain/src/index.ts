@@ -16,3 +16,4 @@ export * from './feedback';
 export * from './tour';
 export * from './smartNotifications';
 export * from './rewards';
+export * from './habitStats';

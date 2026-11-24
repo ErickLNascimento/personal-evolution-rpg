@@ -1,11 +1,12 @@
-import { describeSchedule, DIFFICULTY_LABEL, retireHabit, type HabitDraft } from '@per/domain';
+import { describeSchedule, DIFFICULTY_LABEL, retireHabit, type HabitDraft, type LocalDate } from '@per/domain';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { Button, FormMessage } from '@/components/Form';
 import { StackScreen } from '@/components/Screen';
-import { getHabit, isLoggedOn, retire, updateHabit, type HabitRecord } from '@/features/habits/api';
+import { getHabit, isLoggedOn, listHabitLogDates, retire, updateHabit, type HabitRecord } from '@/features/habits/api';
 import { HabitForm } from '@/features/habits/HabitForm';
+import { HabitStatsCard } from '@/features/habits/HabitStatsCard';
 import { useToday } from '@/features/profile/useToday';
 import { syncReminders } from '@/lib/reminders';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -30,6 +31,7 @@ export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { today, ready } = useToday();
   const [habit, setHabit] = useState<HabitRecord | null>(null);
+  const [logged, setLogged] = useState<Set<LocalDate> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retiring, setRetiring] = useState(false);
 
@@ -39,6 +41,10 @@ export default function EditHabitScreen() {
       if (!active) return;
       if (r.error !== null) setError(r.error);
       else setHabit(r.data);
+    });
+    // As estatísticas são extras: se falharem, a tela continua editável.
+    listHabitLogDates(id).then((r) => {
+      if (active && r.error === null) setLogged(r.data);
     });
     return () => {
       active = false;
@@ -53,6 +59,8 @@ export default function EditHabitScreen() {
     );
   }
 
+  const stats = logged && ready ? <HabitStatsCard habit={habit} logged={logged} today={today} /> : null;
+
   if (habit.archivedOn) {
     return (
       <StackScreen>
@@ -65,6 +73,7 @@ export default function EditHabitScreen() {
             Arquivado. Valeu de {formatDate(habit.startDate)} até {formatDate(habit.archivedOn)}; o XP ganho continua seu.
           </Text>
         </View>
+        {stats}
       </StackScreen>
     );
   }
@@ -112,6 +121,7 @@ export default function EditHabitScreen() {
 
   return (
     <StackScreen>
+      {stats}
       <HabitForm
         initial={toDraft(habit)}
         submitLabel="Salvar alterações"
