@@ -23,6 +23,8 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/useProfile';
 import { deviceTimeZone } from '@/lib/deviceTimeZone';
+import { ensureReminderPermission, syncReminders } from '@/lib/reminders';
+import { setSmartNotificationsEnabled, smartNotificationsEnabled } from '@/lib/smartNotifications';
 import { supabase } from '@/lib/supabase';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
@@ -88,6 +90,10 @@ function AccountProfile() {
           consentAt={profile.aiConsentAt}
           onChange={(on) => update({ ai_consent_at: on ? new Date().toISOString() : null })}
         />
+      </Section>
+
+      <Section title="NOTIFICAÇÕES">
+        <SmartNotificationsToggle />
       </Section>
 
       <Section title="AJUDA E FEEDBACK">
@@ -286,6 +292,33 @@ function AiConsent({
   );
 }
 
+/** Liga/desliga os avisos de streak, missão relâmpago e promoção (os lembretes de hábito seguem). */
+function SmartNotificationsToggle() {
+  const [on, setOn] = useState(() => smartNotificationsEnabled());
+  async function toggle(next: boolean) {
+    setOn(next);
+    setSmartNotificationsEnabled(next);
+    if (next) await ensureReminderPermission();
+    void syncReminders().catch(() => undefined);
+  }
+  return (
+    <View style={styles.switchRow}>
+      <View style={styles.switchText}>
+        <Text style={typography.body}>Avisos do herói</Text>
+        <Text style={typography.caption}>
+          Streak em risco às 20h30, missão relâmpago 1 hora antes do prazo e promoção disponível.
+        </Text>
+      </View>
+      <Switch
+        value={on}
+        onValueChange={(v) => void toggle(v)}
+        accessibilityLabel="Avisos do herói"
+        trackColor={{ true: colors.primary, false: colors.border }}
+      />
+    </View>
+  );
+}
+
 function SignOutButton() {
   const [loading, setLoading] = useState(false);
 
@@ -319,5 +352,6 @@ const styles = StyleSheet.create({
   },
   notice: { gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceRaised },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  switchText: { flex: 1, gap: 2 },
   switchLabel: { flex: 1 },
 });

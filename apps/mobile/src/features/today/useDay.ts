@@ -14,6 +14,7 @@ import { useCelebration } from '@/features/celebration/CelebrationProvider';
 import { useToday } from '@/features/profile/useToday';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { fetchFlashMission, type FlashMission } from '@/features/hero/pathApi';
+import { syncReminders } from '@/lib/reminders';
 import { awardKey, fetchDay, logHabit, undoHabitLog, type DayData } from './api';
 
 export type DayChoice = 'today' | 'yesterday';
@@ -100,6 +101,8 @@ export function useDay(choice: DayChoice) {
         else if (outcome.changed) awarded.set(key, outcome.xp);
         return { ...d, totalXp: outcome.totalXp, crystals: outcome.crystalBalance, awarded };
       });
+      // Refaz os avisos: o de streak em risco sai com o dia perfeito; o relâmpago, ao concluir.
+      void syncReminders().catch(() => undefined);
       // A resposta do banco diz se o bônus relâmpago entrou (ou saiu, ao desfazer).
       if (flash.data && flash.data.habitId === habitId && date === today) {
         flash.setData({

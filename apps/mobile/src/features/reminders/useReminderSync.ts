@@ -25,11 +25,12 @@ export function useReminderSync(userId: string | null, enabled: boolean, authLoa
   }, [userId, enabled, authLoading]);
 }
 
-/** Tocar num lembrete abre a aba Hoje, onde a missão é concluída. */
+/** Tocar num lembrete abre a aba Hoje (onde a missão é concluída); o de promoção abre a cerimônia. */
 export function useReminderTapOpensToday() {
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener(() => {
-      router.navigate('/');
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const kind = response.notification.request.content.data?.kind;
+      router.navigate(kind === 'promotion' ? '/promotion' : '/');
     });
     return () => sub.remove();
   }, []);

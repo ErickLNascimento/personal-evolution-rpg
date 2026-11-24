@@ -22,6 +22,7 @@ import { StackScreen } from '@/components/Screen';
 import { useHero } from '@/features/hero/useHero';
 import { fetchHeroPath, promoteHero, type HeroPathInfo } from '@/features/hero/pathApi';
 import { useProfile } from '@/features/profile/ProfileProvider';
+import { syncReminders } from '@/lib/reminders';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
@@ -81,6 +82,7 @@ function Ceremony({ info, look }: { info: HeroPathInfo; look: HeroLook }) {
     await refresh();
     setSaving(false);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void syncReminders().catch(() => undefined); // tira o aviso de promoção pendente
     setDone(r.data);
   }
 
