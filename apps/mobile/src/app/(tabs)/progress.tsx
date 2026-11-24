@@ -12,6 +12,7 @@ import {
   streakFrom,
   weekSummary,
   type LocalDate,
+  type MoodEntry,
   type WeekSummary,
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
@@ -23,7 +24,9 @@ import { Placeholder, Screen } from '@/components/Screen';
 import { AttributeSheet } from '@/components/hero/AttributeSheet';
 import { ObjectivesCard } from '@/components/ObjectivesCard';
 import { HeroCard } from '@/components/hero/HeroCard';
+import { MoodHistory } from '@/components/mood/MoodHistory';
 import { Oracle } from '@/components/oracle/Oracle';
+import { fetchMoodEntries } from '@/features/mood/api';
 import { XpChart } from '@/components/XpChart';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -67,10 +70,15 @@ function RealProgress() {
     // Escudos guardados seguram sozinhos as faltas que quebrariam o streak.
     const protectedNow = await autoProtectStreak(today);
     const shields = await fetchShields();
-    return { data: { ...p.data, shields: shields.data, protectedNow }, error: null };
+    // O diário é extra: sem ele (ou sem a migration), o resto da tela segue.
+    const mood = await fetchMoodEntries(addDays(today, -59));
+    return {
+      data: { ...p.data, shields: shields.data, protectedNow, mood: mood.data ?? [] },
+      error: null,
+    };
   }, [today]);
   const { data, error, refreshing, refresh } = useFocusLoad<
-    ProgressData & { shields: StreakShields | null; protectedNow: LocalDate[] }
+    ProgressData & { shields: StreakShields | null; protectedNow: LocalDate[]; mood: MoodEntry[] }
   >(load, ready);
 
   if (!data) {
@@ -103,7 +111,13 @@ function RealProgress() {
       <FormMessage text={error} />
 
       <HeroCard
-        hero={heroLook(profile?.hero, level.level, profile?.heroPath ?? NO_PATH, profile?.race, profile?.cosmetics)}
+        hero={heroLook(
+          profile?.hero,
+          level.level,
+          profile?.heroPath ?? NO_PATH,
+          profile?.race,
+          profile?.cosmetics,
+        )}
         heroPath={profile?.heroPath}
         level={level}
         name={profile?.displayName ?? null}
@@ -153,6 +167,10 @@ function RealProgress() {
             onBought={refresh}
           />
         )}
+      </Card>
+
+      <Card title="HUMOR · ÚLTIMOS 14 DIAS">
+        <MoodHistory entries={data.mood} habits={data.habits} logs={data.logs} today={today} />
       </Card>
 
       <Card title={`XP POR DIA · ÚLTIMOS ${CHART_DAYS} DIAS`}>

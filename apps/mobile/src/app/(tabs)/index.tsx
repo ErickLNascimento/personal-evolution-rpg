@@ -29,6 +29,7 @@ import { Placeholder, Screen } from '@/components/Screen';
 import { TodaySkeleton } from '@/components/Skeleton';
 import { CompactHeroBar } from '@/components/today/CompactHeroBar';
 import { HeroCheerPop } from '@/components/today/HeroCheerPop';
+import { MoodCheckIn } from '@/components/mood/MoodCheckIn';
 import { PromotionBanner } from '@/components/today/PromotionBanner';
 import { BossBanner } from '@/components/challenges/BossCard';
 import { AppTour } from '@/components/tour/AppTour';
@@ -282,6 +283,7 @@ function RealToday() {
                 )
               }
             />
+            <MoodCheckIn date={day.date} isToday={choice === 'today'} />
             {day.hasHabits && (
               <BossBanner
                 id={boss.id}

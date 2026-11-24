@@ -1594,6 +1594,61 @@ do $$ begin
     'Mel vira dona do grupo');
 end $$;
 
+-- ── Diário de humor ─────────────────────────────────────────
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare
+  r jsonb;
+  coins0 integer := (select coalesce(sum(amount), 0) from public.coin_transactions);
+begin
+  begin
+    insert into public.mood_entries (user_id, local_date, mood)
+    values ('cccccccc-1111-1111-1111-111111111111', pg_temp.today(), 4);
+    raise exception 'FALHOU: app gravou humor direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.save_mood_entry(pg_temp.today(), 4, array['grato', 'motivado', 'grato'], '  Dia bom  ');
+  perform pg_temp.check((r->>'coins_awarded')::int = 3, 'primeiro check-in do dia rende 3 Cristais');
+  perform pg_temp.check(
+    (select tags = array['grato', 'motivado'] and note = 'Dia bom' from public.mood_entries
+     where local_date = pg_temp.today()), 'sentimentos sem repetição e nota limpa');
+
+  r := public.save_mood_entry(pg_temp.today(), 2, '{}', null);
+  perform pg_temp.check((r->>'coins_awarded')::int = 0, 'editar o dia não paga de novo');
+  perform pg_temp.check((select mood from public.mood_entries where local_date = pg_temp.today()) = 2, 'humor atualizado');
+  perform pg_temp.check((select coalesce(sum(amount), 0) from public.coin_transactions) = coins0 + 3, 'só 3 Cristais no total');
+
+  perform public.save_mood_entry(pg_temp.today() - 1, 5);
+  begin
+    perform public.save_mood_entry(pg_temp.today() - 2, 3);
+    raise exception 'FALHOU: humor fora da janela';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.save_mood_entry(pg_temp.today(), 6);
+    raise exception 'FALHOU: humor 6';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.save_mood_entry(pg_temp.today(), 3, array['feliz']);
+    raise exception 'FALHOU: sentimento fora da lista';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.save_mood_entry(pg_temp.today(), 3, '{}', repeat('a', 501));
+    raise exception 'FALHOU: nota longa';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+
+-- amiga (Mel) não vê o humor de Lia
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.mood_entries) = 0, 'humor é privado, nem amigos veem');
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

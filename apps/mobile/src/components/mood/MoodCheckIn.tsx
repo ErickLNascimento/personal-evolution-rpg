@@ -1,0 +1,183 @@
+import {
+  cleanMoodInput,
+  MOOD_LABEL,
+  MOOD_NOTE_MAX,
+  MOOD_TAG_LABEL,
+  MOOD_TAGS,
+  MOODS,
+  type LocalDate,
+  type Mood,
+  type MoodEntry,
+  type MoodTag,
+} from '@per/domain';
+import * as Haptics from 'expo-haptics';
+import { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Chips } from '@/components/Chips';
+import { Button, Field, FormMessage } from '@/components/Form';
+import type { Result } from '@/features/habits/api';
+import { fetchMoodEntries, saveMoodEntry } from '@/features/mood/api';
+import { useFocusLoad } from '@/lib/useFocusLoad';
+import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
+import { MoodFace } from './MoodFace';
+
+const TAG_OPTIONS = MOOD_TAGS.map((t) => ({ value: t, label: MOOD_TAG_LABEL[t] }));
+
+/**
+ * "Como você está hoje?": um toque registra o humor do dia; sentimentos e nota são opcionais.
+ * O primeiro registro do dia rende Cristais. Só o próprio usuário vê.
+ */
+export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boolean }) {
+  const load = useCallback(async (): Promise<Result<MoodEntry | null>> => {
+    const r = await fetchMoodEntries(date);
+    if (r.error !== null) return r;
+    return { data: r.data.find((e) => e.date === date) ?? null, error: null };
+  }, [date]);
+  const saved = useFocusLoad<MoodEntry | null>(load);
+  // Rascunho local (o que o usuário está escolhendo); some ao trocar de dia.
+  const [draft, setDraft] = useState<{
+    date: LocalDate;
+    mood: Mood | null;
+    tags: MoodTag[];
+    note: string;
+  } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; tone: 'info' | 'error' } | null>(null);
+
+  if (saved.error && !saved.data) return null; // sem a migration ou sem rede: não atrapalha a tela
+  const entry = saved.data ?? null;
+  const current =
+    draft?.date === date
+      ? draft
+      : { date, mood: entry?.mood ?? null, tags: entry?.tags ?? [], note: entry?.note ?? '' };
+
+  async function save(next: typeof current) {
+    if (next.mood === null) return;
+    const clean = cleanMoodInput(next.tags, next.note);
+    if (clean.error) {
+      setMessage({ text: clean.error, tone: 'error' });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const r = await saveMoodEntry(date, next.mood, clean.tags, clean.note);
+    setBusy(false);
+    if (r.error !== null) {
+      setMessage({ text: r.error, tone: 'error' });
+      return;
+    }
+    void Haptics.selectionAsync();
+    setMessage({
+      text: r.data.coins > 0 ? `Registrado! +${r.data.coins} Cristais.` : 'Registrado.',
+      tone: 'info',
+    });
+    saved.setData({ date, mood: next.mood, tags: clean.tags, note: clean.note });
+    setDraft(null);
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={typography.label}>
+        {isToday ? 'COMO VOCÊ ESTÁ HOJE?' : 'COMO VOCÊ ESTAVA ONTEM?'}
+      </Text>
+      <View style={styles.faces} accessibilityRole="radiogroup">
+        {MOODS.map((m) => {
+          const selected = current.mood === m;
+          return (
+            <Pressable
+              key={m}
+              onPress={() => {
+                const next = { ...current, mood: m };
+                setDraft(next);
+                void save(next);
+              }}
+              disabled={busy}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              accessibilityLabel={MOOD_LABEL[m]}
+              style={({ pressed }) => [
+                styles.face,
+                selected && styles.faceSelected,
+                pressed && styles.pressed,
+              ]}
+            >
+              <MoodFace mood={m} size={40} dim={current.mood !== null && !selected} />
+            </Pressable>
+          );
+        })}
+      </View>
+      {current.mood !== null && (
+        <Text style={[typography.caption, styles.center]}>{MOOD_LABEL[current.mood]}</Text>
+      )}
+      {message && <FormMessage tone={message.tone} text={message.text} />}
+
+      {current.mood !== null &&
+        (expanded ? (
+          <View style={styles.details}>
+            <Chips
+              multiple
+              options={TAG_OPTIONS}
+              selected={current.tags}
+              onToggle={(t) =>
+                setDraft({
+                  ...current,
+                  tags: current.tags.includes(t)
+                    ? current.tags.filter((x) => x !== t)
+                    : [...current.tags, t],
+                })
+              }
+            />
+            <Field
+              label="Nota (só você vê)"
+              value={current.note}
+              onChangeText={(note) => setDraft({ ...current, note })}
+              placeholder="O que marcou o seu dia?"
+              multiline
+              maxLength={MOOD_NOTE_MAX}
+            />
+            <Button title="Salvar" onPress={() => void save(current)} loading={busy} />
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setExpanded(true)}
+            accessibilityRole="button"
+            style={styles.more}
+          >
+            <Text style={styles.moreText}>
+              {entry && (entry.tags.length > 0 || entry.note)
+                ? 'Ver sentimentos e nota'
+                : '＋ Adicionar sentimentos e nota (opcional)'}
+            </Text>
+          </Pressable>
+        ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  faces: { flexDirection: 'row', justifyContent: 'space-between' },
+  face: {
+    width: MIN_TOUCH + 8,
+    height: MIN_TOUCH + 8,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  faceSelected: { borderColor: colors.primary, backgroundColor: colors.surfaceRaised },
+  pressed: { opacity: 0.7 },
+  center: { textAlign: 'center' },
+  details: { gap: spacing.sm },
+  more: { minHeight: MIN_TOUCH - 8, justifyContent: 'center' },
+  moreText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+});
