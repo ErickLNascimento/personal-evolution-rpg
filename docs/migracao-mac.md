@@ -85,15 +85,16 @@ Sem a conta paga, dá para instalar pelo cabo com o **Personal Team** do Xcode:
 
 ```bash
 cd apps/mobile
-npx expo run:ios --device              # escolha o iPhone conectado
+FREE_APPLE_TEAM=1 npx expo run:ios --device   # escolha o iPhone conectado
 ```
 
 - No Xcode (`ios/PersonalEvolutionRPG.xcworkspace` → Signing & Capabilities), escolha o seu
   Personal Team. No iPhone: Ajustes → Geral → VPN e Gerenciamento de Dispositivo → confiar no
   desenvolvedor.
-- O Personal Team não aceita a capability **Push Notifications**. O plugin
-  `plugins/withoutPushEntitlement` a remove nos builds locais (os lembretes são notificações
-  locais e continuam funcionando); builds do EAS (`EAS_BUILD`) mantêm.
+- O Personal Team não aceita a capability **Push Notifications**. Com `FREE_APPLE_TEAM=1`, o
+  `app.config.js` liga o plugin `plugins/withoutPushEntitlement`, que a remove (os lembretes são
+  notificações locais e continuam funcionando). Sem a variável, nada muda: o plugin fica fora do
+  `app.json` para não alterar o fingerprint dos builds e das atualizações do EAS.
 - O app instalado assim expira em 7 dias; rode o comando de novo para renovar.
 
 ## 6. App para iPhone de verdade (TestFlight)
