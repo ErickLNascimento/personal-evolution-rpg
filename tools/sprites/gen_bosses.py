@@ -233,7 +233,7 @@ def common_knockdown(boss, n):
     return knockdown(n, pose, {
         "outline": OUT, "shadow": SHADOW, "eye_l": EYE_L, "gold": GOLD, "dust": [LL, L],
         "body": BODY, "dim": {LL: L, L: M},
-    }, style=getattr(boss, "KO_STYLE", "fall"))
+    }, style=getattr(boss, "KO_STYLE", "fall"), head=getattr(boss, "KO_HEAD", None))
 
 
 # ─────────────────────────────────────────────────────────────
@@ -540,6 +540,7 @@ class Lich:
 class Dragao:
     id = "dragao"
     KO_STYLE = "slump"  # largo demais para deitar de lado
+    KO_HEAD = "left"  # a cabeça cai à esquerda: as estrelinhas vão para cima dela
     PAL = palette("#1F0A10", "#7A1E35", "#C23A57", "#F2617A", "#FF9DB0", "#FFD45A", "#FFF4C2",
                   "#F7C98B", "#9C2A45", "#B8B0B8")
 

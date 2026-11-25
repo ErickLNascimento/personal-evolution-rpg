@@ -135,13 +135,15 @@ def _cross(g, x, y, core, arm):
             g[y + dy][x + dx] = c
 
 
-def knockdown(n, pose, pal, style="fall"):
+def knockdown(n, pose, pal, style="fall", head=None):
     """Frame `n` da derrota.
 
     pose(n, eyes) → grade composta da pose (com sombra); eyes em 'squint' | 'closed' | 'normal'.
     pal: dict com outline, shadow, eye_l, gold, dust (lista de 2 cores), body (conjunto dos
     índices do corpo, para o clarão) e dim (mapa índice → índice mais escuro).
     style: "fall" (cai de lado e fica deitado) ou "slump" (desaba no lugar, achatado).
+    head: onde fica a cabeça no fim, para as estrelinhas: "left", "center" ou "right"
+    (padrão: "right" ao cair de lado, "center" ao desabar).
     """
     eyes = "closed" if n >= 9 else ("squint" if n >= 1 else "normal")
     g = pose(n, eyes)
@@ -191,9 +193,12 @@ def knockdown(n, pose, pal, style="fall"):
             y = GROUND - (k % 2) - (n - 7)
             if 0 <= x < W and 0 <= y < H and not out[y][x]:
                 out[y][x] = pal["dust"][k % 2]
-    if n >= 10:  # estrelinhas de nocaute sobre a cabeça (deitado, a cabeça fica à direita)
-        hx = bx1 - 6 if style == "fall" else round((bx0 + bx1) / 2)
-        hy = by0 - 5
+    if n >= 10:  # estrelinhas de nocaute sobre a cabeça
+        side = head or ("right" if style == "fall" else "center")
+        hx = {"left": bx0 + 8, "right": bx1 - 6, "center": round((bx0 + bx1) / 2)}[side]
+        # topo do corpo naquela coluna (a cabeça pode estar mais baixa que o resto)
+        col = [y for y in range(H) if any(body[y][x] for x in range(max(0, hx - 3), min(W, hx + 4)))]
+        hy = (min(col) if col else by0) - 5
         for k, (dx, dy) in enumerate(((-5, 1), (0, -2), (5, 1))):
             _cross(out, hx + dx, hy + dy, pal["eye_l"], pal["gold"])
     return out
