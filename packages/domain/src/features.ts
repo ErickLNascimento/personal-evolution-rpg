@@ -27,6 +27,8 @@ export const FEATURES = {
   ambush: 'feature_ambush',
   /** Ato II: seis chefes novos no rodízio, a partir de boss_act2_start_week. */
   act2: 'feature_act_2',
+  /** Lorde do mês: um chefe lendário que dura o mês inteiro. */
+  monthlyBoss: 'feature_monthly_boss',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

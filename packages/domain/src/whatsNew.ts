@@ -43,6 +43,17 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         },
         route: '/challenges',
       },
+      {
+        icon: 'trophy',
+        flag: 'feature_monthly_boss',
+        title: 'Lorde do mês',
+        text: 'Um chefe lendário, dourado, fica o mês inteiro em Desafios: derrube-o com as missões do mês e ganhe 200 Cristais.',
+        en: {
+          title: 'Lord of the month',
+          text: 'A golden legendary boss stays all month in Challenges: bring it down with the month\'s missions and earn 200 Crystals.',
+        },
+        route: '/challenges',
+      },
     ],
   },
   {

@@ -84,6 +84,23 @@ update public.app_settings set value = ('2026-12-07'::date - date '1970-01-01') 
 update public.app_settings set value = 1 where key = 'feature_act_2';
 ```
 
+### Lorde do mês: `feature_monthly_boss`
+
+Em Desafios, um chefe do rodízio na forma lendária (dourado) fica o mês inteiro: vida de 70% das
+missões agendadas no mês, cada missão tira 1. Prêmio em `monthly_boss_reward` (padrão 200 Cristais),
+resgatável até o dia 7 do mês seguinte; a vitória fica em `monthly_boss_victories`. Gira pelos 6 do
+Ato I, ou pelos 12 quando o Ato II já está no rodízio no dia 1º. Desligada, o Lorde não aparece e
+`claim_monthly_boss` recusa com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_monthly_boss';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_monthly_boss';
+-- mudar o prêmio
+update public.app_settings set value = 250 where key = 'monthly_boss_reward';
+```
+
 ### Patentes dos chefes: `feature_boss_ranks`
 
 Cada vitória contra um chefe o faz voltar uma patente acima (Soldado, Capitão, General, Lorde), com

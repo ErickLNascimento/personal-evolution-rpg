@@ -81,6 +81,8 @@ interface Props {
   reward?: number;
   /** Patente do chefe para a pessoa (sem ela, não mostra patente). */
   rank?: BossRank;
+  /** Forma lendária (Lorde do mês): dourado, sem patente. */
+  legendary?: boolean;
 }
 
 /** Chefe da semana: vida, dano e o resgate do prêmio quando derrotado. */
@@ -92,6 +94,7 @@ export function BossCard({
   label,
   reward = BOSS_REWARD,
   rank,
+  legendary = false,
 }: Props) {
   const { t, locale } = useT();
   const { boss, maxHp, hp, damage, defeated } = state;
@@ -105,7 +108,12 @@ export function BossCard({
       <View style={styles.header}>
         <View style={[styles.stage, { borderColor: BOSS_COLOR[boss.id] ?? colors.border }]}>
           {maxHp > 0 && (
-            <BossSprite id={boss.id} size={96} {...sprite} tint={RANK_TINT.at(rank ?? 0)} />
+            <BossSprite
+              id={boss.id}
+              size={96}
+              {...sprite}
+              tint={legendary ? 'lorde' : RANK_TINT.at(rank ?? 0)}
+            />
           )}
         </View>
         <View style={styles.flex}>

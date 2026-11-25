@@ -2244,6 +2244,67 @@ begin
   update public.app_settings set value = 0 where key = 'boss_act2_start_week';
 end $$;
 
+-- ── Lorde do mês ────────────────────────────────────────────
+reset role;
+do $$
+declare
+  m date := date_trunc('month', pg_temp.today())::date;
+  days integer;
+  s record;
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_monthly_boss') = 0,
+    'Lorde do mês começa desligado');
+  perform pg_temp.check(public.monthly_boss_for(date '2026-11-01') = 'sombra', 'mesma conta do app (nov/2026 = sombra)');
+  perform pg_temp.check(public.monthly_boss_for(date '2026-12-01') = 'basilisco', 'gira a cada mês');
+  -- vida = 70% das missões do mês (hábito diário de Vera desde hoje − 20)
+  select count(*) into days from generate_series(greatest(m, pg_temp.today() - 20),
+    (m + interval '1 month' - interval '1 day')::date, interval '1 day');
+  select * into s from public.monthly_boss_status('eeeeeeee-1111-1111-1111-111111111111', m);
+  perform pg_temp.check(s.max_hp = ceil(days * 0.7), 'vida = 70% das missões do mês');
+end $$;
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.claim_monthly_boss(date_trunc('month', pg_temp.today())::date);
+    raise exception 'FALHOU: resgatou o Lorde com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_monthly_boss';
+set local role authenticated;
+do $$
+declare
+  m date := date_trunc('month', pg_temp.today())::date;
+begin
+  begin
+    perform public.claim_monthly_boss(m + 1);
+    raise exception 'FALHOU: aceitou data que não é dia 1º';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.claim_monthly_boss((m - interval '2 months')::date);
+    raise exception 'FALHOU: resgatou fora do prazo';
+  exception when invalid_parameter_value then null;
+  end;
+  if (select damage < max_hp from public.monthly_boss_status('eeeeeeee-1111-1111-1111-111111111111', m)) then
+    begin
+      perform public.claim_monthly_boss(m);
+      raise exception 'FALHOU: resgatou o Lorde de pé';
+    exception when sqlstate 'PR033' then null;
+    end;
+  end if;
+  begin
+    insert into public.monthly_boss_victories (user_id, month_start, boss_id)
+    values ('eeeeeeee-1111-1111-1111-111111111111', m, 'golem');
+    raise exception 'FALHOU: app gravou vitória do Lorde direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_monthly_boss';
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

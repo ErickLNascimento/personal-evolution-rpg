@@ -353,6 +353,9 @@ const en: Translations = {
   },
 
   challenges: {
+    monthLord: 'LORD OF THE MONTH',
+    lastMonthLord: "LAST MONTH'S LORD",
+    lordDefeated: 'Lord of the month defeated! +{coins} Crystals',
     won: 'Won',
     lost: 'Not completed',
     abandoned: 'Ended',

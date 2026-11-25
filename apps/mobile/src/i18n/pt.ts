@@ -355,6 +355,9 @@ const pt = {
   },
 
   challenges: {
+    monthLord: 'LORDE DO MÊS',
+    lastMonthLord: 'LORDE DO MÊS PASSADO',
+    lordDefeated: 'Lorde do mês derrotado! +{coins} Cristais',
     won: 'Vencida',
     lost: 'Não concluída',
     abandoned: 'Encerrada',
