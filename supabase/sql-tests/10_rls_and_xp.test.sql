@@ -2273,6 +2273,9 @@ do $$ begin
 end $$;
 reset role;
 update public.app_settings set value = 1 where key = 'feature_monthly_boss';
+select set_config('test.lord_up',
+  (select (damage < max_hp)::text from public.monthly_boss_status('eeeeeeee-1111-1111-1111-111111111111',
+    date_trunc('month', pg_temp.today())::date)), true);
 set local role authenticated;
 do $$
 declare
@@ -2288,7 +2291,7 @@ begin
     raise exception 'FALHOU: resgatou fora do prazo';
   exception when invalid_parameter_value then null;
   end;
-  if (select damage < max_hp from public.monthly_boss_status('eeeeeeee-1111-1111-1111-111111111111', m)) then
+  if current_setting('test.lord_up')::boolean then
     begin
       perform public.claim_monthly_boss(m);
       raise exception 'FALHOU: resgatou o Lorde de pé';
