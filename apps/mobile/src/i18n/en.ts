@@ -979,6 +979,8 @@ const en: Translations = {
     notYet: 'Not defeated yet',
   },
   ambush: {
+    errorGone: 'This ambush is no longer available. Refresh the screen.',
+    preview: 'Test preview (dev_ambush_preview): no reward.',
     kicker: 'AMBUSH!',
     goal: '2-day challenge: {goal} · {reward} Crystals',
     progressA11y: 'Ambush progress: {done} of {target}',

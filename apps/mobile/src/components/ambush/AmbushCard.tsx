@@ -112,9 +112,10 @@ export function AmbushCard({
             })}
       </Text>
       <FormMessage text={error} />
-      {p.complete && !ambush.claimed && (
+      {p.complete && !ambush.claimed && !ambush.preview && (
         <Button title={t('ambush.claim', { reward: a.reward })} onPress={claim} loading={busy} />
       )}
+      {ambush.preview && <Text style={typography.caption}>{t('ambush.preview')}</Text>}
       {ambush.claimed && <Text style={styles.claimed}>{t('ambush.claimed', { reward: a.reward })}</Text>}
     </Animated.View>
   );

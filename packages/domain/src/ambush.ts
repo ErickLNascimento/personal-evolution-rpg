@@ -77,6 +77,8 @@ export interface Ambush {
   /** Último dia (inclusivo) do desafio. */
   endDate: LocalDate;
   claimed: boolean;
+  /** Emboscada de mentira do build de desenvolvimento (dev_ambush_preview): sem resgate. */
+  preview?: boolean;
 }
 
 /** Situação da emboscada em `today`: por vir, em andamento ou encerrada (dia de resgate). */

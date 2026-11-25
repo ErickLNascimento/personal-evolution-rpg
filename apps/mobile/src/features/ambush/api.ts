@@ -13,7 +13,13 @@ function devPreview(): Ambush | null {
   if (!isDevKeyOn('dev_ambush_preview')) return null;
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  return { ambusher: ambusher('goblin')!, startDate: addDays(today, -1), endDate: today, claimed: false };
+  return {
+    ambusher: ambusher('goblin')!,
+    startDate: addDays(today, -1),
+    endDate: today,
+    claimed: false,
+    preview: true,
+  };
 }
 
 /** Emboscada que importa hoje (em andamento, de resgate ou a próxima da semana); null = nenhuma. */
@@ -28,6 +34,7 @@ export async function fetchAmbush(): Promise<Result<Ambush | null>> {
 function failure(error: PostgrestError): { data: null; error: string } {
   if (error.code === 'PR040') return { data: null, error: t('ambush.errorNotDone') };
   if (error.code === '22023') return { data: null, error: t('ambush.errorLate') };
+  if (error.code === 'P0002') return { data: null, error: t('ambush.errorGone') };
   if (/network|fetch/i.test(error.message)) return { data: null, error: t('common.noConnection') };
   return { data: null, error: t('ambush.errorClaim') };
 }

@@ -980,6 +980,8 @@ const pt = {
     notYet: 'Ainda não vencido',
   },
   ambush: {
+    errorGone: 'Esta emboscada não está mais disponível. Atualize a tela.',
+    preview: 'Prévia de teste (dev_ambush_preview): sem resgate.',
     kicker: 'EMBOSCADA!',
     goal: 'Desafio em 2 dias: {goal} · {reward} Cristais',
     progressA11y: 'Progresso da emboscada: {done} de {target}',
