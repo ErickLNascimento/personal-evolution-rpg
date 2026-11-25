@@ -41,7 +41,8 @@
         }
       ],
       "./plugins/withGradleMemory",
-      "./plugins/withLocalCmake"
+      "./plugins/withLocalCmake",
+      "./plugins/withoutPushEntitlement"
     ],
     "experiments": {
       "typedRoutes": true

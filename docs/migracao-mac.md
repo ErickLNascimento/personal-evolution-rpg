@@ -79,6 +79,23 @@ npx expo run:android   # idem no Android, com o emulador aberto
 - Builds de nuvem e atualizações continuam iguais: `npx eas-cli@latest build` e
   `npx eas-cli@latest update --channel preview --environment preview`.
 
+### No seu iPhone, com o Apple ID grátis
+
+Sem a conta paga, dá para instalar pelo cabo com o **Personal Team** do Xcode:
+
+```bash
+cd apps/mobile
+npx expo run:ios --device              # escolha o iPhone conectado
+```
+
+- No Xcode (`ios/PersonalEvolutionRPG.xcworkspace` → Signing & Capabilities), escolha o seu
+  Personal Team. No iPhone: Ajustes → Geral → VPN e Gerenciamento de Dispositivo → confiar no
+  desenvolvedor.
+- O Personal Team não aceita a capability **Push Notifications**. O plugin
+  `plugins/withoutPushEntitlement` a remove nos builds locais (os lembretes são notificações
+  locais e continuam funcionando); builds do EAS (`EAS_BUILD`) mantêm.
+- O app instalado assim expira em 7 dias; rode o comando de novo para renovar.
+
 ## 6. App para iPhone de verdade (TestFlight)
 
 Precisa de uma conta **Apple Developer** (US$ 99 por ano). Com ela:
