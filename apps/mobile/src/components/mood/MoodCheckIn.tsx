@@ -1,8 +1,8 @@
 import {
   cleanMoodInput,
-  MOOD_LABEL,
+  moodLabel,
   MOOD_NOTE_MAX,
-  MOOD_TAG_LABEL,
+  moodTagLabel,
   MOOD_TAGS,
   MOODS,
   type LocalDate,
@@ -22,14 +22,14 @@ import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 import { MoodFace } from './MoodFace';
 import { useT } from '@/i18n';
 
-const TAG_OPTIONS = MOOD_TAGS.map((t) => ({ value: t, label: MOOD_TAG_LABEL[t] }));
 
 /**
  * "Como você está hoje?": um toque registra o humor do dia; sentimentos e nota são opcionais.
  * O primeiro registro do dia rende Cristais. Só o próprio usuário vê.
  */
 export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boolean }) {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const tagOptions = MOOD_TAGS.map((tag) => ({ value: tag, label: moodTagLabel(tag, locale) }));
   const load = useCallback(async (): Promise<Result<MoodEntry | null>> => {
     const r = await fetchMoodEntries(date);
     if (r.error !== null) return r;
@@ -56,7 +56,7 @@ export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boole
 
   async function save(next: typeof current) {
     if (next.mood === null) return;
-    const clean = cleanMoodInput(next.tags, next.note);
+    const clean = cleanMoodInput(next.tags, next.note, locale);
     if (clean.error) {
       setMessage({ text: clean.error, tone: 'error' });
       return;
@@ -95,7 +95,7 @@ export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boole
               disabled={busy}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
-              accessibilityLabel={MOOD_LABEL[m]}
+              accessibilityLabel={moodLabel(m, locale)}
               style={({ pressed }) => [
                 styles.face,
                 selected && styles.faceSelected,
@@ -108,7 +108,7 @@ export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boole
         })}
       </View>
       {current.mood !== null && (
-        <Text style={[typography.caption, styles.center]}>{MOOD_LABEL[current.mood]}</Text>
+        <Text style={[typography.caption, styles.center]}>{moodLabel(current.mood, locale)}</Text>
       )}
       {message && <FormMessage tone={message.tone} text={message.text} />}
 
@@ -117,7 +117,7 @@ export function MoodCheckIn({ date, isToday }: { date: LocalDate; isToday: boole
           <View style={styles.details}>
             <Chips
               multiple
-              options={TAG_OPTIONS}
+              options={tagOptions}
               selected={current.tags}
               onToggle={(t) =>
                 setDraft({

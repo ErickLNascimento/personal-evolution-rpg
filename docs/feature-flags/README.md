@@ -11,6 +11,19 @@ As flags são linhas `feature_<nome>` na tabela `public.app_settings`:
 No painel do Supabase, abra **SQL Editor** e rode o comando. Outra opção é abrir
 **Table Editor → app_settings** e editar a coluna `value` da linha.
 
+## Testar um recurso só no seu aparelho
+
+No build de desenvolvimento (`npx expo run:ios` ou `npx expo start`), a variável
+`EXPO_PUBLIC_DEV_FEATURES` em `apps/mobile/.env.local` liga flags só no app de quem roda o Metro,
+sem mexer no Supabase:
+
+```bash
+EXPO_PUBLIC_DEV_FEATURES=feature_english,feature_data_export
+```
+
+Reinicie o Metro depois de mudar (`npx expo start --clear`). Builds de produção ignoram a variável.
+O banco continua seguindo a flag real: RPCs de um recurso desligado ainda recusam com `PR050`.
+
 ## Quando a mudança vale
 
 - **No app:** na próxima vez que cada pessoa abrir o app (a flag é lida junto com o perfil).

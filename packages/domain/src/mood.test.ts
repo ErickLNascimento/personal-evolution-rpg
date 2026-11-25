@@ -1,5 +1,14 @@
 import { addDays } from './dates';
-import { cleanMoodInput, moodInsight, moodInsightText, moodStrip, type MoodEntry } from './mood';
+import {
+  cleanMoodInput,
+  MOOD_NOTE_MAX,
+  moodInsight,
+  moodInsightText,
+  moodLabel,
+  moodStrip,
+  moodTagLabel,
+  type MoodEntry,
+} from './mood';
 import type { DayStatus } from './streak';
 
 const e = (date: string, mood: 1 | 2 | 3 | 4 | 5): MoodEntry => ({
@@ -44,5 +53,19 @@ describe('diário de humor', () => {
     expect(
       moodInsightText({ completeAvg: 3.6, missedAvg: 3.5, completeDays: 3, missedDays: 3 }),
     ).toMatch(/parecido/);
+  });
+});
+
+describe('humor em inglês', () => {
+  it('rótulos, validação e descoberta', () => {
+    expect(moodLabel(5, 'en')).toBe('Great');
+    expect(moodLabel(5)).toBe('Ótimo');
+    expect(moodTagLabel('grato', 'en')).toBe('Grateful');
+    expect(cleanMoodInput([], 'x'.repeat(MOOD_NOTE_MAX + 1), 'en').error).toBe(
+      `Use at most ${MOOD_NOTE_MAX} characters.`,
+    );
+    expect(
+      moodInsightText({ completeAvg: 4.2, missedAvg: 3, completeDays: 3, missedDays: 3 }, 'en'),
+    ).toBe('On days you finish all your missions, your mood averages 4.2; on other days, 3.0.');
   });
 });

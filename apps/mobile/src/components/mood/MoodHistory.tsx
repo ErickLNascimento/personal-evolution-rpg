@@ -5,7 +5,7 @@ import {
   moodInsightText,
   moodStrip,
   MOOD_INSIGHT_MIN_DAYS,
-  MOOD_LABEL,
+  moodLabel,
   type Habit,
   type HabitLogEntry,
   type LocalDate,
@@ -30,7 +30,7 @@ export function MoodHistory({
   logs: readonly HabitLogEntry[];
   today: LocalDate;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const strip = moodStrip(entries, today, 14);
   const from = addDays(today, -59);
   const insight = moodInsight(
@@ -39,7 +39,7 @@ export function MoodHistory({
   );
   const label = strip
     .filter((d) => d.mood !== null)
-    .map((d) => `${d.date}: ${MOOD_LABEL[d.mood!]}`)
+    .map((d) => `${d.date}: ${moodLabel(d.mood!, locale)}`)
     .join(', ');
 
   return (
@@ -56,7 +56,7 @@ export function MoodHistory({
       </View>
       <Text style={typography.caption}>
         {insight
-          ? moodInsightText(insight)
+          ? moodInsightText(insight, locale)
           : entries.length === 0
             ? t('mood.emptyHint')
             : t('mood.keepGoing', { min: MOOD_INSIGHT_MIN_DAYS })}
