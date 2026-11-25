@@ -2,7 +2,8 @@ import { isLowRating, validateFeedbackRating, FEEDBACK_RATING_MESSAGE_MAX } from
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, LinearTransition, SlideInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, FormMessage } from '@/components/Form';
 import { Oracle } from '@/components/oracle/Oracle';
 import { submitFeedbackRating } from '@/features/feedback/prompt';
@@ -17,8 +18,11 @@ const RATING_LABEL: Record<number, TKey> = {
   5: 'feedbackPrompt.r5',
 };
 
+const SLIDE = SlideInDown.duration(280).easing(Easing.out(Easing.cubic));
+const GROW = LinearTransition.duration(180);
+
 /**
- * Pop-up do pedido de feedback: nota de 1 a 5 em gemas e comentário (com nota baixa, pergunta o
+ * Painel de baixo do pedido de feedback: nota de 1 a 5 em gemas e comentário (com nota baixa, pergunta o
  * que melhorar). `onAnswer` diz o que a pessoa escolheu, para guardar na memória do aparelho.
  */
 export function FeedbackPromptModal({
@@ -33,6 +37,7 @@ export function FeedbackPromptModal({
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const low = rating > 0 && isLowRating(rating);
+  const insets = useSafeAreaInsets();
 
   async function send() {
     const invalid = validateFeedbackRating(rating, message, locale);
@@ -47,16 +52,33 @@ export function FeedbackPromptModal({
   }
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={() => onAnswer('later')}>
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={() => onAnswer('later')}>
       <KeyboardAvoidingView
-        style={styles.backdrop}
+        style={styles.root}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Animated.View entering={ZoomIn.springify().damping(14)} style={styles.card}>
-          <Oracle size={88} />
+        {/* Fundo: esmaece; tocar fora conta como "Agora não". */}
+        <Animated.View entering={FadeIn.duration(200)} style={StyleSheet.absoluteFill}>
+          <Pressable
+            style={styles.backdrop}
+            onPress={() => onAnswer(sent ? 'sent' : 'later')}
+            accessibilityRole="button"
+            accessibilityLabel={sent ? t('feedbackPrompt.close') : t('feedbackPrompt.later')}
+          />
+        </Animated.View>
+
+        <Animated.View
+          entering={SLIDE}
+          layout={GROW}
+          style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}
+        >
+          <View style={styles.handle} />
+          <View style={styles.header}>
+            <Oracle size={56} glow={false} />
+            <Text style={styles.kicker}>{t('feedbackPrompt.kicker')}</Text>
+          </View>
           {sent ? (
             <Animated.View entering={FadeIn} style={styles.center}>
-              <Text style={styles.kicker}>{t('feedbackPrompt.kicker')}</Text>
               <Text style={[typography.heading, styles.text]} accessibilityRole="header">
                 {t('feedbackPrompt.thanks')}
               </Text>
@@ -65,7 +87,6 @@ export function FeedbackPromptModal({
             </Animated.View>
           ) : (
             <>
-              <Text style={styles.kicker}>{t('feedbackPrompt.kicker')}</Text>
               <Text style={[typography.heading, styles.text]} accessibilityRole="header">
                 {t('feedbackPrompt.question')}
               </Text>
@@ -141,27 +162,32 @@ export function FeedbackPromptModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(8,8,14,0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  card: {
-    alignSelf: 'stretch',
+  root: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(8,8,14,0.72)' },
+  sheet: {
     alignItems: 'center',
     gap: spacing.sm,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderTopLeftRadius: radius.lg + 8,
+    borderTopRightRadius: radius.lg + 8,
     borderWidth: 1.5,
+    borderBottomWidth: 0,
     borderColor: `${colors.xp}88`,
     backgroundColor: colors.surface,
     shadowColor: colors.xp,
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -2 },
   },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.xs,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   center: { alignItems: 'center', gap: spacing.sm, alignSelf: 'stretch' },
   kicker: { fontSize: 12, fontWeight: '800', letterSpacing: 1.6, color: colors.xp },
   text: { textAlign: 'center' },

@@ -1,6 +1,7 @@
 import {
   afterFeedbackPrompt,
   DEFAULT_HERO,
+  EMPTY_FEEDBACK_MEMORY,
   FEATURES,
   feedbackPromptConfig,
   heroLook,
@@ -20,6 +21,9 @@ import {
 import { LevelUpOverlay } from '@/components/celebration/LevelUpOverlay';
 import { TitleUnlockedOverlay } from '@/components/celebration/TitleUnlockedOverlay';
 import { useProfile } from '@/features/profile/ProfileProvider';
+
+/** Chave de teste (só em EXPO_PUBLIC_DEV_FEATURES): o pedido de feedback aparece sempre. */
+const DEV_FEEDBACK_ALWAYS = 'dev_feedback_prompt_always';
 
 type Celebration =
   | { kind: 'level'; from: number; to: number }
@@ -73,10 +77,14 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
     (_moment: FeedbackMoment) => {
       if (!profile || !profile.features.has(FEATURES.feedbackPrompt) || asking.current) return;
       const today = toLocalDate(new Date(), profile.timezone);
-      const memory = loadFeedbackMemory(profile.id);
+      // Só no build de desenvolvimento (EXPO_PUBLIC_DEV_FEATURES): repetir o pedido para testar,
+      // ignorando respostas anteriores e a nota já enviada.
+      const always = profile.features.has(DEV_FEEDBACK_ALWAYS);
+      const memory = always ? EMPTY_FEEDBACK_MEMORY : loadFeedbackMemory(profile.id);
       const config = feedbackPromptConfig(profile.settings);
       asking.current = true;
-      void fetchFeedbackUsage().then((usage) => {
+      void fetchFeedbackUsage().then((found) => {
+        const usage = found && always ? { ...found, alreadyRated: false } : found;
         if (usage && shouldPromptFeedback(memory, usage, config, today)) {
           // Marca já como mostrado: se o app fechar com o pop-up aberto, conta o intervalo.
           saveFeedbackMemory(profile.id, { ...memory, lastShown: today });

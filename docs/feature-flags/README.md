@@ -21,6 +21,9 @@ sem mexer no Supabase:
 EXPO_PUBLIC_DEV_FEATURES=feature_english,feature_data_export
 ```
 
+Também aceita chaves só de teste: `dev_feedback_prompt_always` faz o pedido de feedback aparecer
+sempre que as regras de uso deixarem, ignorando respostas anteriores e a nota já enviada.
+
 Reinicie o Metro depois de mudar (`npx expo start --clear`). Builds de produção ignoram a variável.
 O banco continua seguindo a flag real: RPCs de um recurso desligado ainda recusam com `PR050`.
 
