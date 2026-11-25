@@ -68,6 +68,34 @@ update public.app_settings set value = 1 where key = 'feature_data_export';
 update public.app_settings set value = 0 where key = 'feature_data_export';
 ```
 
+### Patentes dos chefes: `feature_boss_ranks`
+
+Cada vitória contra um chefe o faz voltar uma patente acima (Soldado, Capitão, General, Lorde), com
+mais vida, outra cor e prêmio maior. Vida e prêmio por patente ficam na tabela `boss_ranks`. A
+vitória conta no resgate e fica em `boss_victories`. Desligada, todo chefe é Soldado, com a vida e
+o prêmio de antes. Chefe do bando sem patente por enquanto. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_boss_ranks';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_boss_ranks';
+-- ajustar a vida (%) e o prêmio de uma patente (0 Soldado, 1 Capitão, 2 General, 3 Lorde)
+update public.boss_ranks set hp_pct = 90, reward = 120 where rank = 3;
+```
+
+### Bestiário: `feature_bestiary`
+
+Capítulo "Bestiário" no Progresso, com os chefes vencidos (caídos, na cor da maior patente) e
+silhuetas dos que faltam. Só leitura de `boss_victories`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_bestiary';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_bestiary';
+```
+
 ### Resumo da semana: `feature_weekly_recap`
 
 "Crônica da semana" no topo da aba Progresso, de segunda a quarta, com o balanço da semana

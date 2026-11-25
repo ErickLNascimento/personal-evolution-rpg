@@ -1,6 +1,6 @@
 import {
   bossForWeek,
-  bossText,
+  bossTitle,
   DEFAULT_HERO,
   displayedTitle,
   isHeroUnset,
@@ -55,6 +55,7 @@ import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
 import { VacationNotice } from '@/components/vacation/VacationNotice';
+import { rankFor, useBossProgress } from '@/features/bosses/api';
 
 export default function TodayScreen() {
   const { isDemo } = useAuth();
@@ -141,7 +142,10 @@ function RealToday() {
   const ringLabel = choice === 'today' ? t('today.ringToday') : t('today.ringYesterday');
   const todayDate = day.days[day.days.length - 1]?.date;
   // O chefe só depende da semana; o placar fica na tela Desafios.
-  const boss = bossForWeek(startOfWeek(todayDate ?? day.date));
+  const bossWeek = startOfWeek(todayDate ?? day.date);
+  const boss = bossForWeek(bossWeek);
+  const bossRanks = useBossProgress();
+  const bossRankNow = rankFor(bossRanks.progress, bossWeek, bossRanks.enabled).rank;
 
   // O card do herói encolhe e esmaece ao rolar; a barra compacta assume o lugar dele.
   const heroStyle = useAnimatedStyle(() => ({
@@ -193,6 +197,7 @@ function RealToday() {
                 scrollY={scrollY}
                 cheer={day.cheer}
                 bossId={day.hasHabits && challengesOn ? boss.id : null}
+                bossRank={bossRankNow}
               />
               <HeroCheerPop hero={hero} cheer={day.cheer} scrollY={scrollY} />
             </>
@@ -280,7 +285,8 @@ function RealToday() {
                 day.hasHabits && challengesOn ? (
                   <BossBanner
                     id={boss.id}
-                    name={bossText(boss, locale).name}
+                    name={bossTitle(boss, bossRankNow, locale)}
+                    rank={bossRankNow}
                     hits={day.cheer}
                     onPress={() => router.push('/challenges')}
                   />

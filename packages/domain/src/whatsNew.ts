@@ -29,6 +29,34 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 10,
+    date: '2026-12-04',
+    items: [
+      {
+        icon: 'ribbon',
+        flag: 'feature_boss_ranks',
+        title: 'Chefes com patente',
+        text: 'Cada chefe que você vence volta mais forte: Capitão, General e Lorde, com mais vida, cores novas e prêmios maiores.',
+        en: {
+          title: 'Boss ranks',
+          text: 'Every boss you beat comes back stronger: Captain, General and Lord, with more HP, new colors and bigger rewards.',
+        },
+        route: '/challenges',
+      },
+      {
+        icon: 'skull',
+        flag: 'feature_bestiary',
+        title: 'Bestiário',
+        text: 'Em Progresso, a coleção de todos os chefes: os vencidos aparecem caídos, com a maior patente e quantas vezes caíram.',
+        en: {
+          title: 'Bestiary',
+          text: 'In Progress, the collection of every boss: the ones you beat lie defeated, with the highest rank and how many times they fell.',
+        },
+        route: '/progress',
+      },
+    ],
+  },
+  {
     version: 9,
     date: '2026-12-03',
     items: [

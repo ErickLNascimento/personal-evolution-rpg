@@ -35,6 +35,7 @@ import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
 import { useCelebration } from '@/features/celebration/CelebrationProvider';
+import { rankFor, useBossProgress } from '@/features/bosses/api';
 
 interface ScreenData extends ChallengesData {
   /** Jornadas que acabaram de ser decididas nesta visita. */
@@ -59,6 +60,7 @@ function ChallengesScreen() {
   const { askFeedback } = useCelebration();
   const { t } = useT();
   const { today, ready } = useToday();
+  const ranks = useBossProgress();
 
   // Carrega e já fecha no banco as jornadas com resultado decidido (o banco confere e paga).
   const load = useCallback(async () => {
@@ -105,8 +107,12 @@ function ChallengesScreen() {
   const data = screen.data;
   const thisWeek = startOfWeek(today);
   const lastWeek = addDays(thisWeek, -7);
-  const boss = weeklyBoss(data.habits, data.logged, today, thisWeek);
-  const previous = weeklyBoss(data.habits, data.logged, today, lastWeek);
+  // Patente de cada chefe para a pessoa: vida e prêmio maiores a cada vitória anterior.
+  const now = rankFor(ranks.progress, thisWeek, ranks.enabled);
+  const before = rankFor(ranks.progress, lastWeek, ranks.enabled);
+  const boss = weeklyBoss(data.habits, data.logged, today, thisWeek, now.rule.hpPct);
+  const previous = weeklyBoss(data.habits, data.logged, today, lastWeek, before.rule.hpPct);
+  const shownRank = (r: typeof now) => (ranks.enabled ? r.rank : undefined);
   const active = data.journeys.filter((j) => j.status === 'active');
   const finished = data.journeys.filter((j) => j.status !== 'active').slice(0, 5);
   const habitById = new Map(data.habits.map((h) => [h.id, h]));
@@ -120,6 +126,7 @@ function ChallengesScreen() {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setNotice(t('challenges.bossDefeated', { coins: r.data.coins }));
     screen.refresh();
+    ranks.refresh();
     askFeedback('boss_defeated');
   }
 
@@ -144,11 +151,17 @@ function ChallengesScreen() {
 
       {previous.defeated &&
         (data.bossClaimed.has(lastWeek) ? (
-          <BossDefeatedRow label={t('challenges.lastWeekBoss')} state={previous} />
+          <BossDefeatedRow
+            label={t('challenges.lastWeekBoss')}
+            state={previous}
+            rank={shownRank(before)}
+          />
         ) : (
           <BossCard
             label={t('challenges.lastWeekBoss')}
             state={previous}
+            rank={shownRank(before)}
+            reward={before.rule.reward}
             claimed={false}
             busy={busy === `boss:${lastWeek}`}
             onClaim={() => claim(lastWeek)}
@@ -156,6 +169,8 @@ function ChallengesScreen() {
         ))}
       <BossCard
         state={boss}
+        rank={shownRank(now)}
+        reward={now.rule.reward}
         claimed={data.bossClaimed.has(thisWeek)}
         busy={busy === `boss:${thisWeek}`}
         onClaim={() => claim(thisWeek)}

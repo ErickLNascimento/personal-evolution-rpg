@@ -1,4 +1,4 @@
-import type { DayProgress, HeroLook, LevelProgress } from '@per/domain';
+import type { BossRank, DayProgress, HeroLook, LevelProgress } from '@per/domain';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -7,7 +7,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { BOSS_COLOR } from '@/components/challenges/BossCard';
-import { BossSprite, useBossAnim } from '@/components/challenges/BossSprite';
+import { BossSprite, RANK_TINT, useBossAnim } from '@/components/challenges/BossSprite';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { DayRing } from './DayRing';
@@ -28,6 +28,7 @@ export function CompactHeroBar({
   showAfter = 150,
   cheer = 0,
   bossId,
+  bossRank = 0,
 }: {
   hero: HeroLook;
   level: LevelProgress;
@@ -39,6 +40,8 @@ export function CompactHeroBar({
   cheer?: number;
   /** Chefe da semana (sem ele, a barra não mostra o chefe). */
   bossId?: string | null;
+  /** Patente do chefe (muda a cor). */
+  bossRank?: BossRank;
 }) {
   const style = useAnimatedStyle(() => {
     const t = interpolate(scrollY.value, [showAfter, showAfter + 50], [0, 1], Extrapolation.CLAMP);
@@ -61,18 +64,18 @@ export function CompactHeroBar({
           <View style={[styles.fill, { width: `${pct}%` }]} />
         </View>
       </View>
-      {bossId ? <MiniBoss id={bossId} hits={cheer} /> : null}
+      {bossId ? <MiniBoss id={bossId} hits={cheer} rank={bossRank} /> : null}
       <DayRing progress={progress} size={36} stroke={4} />
     </Animated.View>
   );
 }
 
 /** Chefe pequeno na barra: provoca parado e leva o golpe a cada missão concluída. */
-function MiniBoss({ id, hits }: { id: string; hits: number }) {
+function MiniBoss({ id, hits, rank }: { id: string; hits: number; rank: BossRank }) {
   const sprite = useBossAnim({ maxHp: 1, hp: 1, defeated: false }, { hits });
   return (
     <View style={[styles.boss, { borderColor: BOSS_COLOR[id] ?? colors.border }]}>
-      <BossSprite id={id} size={40} {...sprite} />
+      <BossSprite id={id} size={40} {...sprite} tint={RANK_TINT.at(rank)} />
     </View>
   );
 }

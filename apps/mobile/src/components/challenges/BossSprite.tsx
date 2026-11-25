@@ -1,4 +1,4 @@
-import { Canvas, FilterMode, ImageShader, MipmapMode, Rect } from '@shopify/react-native-skia';
+import { Canvas, ColorMatrix, FilterMode, ImageShader, MipmapMode, Rect } from '@shopify/react-native-skia';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useDerivedValue, useFrameCallback, useSharedValue } from 'react-native-reanimated';
@@ -157,6 +157,33 @@ const SHEETS: Record<string, Record<BossAnim, Sheet>> = {
   },
 };
 
+/**
+ * Tonalidade do chefe: a cor da patente (Capitão aço, General vermelho escuro, Lorde dourado) ou a
+ * silhueta do bestiário (chefe nunca vencido). Filtro de cor 4×5 sobre o sprite, sem folhas novas.
+ */
+export type BossTint = 'capitao' | 'general' | 'lorde' | 'silhouette';
+
+const LUMA = [0.2126, 0.7152, 0.0722] as const;
+/** Mistura com o cinza (s = quanto da cor original fica) e ganho por canal. */
+function tintMatrix(s: number, gains: readonly [number, number, number], add = [0, 0, 0]): number[] {
+  const rows: number[] = [];
+  gains.forEach((g, i) => {
+    const row = LUMA.map((l, j) => (1 - s) * l * g + (i === j ? s * g : 0));
+    rows.push(...row, 0, add[i] ?? 0);
+  });
+  return [...rows, 0, 0, 0, 1, 0];
+}
+
+const TINTS: Record<BossTint, number[]> = {
+  capitao: tintMatrix(0.35, [0.92, 1.0, 1.18]),
+  general: tintMatrix(0.55, [0.85, 0.62, 0.7]),
+  lorde: tintMatrix(0.45, [1.3, 1.08, 0.55], [0.04, 0.02, 0]),
+  silhouette: [0, 0, 0, 0, 0.26, 0, 0, 0, 0, 0.27, 0, 0, 0, 0, 0.33, 0, 0, 0, 1, 0],
+};
+
+/** Tonalidade de cada patente (Soldado = cores originais). */
+export const RANK_TINT: readonly (BossTint | null)[] = [null, 'capitao', 'general', 'lorde'];
+
 let runSerial = 0;
 
 /**
@@ -169,6 +196,7 @@ export function BossSprite({
   size = 96,
   playKey = 0,
   onEnd,
+  tint = null,
 }: {
   id: string;
   anim?: BossAnim;
@@ -176,6 +204,8 @@ export function BossSprite({
   /** Muda para tocar de novo a mesma animação (ex.: outro golpe). */
   playKey?: number;
   onEnd?: () => void;
+  /** Cor da patente ou silhueta; null = cores originais. */
+  tint?: BossTint | null;
 }) {
   const sheets = SHEETS[id] ?? SHEETS.sombra!;
   const [source, meta] = sheets[anim];
@@ -229,6 +259,7 @@ export function BossSprite({
               fit="fill"
               sampling={{ filter: FilterMode.Nearest, mipmap: MipmapMode.None }}
             />
+            {tint ? <ColorMatrix matrix={TINTS[tint]} /> : null}
           </Rect>
         )}
       </Canvas>

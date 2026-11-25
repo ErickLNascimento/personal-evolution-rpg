@@ -11,7 +11,11 @@ import { t } from '@/i18n';
 import { supabase } from '@/lib/supabase';
 
 /** Resumo da semana anterior a `today` (duas semanas de registros e XP); null se não houve agenda. */
-export async function fetchWeeklyRecap(today: LocalDate): Promise<Result<WeeklyRecap | null>> {
+export async function fetchWeeklyRecap(
+  today: LocalDate,
+  /** Vida do chefe da semana resumida, em % (patente). */
+  bossHpPct?: number,
+): Promise<Result<WeeklyRecap | null>> {
   if (!supabase) return { data: null, error: null };
   const db = supabase;
   const from = addDays(recapWeekStart(today), -7);
@@ -46,6 +50,7 @@ export async function fetchWeeklyRecap(today: LocalDate): Promise<Result<WeeklyR
       logs.map((l) => ({ habitId: l.habit_id, localDate: l.local_date })),
       xp.map((x) => ({ amount: x.amount, localDate: x.local_date })),
       today,
+      bossHpPct,
     ),
     error: null,
   };

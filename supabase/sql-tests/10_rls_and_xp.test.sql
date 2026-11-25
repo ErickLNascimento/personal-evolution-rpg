@@ -2033,6 +2033,84 @@ do $$ begin
     'resumo da semana começa desligado');
 end $$;
 
+-- ── Patentes dos chefes ─────────────────────────────────────
+-- Vera (eeee…1111): um hábito diário desde hoje − 20; sem férias para não zerar a semana.
+reset role;
+delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  boss text := public.boss_for_week(date_trunc('week', pg_temp.today())::date);
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_boss_ranks') = 0,
+    'patentes começam desligadas');
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_bestiary') = 0,
+    'bestiário começa desligado');
+  perform pg_temp.check(public.boss_for_week(monday) = public.boss_for_week(monday - 42),
+    'o rodízio repete a cada 6 semanas');
+  perform pg_temp.check(public.boss_for_week(monday) <> public.boss_for_week(monday - 7),
+    'semanas seguidas, chefes diferentes');
+  -- três vitórias antigas contra o mesmo chefe: o desta semana seria Lorde
+  insert into public.boss_victories (user_id, week_start, boss_id, rank) values
+    ('eeeeeeee-1111-1111-1111-111111111111', monday - 42, boss, 0),
+    ('eeeeeeee-1111-1111-1111-111111111111', monday - 84, boss, 0),
+    ('eeeeeeee-1111-1111-1111-111111111111', monday - 126, boss, 0);
+  perform pg_temp.check(public.boss_rank('eeeeeeee-1111-1111-1111-111111111111', monday) = 0,
+    'flag desligada: todo chefe é Soldado');
+  perform pg_temp.check(
+    (select max_hp from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 6,
+    'Soldado: 80% de 7 missões = 6');
+end $$;
+update public.app_settings set value = 1 where key = 'feature_boss_ranks';
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+begin
+  perform pg_temp.check(public.boss_rank('eeeeeeee-1111-1111-1111-111111111111', monday) = 3,
+    'três vitórias: Lorde');
+  perform pg_temp.check(
+    (select max_hp from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 7,
+    'Lorde: 95% de 7 missões = 7');
+  -- semana inteira feita
+  insert into public.habit_logs (user_id, habit_id, local_date)
+  select 'eeeeeeee-1111-1111-1111-111111111111', 'eeeeeeee-aaaa-aaaa-aaaa-aaaaaaaaaaaa', d::date
+  from generate_series(monday, monday + 6, interval '1 day') d
+  on conflict do nothing;
+end $$;
+
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  r jsonb;
+begin
+  begin
+    insert into public.boss_victories (user_id, week_start, boss_id, rank)
+    values ('eeeeeeee-1111-1111-1111-111111111111', monday - 7, 'golem', 3);
+    raise exception 'FALHOU: app gravou vitória direto';
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.check((select count(*) from public.boss_ranks) = 4, 'tabela de patentes legível');
+  r := public.claim_weekly_boss(monday);
+  perform pg_temp.check((r->>'coins_awarded')::int = 130 and (r->>'rank')::int = 3,
+    'Lorde derrotado rende 130 Cristais');
+  perform pg_temp.check(
+    (select rank from public.boss_victories where week_start = monday) = 3, 'vitória gravada com a patente');
+  r := public.claim_weekly_boss(monday);
+  perform pg_temp.check((r->>'coins_awarded')::int = 0, 'resgate não paga duas vezes');
+  perform pg_temp.check((select count(*) from public.boss_victories where week_start = monday) = 1,
+    'nem grava a vitória duas vezes');
+end $$;
+
+-- vitórias são privadas
+select set_config('request.jwt.claim.sub', 'eeeeeeee-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.boss_victories) = 0, 'vitórias de outra pessoa não aparecem');
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_boss_ranks';
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

@@ -83,6 +83,7 @@ const pt = {
     xpToLevel: '{xp} XP para o nível {level}',
   },
   boss: {
+    rankA11y: 'Patente: {rank}',
     defeatedClaimed: 'Derrotado · prêmio resgatado',
     weekly: 'CHEFE DA SEMANA',
     defeated: 'Derrotado! Sua rotina venceu.',
@@ -964,6 +965,17 @@ const pt = {
     bandsTitle: 'Bandos',
     invite: 'Chamar aventureiros',
     inviteSummary: 'Seu código: {code}',
+  },
+  bestiary: {
+    title: 'Bestiário',
+    summary: '{done} de {total} vitórias',
+    intro: 'Cada chefe volta uma patente acima depois de vencido: Soldado, Capitão, General e Lorde.',
+    cardA11y: '{name}: {wins} vitórias, maior patente {rank}',
+    unknownA11y: 'Chefe ainda não vencido',
+    winsOne: '1 vitória',
+    winsMany: '{count} vitórias',
+    first: '1ª em {date}',
+    notYet: 'Ainda não vencido',
   },
 };
 

@@ -26,4 +26,5 @@ export * from './features';
 export * from './vacation';
 export * from './feedbackPrompt';
 export * from './recap';
+export * from './bossRanks';
 export * from './i18n';

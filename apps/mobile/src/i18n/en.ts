@@ -83,6 +83,7 @@ const en: Translations = {
     xpToLevel: '{xp} XP to level {level}',
   },
   boss: {
+    rankA11y: 'Rank: {rank}',
     defeatedClaimed: 'Defeated · reward claimed',
     weekly: 'BOSS OF THE WEEK',
     defeated: 'Defeated! Your routine won.',
@@ -963,6 +964,17 @@ const en: Translations = {
     bandsTitle: 'Bands',
     invite: 'Invite adventurers',
     inviteSummary: 'Your code: {code}',
+  },
+  bestiary: {
+    title: 'Bestiary',
+    summary: '{done} of {total} victories',
+    intro: 'Each boss comes back one rank higher after you beat it: Soldier, Captain, General and Lord.',
+    cardA11y: '{name}: {wins} victories, highest rank {rank}',
+    unknownA11y: 'Boss not defeated yet',
+    winsOne: '1 victory',
+    winsMany: '{count} victories',
+    first: '1st on {date}',
+    notYet: 'Not defeated yet',
   },
 };
 

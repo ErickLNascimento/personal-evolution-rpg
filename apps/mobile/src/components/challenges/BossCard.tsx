@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BOSS_REWARD, bossText, type WeeklyBoss } from '@per/domain';
+import { BOSS_REWARD, bossText, bossTitle, rankLabel, type BossRank, type WeeklyBoss } from '@per/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
-import { BossSprite, useBossAnim } from './BossSprite';
+import { BossSprite, RANK_TINT, useBossAnim } from './BossSprite';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
 
@@ -15,6 +15,23 @@ export const BOSS_COLOR: Record<string, string> = {
   sombra: '#6B7280',
   basilisco: '#F5B942',
 };
+
+/** Patente em 4 gemas (Soldado = 1 … Lorde = 4), com o nome dela. */
+export function RankGems({ rank, compact = false }: { rank: BossRank; compact?: boolean }) {
+  const { t, locale } = useT();
+  return (
+    <View
+      style={styles.gems}
+      accessible
+      accessibilityLabel={t('boss.rankA11y', { rank: rankLabel(rank, locale) })}
+    >
+      {[0, 1, 2, 3].map((i) => (
+        <View key={i} style={[styles.gem, i <= rank && styles.gemOn]} />
+      ))}
+      {!compact && <Text style={styles.rankName}>{rankLabel(rank, locale).toUpperCase()}</Text>}
+    </View>
+  );
+}
 
 /** Retrato pequeno do chefe (parado), numa moldura redonda na cor dele. */
 export function BossEmblem({ id, size = 56 }: { id: string; size?: number }) {
@@ -44,6 +61,8 @@ interface Props {
   label?: string;
   /** Cristais do prêmio. */
   reward?: number;
+  /** Patente do chefe para a pessoa (sem ela, não mostra patente). */
+  rank?: BossRank;
 }
 
 /** Chefe da semana: vida, dano e o resgate do prêmio quando derrotado. */
@@ -54,6 +73,7 @@ export function BossCard({
   onClaim,
   label,
   reward = BOSS_REWARD,
+  rank,
 }: Props) {
   const { t, locale } = useT();
   const { boss, maxHp, hp, damage, defeated } = state;
@@ -66,10 +86,15 @@ export function BossCard({
       <Text style={typography.label}>{label ?? t('boss.weekly')}</Text>
       <View style={styles.header}>
         <View style={[styles.stage, { borderColor: BOSS_COLOR[boss.id] ?? colors.border }]}>
-          {maxHp > 0 && <BossSprite id={boss.id} size={96} {...sprite} />}
+          {maxHp > 0 && (
+            <BossSprite id={boss.id} size={96} {...sprite} tint={RANK_TINT.at(rank ?? 0)} />
+          )}
         </View>
         <View style={styles.flex}>
-          <Text style={[typography.heading, defeated && styles.defeated]}>{bossText(boss, locale).name}</Text>
+          <Text style={[typography.heading, defeated && styles.defeated]}>
+            {bossTitle(boss, rank ?? 0, locale)}
+          </Text>
+          {rank !== undefined && <RankGems rank={rank} />}
           <Text style={styles.taunt}>
             {defeated ? t('boss.defeated') : `“${bossText(boss, locale).taunt}”`}
           </Text>
@@ -140,6 +165,17 @@ const styles = StyleSheet.create({
   },
   defeated: { textDecorationLine: 'line-through', color: colors.textSecondary },
   taunt: { ...typography.caption, fontStyle: 'italic' },
+  gems: { flexDirection: 'row', alignItems: 'center', gap: 5, marginVertical: 2 },
+  gem: {
+    width: 8,
+    height: 8,
+    borderWidth: 1.5,
+    borderColor: colors.xp,
+    borderRadius: 1.5,
+    transform: [{ rotate: '45deg' }],
+  },
+  gemOn: { backgroundColor: colors.xp },
+  rankName: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: colors.xp, marginLeft: 4 },
   won: { ...typography.caption, color: colors.accent, fontWeight: '700' },
   track: {
     height: 10,
@@ -156,10 +192,18 @@ const styles = StyleSheet.create({
  * Chefe de uma semana já vencida e com o prêmio resgatado: linha compacta, com o chefe
  * dissolvido em estrela (fica no último quadro da animação de derrota).
  */
-export function BossDefeatedRow({ state, label }: { state: WeeklyBoss; label: string }) {
+export function BossDefeatedRow({
+  state,
+  label,
+  rank,
+}: {
+  state: WeeklyBoss;
+  label: string;
+  rank?: BossRank;
+}) {
   const { t, locale } = useT();
   const sprite = useBossAnim(state);
-  const name = bossText(state.boss, locale).name;
+  const name = bossTitle(state.boss, rank ?? 0, locale);
   return (
     <View
       style={bannerStyles.banner}
@@ -167,7 +211,7 @@ export function BossDefeatedRow({ state, label }: { state: WeeklyBoss; label: st
       accessibilityLabel={`${label}: ${name}. ${t('boss.defeatedClaimed')}`}
     >
       <View style={[styles.mini, { borderColor: BOSS_COLOR[state.boss.id] ?? colors.border }]}>
-        <BossSprite id={state.boss.id} size={56} {...sprite} />
+        <BossSprite id={state.boss.id} size={56} {...sprite} tint={RANK_TINT.at(rank ?? 0)} />
       </View>
       <View style={styles.flex}>
         <Text style={typography.label}>{label}</Text>
@@ -184,12 +228,15 @@ export function BossBanner({
   name,
   onPress,
   hits = 0,
+  rank = 0,
 }: {
   id: string;
   name: string;
   onPress: () => void;
   /** Sobe a cada missão concluída: o chefe leva um golpe. */
   hits?: number;
+  /** Patente do chefe (muda a cor). */
+  rank?: BossRank;
 }) {
   const { t } = useT();
   const sprite = useBossAnim({ maxHp: 1, hp: 1, defeated: false }, { hits });
@@ -201,7 +248,7 @@ export function BossBanner({
       style={({ pressed }) => [bannerStyles.banner, pressed && bannerStyles.pressed]}
     >
       <View style={[styles.mini, { borderColor: BOSS_COLOR[id] ?? colors.border }]}>
-        <BossSprite id={id} size={56} {...sprite} />
+        <BossSprite id={id} size={56} {...sprite} tint={RANK_TINT.at(rank)} />
       </View>
       <View style={styles.flex}>
         <Text style={typography.label}>{t('boss.weekly')}</Text>

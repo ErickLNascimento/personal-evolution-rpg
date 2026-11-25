@@ -149,7 +149,7 @@ export interface WeeklyBoss {
   boss: Boss;
   weekStart: LocalDate;
   weekEnd: LocalDate;
-  /** Vida total: BOSS_PASS_PCT% das missões agendadas na semana. */
+  /** Vida total: a porcentagem da patente (padrão BOSS_PASS_PCT) das missões agendadas na semana. */
   maxHp: number;
   /** Missões feitas na semana. */
   damage: number;
@@ -166,6 +166,8 @@ export function weeklyBoss(
   logged: ReadonlyMap<LocalDate, ReadonlySet<string>>,
   today: LocalDate,
   weekStart: LocalDate = startOfWeek(today),
+  /** Vida em % das missões da semana (patente do chefe; ver bossRanks.ts). */
+  hpPct: number = BOSS_PASS_PCT,
 ): WeeklyBoss {
   let scheduled = 0;
   let damage = 0;
@@ -178,7 +180,7 @@ export function weeklyBoss(
       if (done?.has(h.id)) damage += 1;
     }
   }
-  const maxHp = Math.ceil((scheduled * BOSS_PASS_PCT) / 100);
+  const maxHp = Math.ceil((scheduled * hpPct) / 100);
   return {
     boss: bossForWeek(weekStart),
     weekStart,

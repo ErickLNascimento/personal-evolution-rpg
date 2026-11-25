@@ -62,6 +62,8 @@ export function weeklyRecap(
   logs: readonly HabitLogEntry[],
   xp: readonly XpEntry[],
   today: LocalDate,
+  /** Vida do chefe da semana resumida, em % (patente; padrão 80). */
+  bossHpPct?: number,
 ): WeeklyRecap | null {
   const start = recapWeekStart(today);
   const end = addDays(start, 6);
@@ -100,6 +102,6 @@ export function weeklyRecap(
     completedDelta: week.completed - previous.completed,
     xpDelta: week.xp - previous.xp,
     bestHabit,
-    bossDefeated: weeklyBoss(habits, logged, end, start).defeated,
+    bossDefeated: weeklyBoss(habits, logged, end, start, bossHpPct).defeated,
   };
 }

@@ -4,6 +4,8 @@ import {
   displayedTitle,
   heroAttributes,
   OBJECTIVE_CATEGORIES,
+  bestiary,
+  bestiaryProgress,
   heroLook,
   recapWeekStart,
   shouldShowRecap,
@@ -49,6 +51,8 @@ import {
 } from '@/features/streak/api';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
+import { Bestiary } from '@/components/progress/Bestiary';
+import { rankFor, useBossProgress } from '@/features/bosses/api';
 
 const ORACLE = '#5CF2E0';
 
@@ -100,7 +104,10 @@ function RealProgress() {
   // Crônica da semana: de segunda a quarta, no topo; abrir a aba apaga o ponto dourado.
   const recapOn = useFeature(FEATURES.weeklyRecap);
   const recapTime = recapOn && ready && shouldShowRecap(today, null);
-  const loadRecap = useCallback(() => fetchWeeklyRecap(today), [today]);
+  const bossRanks = useBossProgress();
+  const recapHpPct = rankFor(bossRanks.progress, recapWeekStart(today), bossRanks.enabled).rule.hpPct;
+  const bestiaryOn = useFeature(FEATURES.bestiary);
+  const loadRecap = useCallback(() => fetchWeeklyRecap(today, recapHpPct), [today, recapHpPct]);
   const recap = useFocusLoad<WeeklyRecap | null>(loadRecap, recapTime);
   const userId = profile?.id;
   useFocusEffect(
@@ -195,6 +202,18 @@ function RealProgress() {
           defaultOpen
         >
           <WeeklyRecapBody recap={recap.data} />
+        </Chapter>
+      )}
+
+      {bestiaryOn && bossRanks.progress && (
+        <Chapter
+          icon="skull"
+          color={colors.danger}
+          title={t('bestiary.title')}
+          summary={t('bestiary.summary', bestiaryProgress(bestiary(bossRanks.progress.victories)))}
+        >
+          <Text style={typography.caption}>{t('bestiary.intro')}</Text>
+          <Bestiary entries={bestiary(bossRanks.progress.victories)} />
         </Chapter>
       )}
 

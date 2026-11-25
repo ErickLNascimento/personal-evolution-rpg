@@ -17,6 +17,10 @@ export const FEATURES = {
   feedbackPrompt: 'feature_feedback_prompt',
   /** Cartão "Resumo da semana" na tela Hoje, de segunda a quarta. */
   weeklyRecap: 'feature_weekly_recap',
+  /** Patentes dos chefes: cada vitória faz o chefe voltar mais forte. */
+  bossRanks: 'feature_boss_ranks',
+  /** Bestiário no Progresso: a coleção de chefes vencidos. */
+  bestiary: 'feature_bestiary',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',
