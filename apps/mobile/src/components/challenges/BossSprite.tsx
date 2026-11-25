@@ -1,15 +1,9 @@
-import {
-  Canvas,
-  FilterMode,
-  Group,
-  Image,
-  MipmapMode,
-  rect,
-  useImage,
-} from '@shopify/react-native-skia';
+import { Canvas, FilterMode, ImageShader, MipmapMode, Rect } from '@shopify/react-native-skia';
 import { useState } from 'react';
+import { View } from 'react-native';
 import { useDerivedValue, useFrameCallback, useSharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { useSkiaImage } from '@/components/sprites/useSkiaImage';
 
 /**
  * Chefes da semana em pixel art 64x64, gerados por tools/sprites/gen_bosses.py e
@@ -185,7 +179,7 @@ export function BossSprite({
 }) {
   const sheets = SHEETS[id] ?? SHEETS.sombra!;
   const [source, meta] = sheets[anim];
-  const img = useImage(source);
+  const img = useSkiaImage(source);
   const { frameCount, fps, loop } = meta;
 
   const runKey = `${id}-${anim}-${playKey}`;
@@ -217,23 +211,28 @@ export function BossSprite({
     } else frame.set(f);
   });
 
+  // A tira de frames anda para a esquerda: o quadro visível é o do frame atual.
   const x = useDerivedValue(() => -Math.min(frame.get(), frameCount - 1) * size);
 
+  // Pintado como o herói: um retângulo preenchido pela imagem (ImageShader), não um nó Image.
   return (
-    <Canvas style={{ width: size, height: size }} pointerEvents="none">
-      {img && (
-        <Group clip={rect(0, 0, size, size)}>
-          <Image
-            image={img}
-            x={x}
-            y={0}
-            width={size * frameCount}
-            height={size}
-            sampling={{ filter: FilterMode.Nearest, mipmap: MipmapMode.None }}
-          />
-        </Group>
-      )}
-    </Canvas>
+    <View pointerEvents="none" style={{ width: size, height: size }}>
+      <Canvas style={{ width: size, height: size }}>
+        {img && (
+          <Rect x={0} y={0} width={size} height={size}>
+            <ImageShader
+              image={img}
+              x={x}
+              y={0}
+              width={size * frameCount}
+              height={size}
+              fit="fill"
+              sampling={{ filter: FilterMode.Nearest, mipmap: MipmapMode.None }}
+            />
+          </Rect>
+        )}
+      </Canvas>
+    </View>
   );
 }
 

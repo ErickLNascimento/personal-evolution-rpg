@@ -2,15 +2,15 @@ import {
   Canvas,
   Circle,
   FilterMode,
-  Group,
-  Image,
+  ImageShader,
   MipmapMode,
   RadialGradient,
-  rect,
-  useImage,
+  Rect,
   vec,
 } from '@shopify/react-native-skia';
 import { useDerivedValue, useFrameCallback, useSharedValue } from 'react-native-reanimated';
+import { useSkiaImage } from '@/components/sprites/useSkiaImage';
+import { useT } from '@/i18n';
 
 type SheetMeta = { frameWidth: number; frameHeight: number; frameCount: number; fps: number };
 
@@ -22,7 +22,8 @@ const META: SheetMeta = require('../../../assets/sprites/oracle/oracle_idle.json
  * sobre um halo de luz que pulsa. Gerado por tools/sprites/gen_oracle.py.
  */
 export function Oracle({ size = 128, glow = true }: { size?: number; glow?: boolean }) {
-  const img = useImage(SHEET);
+  const { t } = useT();
+  const img = useSkiaImage(SHEET);
   const { frameCount, fps } = META;
   const time = useSharedValue(0);
 
@@ -43,7 +44,7 @@ export function Oracle({ size = 128, glow = true }: { size?: number; glow?: bool
       style={{ width: size, height: size }}
       accessible
       accessibilityRole="image"
-      accessibilityLabel="O Oráculo"
+      accessibilityLabel={t('oracle.a11y')}
     >
       {glow && (
         <Circle c={center} r={glowR}>
@@ -56,16 +57,17 @@ export function Oracle({ size = 128, glow = true }: { size?: number; glow?: bool
         </Circle>
       )}
       {img && (
-        <Group clip={rect(0, 0, size, size)}>
-          <Image
+        <Rect x={0} y={0} width={size} height={size}>
+          <ImageShader
             image={img}
             x={x}
             y={0}
             width={size * frameCount}
             height={size}
+            fit="fill"
             sampling={{ filter: FilterMode.Nearest, mipmap: MipmapMode.None }}
           />
-        </Group>
+        </Rect>
       )}
     </Canvas>
   );
