@@ -1,6 +1,8 @@
 import {
   bossForWeek,
   bossTitle,
+  BOSS_WEAKNESS,
+  type ObjectiveCategory,
   type Ambush,
   DEFAULT_HERO,
   displayedTitle,
@@ -150,6 +152,9 @@ function RealToday() {
   const bossRanks = useBossProgress();
   const bossRankNow = rankFor(bossRanks.progress, bossWeek, bossRanks.enabled).rank;
   const ambushOn = useFeature(FEATURES.ambush);
+  // Fraqueza do chefe: só o selo ×2 nas missões da área (o cartão do chefe não a revela).
+  const weaknessOn = useFeature(FEATURES.bossWeakness);
+  const weakness = weaknessOn && challengesOn ? (BOSS_WEAKNESS[boss.id] ?? null) : null;
   const loadAmbush = useCallback(() => fetchAmbush(), []);
   const ambush = useFocusLoad<Ambush | null>(loadAmbush, ambushOn);
 
@@ -314,6 +319,7 @@ function RealToday() {
                 ) : null
               }
               missions={day.missions}
+              weakness={weakness}
               progress={day.progress}
               level={day.level}
               xpTable={day.xpTable}
@@ -373,6 +379,7 @@ function DayView({
   empty,
   top,
   beforeMissions,
+  weakness = null,
 }: {
   missions: Mission[];
   progress: DayProgress;
@@ -390,6 +397,8 @@ function DayView({
   top?: ReactNode;
   /** Entre o cabeçalho e a lista de missões (ex.: o chefe da semana). */
   beforeMissions?: ReactNode;
+  /** Fraqueza do chefe da semana: missões dessa área ganham o selo ×2. */
+  weakness?: ObjectiveCategory | null;
 }) {
   const { t } = useT();
   const bonus = xpTable?.perfectDayBonus ?? 20;
@@ -424,6 +433,7 @@ function DayView({
           onToggle={() => onToggle(m.habit.id)}
           count={m.habit.kind === 'count' ? countOf?.(m.habit.id) : undefined}
           onCount={onCount ? (delta) => onCount(m.habit.id, delta) : undefined}
+          bossWeak={weakness !== null && m.habit.category === weakness}
         />
       ))}
     </>

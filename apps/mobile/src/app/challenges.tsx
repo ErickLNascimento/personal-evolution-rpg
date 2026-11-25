@@ -184,7 +184,6 @@ function ChallengesScreen() {
       <BossCard
         state={boss}
         rank={shownRank(now)}
-        weakness={weakOf(thisWeek)}
         reward={now.rule.reward}
         claimed={data.bossClaimed.has(thisWeek)}
         busy={busy === `boss:${thisWeek}`}

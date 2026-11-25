@@ -56,6 +56,8 @@ const en: Translations = {
     count: '{done} of {total}',
   },
   mission: {
+    bossWeak: '×2 on boss',
+    bossWeakA11y: 'Boss weakness mission: deals 2 damage',
     tapCount: 'Tap to add one',
     tapUndo: 'Tap to undo',
     tapResisted: 'Tap if you resisted',
@@ -83,7 +85,6 @@ const en: Translations = {
     xpToLevel: '{xp} XP to level {level}',
   },
   boss: {
-    weakness: 'Weakness: {area} (missions count 2)',
     rankA11y: 'Rank: {rank}',
     defeatedClaimed: 'Defeated · reward claimed',
     weekly: 'BOSS OF THE WEEK',

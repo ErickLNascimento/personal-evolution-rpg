@@ -3,10 +3,8 @@ import {
   BOSS_REWARD,
   bossText,
   bossTitle,
-  OBJECTIVE_CATEGORY_LABELS,
   rankLabel,
   type BossRank,
-  type ObjectiveCategory,
   type WeeklyBoss,
 } from '@per/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -77,8 +75,6 @@ interface Props {
   reward?: number;
   /** Patente do chefe para a pessoa (sem ela, não mostra patente). */
   rank?: BossRank;
-  /** Fraqueza ativa do chefe (missões dessa área tiram 2). */
-  weakness?: ObjectiveCategory | null;
 }
 
 /** Chefe da semana: vida, dano e o resgate do prêmio quando derrotado. */
@@ -90,7 +86,6 @@ export function BossCard({
   label,
   reward = BOSS_REWARD,
   rank,
-  weakness = null,
 }: Props) {
   const { t, locale } = useT();
   const { boss, maxHp, hp, damage, defeated } = state;
@@ -112,11 +107,6 @@ export function BossCard({
             {bossTitle(boss, rank ?? 0, locale)}
           </Text>
           {rank !== undefined && <RankGems rank={rank} />}
-          {weakness && !defeated && (
-            <Text style={styles.weakness}>
-              {t('boss.weakness', { area: OBJECTIVE_CATEGORY_LABELS[locale][weakness] })}
-            </Text>
-          )}
           <Text style={styles.taunt}>
             {defeated ? t('boss.defeated') : `“${bossText(boss, locale).taunt}”`}
           </Text>
@@ -197,7 +187,6 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '45deg' }],
   },
   gemOn: { backgroundColor: colors.xp },
-  weakness: { fontSize: 12, fontWeight: '700', color: colors.danger },
   rankName: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: colors.xp, marginLeft: 4 },
   won: { ...typography.caption, color: colors.accent, fontWeight: '700' },
   track: {
