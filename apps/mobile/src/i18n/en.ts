@@ -16,7 +16,7 @@ const en: Translations = {
     today: 'Today',
     habits: 'Habits',
     progress: 'Progress',
-    social: 'Social',
+    social: 'Campfire',
     profile: 'Profile',
   },
   today: {
@@ -392,7 +392,7 @@ const en: Translations = {
     errorClaim: "Couldn't claim the reward.",
   },
   social: {
-    title: 'Social',
+    title: 'Campfire',
     signedOut: 'You need to be signed in.',
     myCode: 'YOUR FRIEND CODE',
     myCodeA11y: 'Your code: {code}',
@@ -457,7 +457,7 @@ const en: Translations = {
     groupBoss: 'GROUP BOSS',
     members: 'MEMBERS ({count}/{max})',
     invite: 'INVITE',
-    inviteHint: 'Anyone with this code can join from the Social tab → Join with code.',
+    inviteHint: 'Anyone with this code can join from Campfire → Bands → Join with code.',
     shareInvite: 'Share invite',
     inviteMessage:
       'Join my group "{name}" in Personal Evolution RPG and let\'s defeat the boss of the week together! Group code: {code}.',
@@ -472,7 +472,7 @@ const en: Translations = {
     errorLimit: "You've reached the limit of friends or pending requests.",
     errorGroups: "You're already in 5 groups.",
     errorFull: 'This group already has 6 people.',
-    errorUnavailable: "Social isn't available yet. Try again later.",
+    errorUnavailable: "The Campfire isn't available yet. Try again later.",
     errorLoadCode: "Couldn't load your code.",
     errorSave: "Couldn't save.",
     errorLoadFriends: "Couldn't load your friends.",
@@ -947,6 +947,20 @@ const en: Translations = {
   statusPanel: {
     a11y: '{name}, {cls}, level {level}. Tap to open your hero.',
     xp: '{into}/{total} XP to level {next}',
+  },
+  campfire: {
+    kicker: 'AROUND THE FIRE',
+    empty: 'The campfire is lit. Invite adventurers to your journey.',
+    doneOne: '{done} of {total} companion has completed the day.',
+    doneMany: '{done} of {total} companions have completed the day.',
+    bands: 'Bands: {count}',
+    requests: 'Requests at the fire ({count})',
+    requestsSummary: 'Adventurers want to join you',
+    companions: 'Companions',
+    companionsSummary: '{count} around the fire',
+    bandsTitle: 'Bands',
+    invite: 'Invite adventurers',
+    inviteSummary: 'Your code: {code}',
   },
 };
 

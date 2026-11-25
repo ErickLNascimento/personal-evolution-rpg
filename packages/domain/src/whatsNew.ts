@@ -33,6 +33,16 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     date: '2026-12-03',
     items: [
       {
+        icon: 'bonfire',
+        title: 'A Fogueira',
+        text: 'A aba Social virou a Fogueira: veja quantos companheiros já completaram o dia, os pedidos em destaque e os bandos que enfrentam o chefe juntos.',
+        en: {
+          title: 'The Campfire',
+          text: 'The Social tab is now the Campfire: see how many companions have completed the day, requests up front and the bands that face the boss together.',
+        },
+        route: '/social',
+      },
+      {
         icon: 'stats-chart',
         title: 'Progresso renovado',
         text: 'Seu herói, o nível e as gemas de sequência, escudos e XP no topo; o resto em capítulos que abrem com um toque.',

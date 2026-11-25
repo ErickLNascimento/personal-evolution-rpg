@@ -132,7 +132,7 @@ function AccountProfile() {
 
       {vacationOn && (
         <Chapter
-          icon="bonfire"
+          icon="airplane"
           color={colors.xp}
           title={t('profileMenu.camp')}
           summary={t('profileMenu.campSummary')}

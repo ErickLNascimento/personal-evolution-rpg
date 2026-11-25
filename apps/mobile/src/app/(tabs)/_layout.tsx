@@ -75,7 +75,7 @@ export default function TabsLayout() {
         // Social desligado (feature flag): a aba some da barra.
         options={{
           title: t('tabs.social'),
-          tabBarIcon: icon('people-outline'),
+          tabBarIcon: icon('bonfire-outline'),
           href: socialOn ? undefined : null,
         }}
       />

@@ -17,7 +17,7 @@ const pt = {
     today: 'Hoje',
     habits: 'Hábitos',
     progress: 'Progresso',
-    social: 'Social',
+    social: 'Fogueira',
     profile: 'Perfil',
   },
   today: {
@@ -394,7 +394,7 @@ const pt = {
     errorClaim: 'Não foi possível resgatar o prêmio.',
   },
   social: {
-    title: 'Social',
+    title: 'Fogueira',
     signedOut: 'Você precisa estar conectado.',
     myCode: 'SEU CÓDIGO DE AMIGO',
     myCodeA11y: 'Seu código: {code}',
@@ -459,7 +459,7 @@ const pt = {
     groupBoss: 'CHEFE DO GRUPO',
     members: 'MEMBROS ({count}/{max})',
     invite: 'CONVITE',
-    inviteHint: 'Quem tiver este código entra pela aba Social → Entrar com código.',
+    inviteHint: 'Quem tiver este código entra pela Fogueira → Bandos → Entrar com código.',
     shareInvite: 'Compartilhar convite',
     inviteMessage:
       'Entre no meu grupo "{name}" no Personal Evolution RPG e vamos derrotar o chefe da semana juntos! Código do grupo: {code}.',
@@ -474,7 +474,7 @@ const pt = {
     errorLimit: 'Você chegou ao limite de amigos ou de pedidos pendentes.',
     errorGroups: 'Você já está em 5 grupos.',
     errorFull: 'Este grupo já tem 6 pessoas.',
-    errorUnavailable: 'O social ainda não está disponível. Tente mais tarde.',
+    errorUnavailable: 'A Fogueira ainda não está disponível. Tente mais tarde.',
     errorLoadCode: 'Não foi possível carregar o seu código.',
     errorSave: 'Não foi possível salvar.',
     errorLoadFriends: 'Não foi possível carregar os amigos.',
@@ -948,6 +948,20 @@ const pt = {
   statusPanel: {
     a11y: '{name}, {cls}, nível {level}. Toque para abrir o herói.',
     xp: '{into}/{total} XP para o nível {next}',
+  },
+  campfire: {
+    kicker: 'AO REDOR DO FOGO',
+    empty: 'A fogueira está acesa. Chame aventureiros para a sua jornada.',
+    doneOne: '{done} de {total} companheiro já completou o dia.',
+    doneMany: '{done} de {total} companheiros já completaram o dia.',
+    bands: 'Bandos: {count}',
+    requests: 'Pedidos à fogueira ({count})',
+    requestsSummary: 'Aventureiros querem se juntar a você',
+    companions: 'Companheiros',
+    companionsSummary: '{count} ao redor do fogo',
+    bandsTitle: 'Bandos',
+    invite: 'Chamar aventureiros',
+    inviteSummary: 'Seu código: {code}',
   },
 };
 
