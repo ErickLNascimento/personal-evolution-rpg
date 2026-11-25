@@ -56,6 +56,8 @@ const pt = {
     count: '{done} de {total}',
   },
   mission: {
+    bossWeak: '×2 no chefe',
+    bossWeakA11y: 'Missão da fraqueza do chefe: tira 2 de vida',
     tapCount: 'Toque para somar um',
     tapUndo: 'Toque para desfazer',
     tapResisted: 'Toque se você resistiu',
@@ -83,6 +85,7 @@ const pt = {
     xpToLevel: '{xp} XP para o nível {level}',
   },
   boss: {
+    weakness: 'Fraqueza: {area} (missões contam 2)',
     rankA11y: 'Patente: {rank}',
     defeatedClaimed: 'Derrotado · prêmio resgatado',
     weekly: 'CHEFE DA SEMANA',

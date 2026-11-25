@@ -1,5 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BOSS_REWARD, bossText, bossTitle, rankLabel, type BossRank, type WeeklyBoss } from '@per/domain';
+import {
+  BOSS_REWARD,
+  bossText,
+  bossTitle,
+  OBJECTIVE_CATEGORY_LABELS,
+  rankLabel,
+  type BossRank,
+  type ObjectiveCategory,
+  type WeeklyBoss,
+} from '@per/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
 import { BossSprite, RANK_TINT, useBossAnim } from './BossSprite';
@@ -63,6 +72,8 @@ interface Props {
   reward?: number;
   /** Patente do chefe para a pessoa (sem ela, não mostra patente). */
   rank?: BossRank;
+  /** Fraqueza ativa do chefe (missões dessa área tiram 2). */
+  weakness?: ObjectiveCategory | null;
 }
 
 /** Chefe da semana: vida, dano e o resgate do prêmio quando derrotado. */
@@ -74,6 +85,7 @@ export function BossCard({
   label,
   reward = BOSS_REWARD,
   rank,
+  weakness = null,
 }: Props) {
   const { t, locale } = useT();
   const { boss, maxHp, hp, damage, defeated } = state;
@@ -95,6 +107,11 @@ export function BossCard({
             {bossTitle(boss, rank ?? 0, locale)}
           </Text>
           {rank !== undefined && <RankGems rank={rank} />}
+          {weakness && !defeated && (
+            <Text style={styles.weakness}>
+              {t('boss.weakness', { area: OBJECTIVE_CATEGORY_LABELS[locale][weakness] })}
+            </Text>
+          )}
           <Text style={styles.taunt}>
             {defeated ? t('boss.defeated') : `“${bossText(boss, locale).taunt}”`}
           </Text>
@@ -175,6 +192,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '45deg' }],
   },
   gemOn: { backgroundColor: colors.xp },
+  weakness: { fontSize: 12, fontWeight: '700', color: colors.danger },
   rankName: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: colors.xp, marginLeft: 4 },
   won: { ...typography.caption, color: colors.accent, fontWeight: '700' },
   track: {
@@ -229,6 +247,7 @@ export function BossBanner({
   onPress,
   hits = 0,
   rank = 0,
+  weakness = null,
 }: {
   id: string;
   name: string;
@@ -237,8 +256,10 @@ export function BossBanner({
   hits?: number;
   /** Patente do chefe (muda a cor). */
   rank?: BossRank;
+  /** Fraqueza ativa: aparece embaixo do nome. */
+  weakness?: ObjectiveCategory | null;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const sprite = useBossAnim({ maxHp: 1, hp: 1, defeated: false }, { hits });
   return (
     <Pressable
@@ -253,6 +274,11 @@ export function BossBanner({
       <View style={styles.flex}>
         <Text style={typography.label}>{t('boss.weekly')}</Text>
         <Text style={typography.body}>{name}</Text>
+        {weakness && (
+          <Text style={styles.weakness}>
+            {t('boss.weakness', { area: OBJECTIVE_CATEGORY_LABELS[locale][weakness] })}
+          </Text>
+        )}
       </View>
       <Text style={bannerStyles.link}>{t('boss.challenges')}</Text>
       <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />

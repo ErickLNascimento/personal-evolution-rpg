@@ -84,6 +84,20 @@ update public.app_settings set value = 0 where key = 'feature_boss_ranks';
 update public.boss_ranks set hp_pct = 90, reward = 120 where rank = 3;
 ```
 
+### Fraquezas dos chefes: `feature_boss_weakness`
+
+Cada chefe leva golpe dobrado das missões de uma área da vida (a área do objetivo do hábito):
+Golem → Saúde, Hidra → Produtividade, Lich → Carreira, Dragão → Bem-estar, Sombra → Crescimento
+pessoal, Basilisco → Relacionamentos. A vida não muda; hábito sem objetivo conta 1. Na tela Hoje, a
+missão da área fraca ganha o selo "×2 no chefe". Desligada, toda missão conta 1. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_boss_weakness';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_boss_weakness';
+```
+
 ### Bestiário: `feature_bestiary`
 
 Capítulo "Bestiário" no Progresso, com os chefes vencidos (caídos, na cor da maior patente) e

@@ -9,7 +9,7 @@ import {
   rankRule,
   type BossVictory,
 } from './bossRanks';
-import { BOSSES, bossForWeek, weeklyBoss } from './challenges';
+import { BOSSES, BOSS_WEAKNESS, bossForWeek, missionDamage, weeklyBoss } from './challenges';
 import type { Habit } from './schedule';
 
 const golem = BOSSES.find((b) => b.id === 'golem')!;
@@ -74,5 +74,30 @@ describe('bestiário', () => {
     // 2026-11-16 → Dragão, 2026-11-23 → Sombra (mesma conta de boss_for_week no SQL)
     expect(bossForWeek('2026-11-16').id).toBe('dragao');
     expect(bossForWeek('2026-11-23').id).toBe('sombra');
+  });
+});
+
+describe('fraquezas', () => {
+  it('missão da área fraca tira 2 de vida; sem área ou outra área, 1', () => {
+    expect(BOSS_WEAKNESS.golem).toBe('health');
+    expect(Object.keys(BOSS_WEAKNESS).sort()).toEqual(BOSSES.map((b) => b.id).sort());
+    expect(missionDamage('health', 'health')).toBe(2);
+    expect(missionDamage('career', 'health')).toBe(1);
+    expect(missionDamage(null, 'health')).toBe(1);
+    expect(missionDamage('health', null)).toBe(1);
+  });
+
+  it('o chefe cai mais cedo com missões da área fraca', () => {
+    const run: Habit = { id: 'run', title: 'Correr', difficulty: 'easy', scheduleDays: [0, 1, 2, 3, 4, 5, 6], startDate: '2026-01-01', category: 'health' };
+    const read: Habit = { ...run, id: 'read', title: 'Ler', category: 'knowledge' };
+    const logged = new Map<string, Set<string>>(
+      ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26'].map((d) => [d, new Set(['run'])]),
+    );
+    const plain = weeklyBoss([run, read], logged, '2026-11-26', '2026-11-23');
+    const weak = weeklyBoss([run, read], logged, '2026-11-26', '2026-11-23', 80, 'health');
+    expect(plain.damage).toBe(4);
+    expect(weak.damage).toBe(8);
+    expect(weak.maxHp).toBe(12); // a vida não muda
+    expect(weak.defeated).toBe(false);
   });
 });

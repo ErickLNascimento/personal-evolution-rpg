@@ -6,6 +6,8 @@ import {
   OBJECTIVE_CATEGORIES,
   bestiary,
   bestiaryProgress,
+  BOSS_WEAKNESS,
+  bossForWeek,
   heroLook,
   recapWeekStart,
   shouldShowRecap,
@@ -107,7 +109,14 @@ function RealProgress() {
   const bossRanks = useBossProgress();
   const recapHpPct = rankFor(bossRanks.progress, recapWeekStart(today), bossRanks.enabled).rule.hpPct;
   const bestiaryOn = useFeature(FEATURES.bestiary);
-  const loadRecap = useCallback(() => fetchWeeklyRecap(today, recapHpPct), [today, recapHpPct]);
+  const weaknessOn = useFeature(FEATURES.bossWeakness);
+  const recapWeakness = weaknessOn
+    ? (BOSS_WEAKNESS[bossForWeek(recapWeekStart(today)).id] ?? null)
+    : null;
+  const loadRecap = useCallback(
+    () => fetchWeeklyRecap(today, recapHpPct, recapWeakness),
+    [today, recapHpPct, recapWeakness],
+  );
   const recap = useFocusLoad<WeeklyRecap | null>(loadRecap, recapTime);
   const userId = profile?.id;
   useFocusEffect(

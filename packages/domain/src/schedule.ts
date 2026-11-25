@@ -1,5 +1,5 @@
 import { addDays, compareLocalDates, weekday, type LocalDate } from './dates';
-import type { HabitKind } from './habits';
+import type { HabitKind, ObjectiveCategory } from './habits';
 import { isOnVacation, type Vacation } from './vacation';
 import type { Difficulty } from './xp';
 
@@ -20,6 +20,8 @@ export interface Habit {
   /** Meta por dia (no contador, a quantidade que conclui a missão). */
   targetQty?: number | null;
   unit?: string | null;
+  /** Área do objetivo do hábito (null = sem objetivo). Usada nas fraquezas dos chefes. */
+  category?: ObjectiveCategory | null;
   /** Férias do usuário: nesses dias o hábito não fica agendado (ver withVacations). */
   vacations?: readonly Vacation[];
 }

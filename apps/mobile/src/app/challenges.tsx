@@ -7,6 +7,8 @@ import {
   journeyProgress,
   startOfWeek,
   weeklyBoss,
+  BOSS_WEAKNESS,
+  bossForWeek,
   type JourneyLength,
   type LocalDate,
   FEATURES,
@@ -36,6 +38,7 @@ import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
 import { useCelebration } from '@/features/celebration/CelebrationProvider';
 import { rankFor, useBossProgress } from '@/features/bosses/api';
+import { useFeature } from '@/features/profile/useFeature';
 
 interface ScreenData extends ChallengesData {
   /** Jornadas que acabaram de ser decididas nesta visita. */
@@ -61,6 +64,7 @@ function ChallengesScreen() {
   const { t } = useT();
   const { today, ready } = useToday();
   const ranks = useBossProgress();
+  const weaknessOn = useFeature(FEATURES.bossWeakness);
 
   // Carrega e já fecha no banco as jornadas com resultado decidido (o banco confere e paga).
   const load = useCallback(async () => {
@@ -110,8 +114,18 @@ function ChallengesScreen() {
   // Patente de cada chefe para a pessoa: vida e prêmio maiores a cada vitória anterior.
   const now = rankFor(ranks.progress, thisWeek, ranks.enabled);
   const before = rankFor(ranks.progress, lastWeek, ranks.enabled);
-  const boss = weeklyBoss(data.habits, data.logged, today, thisWeek, now.rule.hpPct);
-  const previous = weeklyBoss(data.habits, data.logged, today, lastWeek, before.rule.hpPct);
+  // Fraqueza: missões da área do chefe tiram 2 de vida (mesma conta do banco).
+  const weakOf = (week: LocalDate) =>
+    weaknessOn ? (BOSS_WEAKNESS[bossForWeek(week).id] ?? null) : null;
+  const boss = weeklyBoss(data.habits, data.logged, today, thisWeek, now.rule.hpPct, weakOf(thisWeek));
+  const previous = weeklyBoss(
+    data.habits,
+    data.logged,
+    today,
+    lastWeek,
+    before.rule.hpPct,
+    weakOf(lastWeek),
+  );
   const shownRank = (r: typeof now) => (ranks.enabled ? r.rank : undefined);
   const active = data.journeys.filter((j) => j.status === 'active');
   const finished = data.journeys.filter((j) => j.status !== 'active').slice(0, 5);
@@ -170,6 +184,7 @@ function ChallengesScreen() {
       <BossCard
         state={boss}
         rank={shownRank(now)}
+        weakness={weakOf(thisWeek)}
         reward={now.rule.reward}
         claimed={data.bossClaimed.has(thisWeek)}
         busy={busy === `boss:${thisWeek}`}

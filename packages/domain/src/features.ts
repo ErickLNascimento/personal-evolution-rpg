@@ -21,6 +21,8 @@ export const FEATURES = {
   bossRanks: 'feature_boss_ranks',
   /** Bestiário no Progresso: a coleção de chefes vencidos. */
   bestiary: 'feature_bestiary',
+  /** Fraquezas: cada chefe leva golpe dobrado das missões de uma área da vida. */
+  bossWeakness: 'feature_boss_weakness',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

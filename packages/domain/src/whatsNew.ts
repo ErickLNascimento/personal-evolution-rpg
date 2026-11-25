@@ -44,6 +44,17 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         route: '/challenges',
       },
       {
+        icon: 'flash',
+        flag: 'feature_boss_weakness',
+        title: 'Fraquezas dos chefes',
+        text: 'Cada chefe tem uma fraqueza: as missões dessa área da vida tiram 2 de vida dele. O Golem da Preguiça, por exemplo, teme a Saúde.',
+        en: {
+          title: 'Boss weaknesses',
+          text: 'Each boss has a weakness: missions in that area of life deal 2 damage. The Golem of Sloth, for example, fears Health.',
+        },
+        route: '/challenges',
+      },
+      {
         icon: 'skull',
         flag: 'feature_bestiary',
         title: 'Bestiário',

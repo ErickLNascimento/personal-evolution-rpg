@@ -3,6 +3,7 @@ import {
   recapWeekStart,
   weeklyRecap,
   type LocalDate,
+  type ObjectiveCategory,
   type WeeklyRecap,
 } from '@per/domain';
 import { listHabits, type Result } from '@/features/habits/api';
@@ -15,6 +16,8 @@ export async function fetchWeeklyRecap(
   today: LocalDate,
   /** Vida do chefe da semana resumida, em % (patente). */
   bossHpPct?: number,
+  /** Fraqueza ativa do chefe daquela semana. */
+  bossWeakness: ObjectiveCategory | null = null,
 ): Promise<Result<WeeklyRecap | null>> {
   if (!supabase) return { data: null, error: null };
   const db = supabase;
@@ -51,6 +54,7 @@ export async function fetchWeeklyRecap(
       xp.map((x) => ({ amount: x.amount, localDate: x.local_date })),
       today,
       bossHpPct,
+      bossWeakness,
     ),
     error: null,
   };

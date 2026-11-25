@@ -13,6 +13,7 @@
 import { addDays, compareLocalDates, startOfWeek, type LocalDate } from './dates';
 import { isHabitScheduledOn, LOGGABLE_DAYS_BACK, type Habit } from './schedule';
 import { BOSS_EN } from './contentEn';
+import type { ObjectiveCategory } from './habits';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 export const JOURNEY_LENGTHS = [21, 66] as const;
@@ -134,6 +135,24 @@ export const BOSSES: readonly Boss[] = [
   { id: 'basilisco', name: 'Basilisco da Tela', taunt: 'Olhe para mim. Só mais uma rolagem.' },
 ];
 
+/**
+ * Fraqueza de cada chefe: missões dessa área tiram 2 de vida em vez de 1 (com a flag
+ * feature_boss_weakness; espelha boss_weakness no banco). O vício perde para a área que o vence.
+ */
+export const BOSS_WEAKNESS: Record<string, ObjectiveCategory> = {
+  golem: 'health',
+  hidra: 'productivity',
+  lich: 'career',
+  dragao: 'wellbeing',
+  sombra: 'personal_growth',
+  basilisco: 'relationships',
+};
+
+/** Golpes que uma missão conta contra o chefe: 2 na área fraca, 1 nas outras. */
+export function missionDamage(category: ObjectiveCategory | null | undefined, weakness: ObjectiveCategory | null): number {
+  return weakness !== null && category === weakness ? 2 : 1;
+}
+
 /** Nome e provocação do chefe no idioma. */
 export function bossText(boss: Boss, locale: Locale = DEFAULT_LOCALE): { name: string; taunt: string } {
   return (locale === 'en' ? BOSS_EN[boss.id] : undefined) ?? { name: boss.name, taunt: boss.taunt };
@@ -151,7 +170,7 @@ export interface WeeklyBoss {
   weekEnd: LocalDate;
   /** Vida total: a porcentagem da patente (padrão BOSS_PASS_PCT) das missões agendadas na semana. */
   maxHp: number;
-  /** Missões feitas na semana. */
+  /** Golpes da semana: missões feitas, as da área fraca contando 2. */
   damage: number;
   hp: number;
   defeated: boolean;
@@ -168,6 +187,8 @@ export function weeklyBoss(
   weekStart: LocalDate = startOfWeek(today),
   /** Vida em % das missões da semana (patente do chefe; ver bossRanks.ts). */
   hpPct: number = BOSS_PASS_PCT,
+  /** Área que tira vida em dobro (fraqueza do chefe); null = sem fraqueza. */
+  weakness: ObjectiveCategory | null = null,
 ): WeeklyBoss {
   let scheduled = 0;
   let damage = 0;
@@ -177,7 +198,7 @@ export function weeklyBoss(
     for (const h of habits) {
       if (!isHabitScheduledOn(h, d)) continue;
       scheduled += 1;
-      if (done?.has(h.id)) damage += 1;
+      if (done?.has(h.id)) damage += missionDamage(h.category, weakness);
     }
   }
   const maxHp = Math.ceil((scheduled * hpPct) / 100);

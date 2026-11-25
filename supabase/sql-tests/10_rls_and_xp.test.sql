@@ -2111,6 +2111,40 @@ end $$;
 reset role;
 update public.app_settings set value = 0 where key = 'feature_boss_ranks';
 
+-- ── Fraquezas dos chefes ────────────────────────────────────
+-- Vera fez a semana inteira (testes das patentes): 7 missões. O hábito passa a ter um objetivo
+-- na área fraca do chefe desta semana.
+reset role;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  o uuid;
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_boss_weakness') = 0,
+    'fraquezas começam desligadas');
+  perform pg_temp.check(public.boss_weakness('golem') = 'health' and public.boss_weakness('basilisco') = 'relationships',
+    'mesmas fraquezas do app');
+  insert into public.objectives (user_id, title, category)
+  values ('eeeeeeee-1111-1111-1111-111111111111', 'Contra o chefe', public.boss_weakness(public.boss_for_week(monday)))
+  returning id into o;
+  update public.habits set objective_id = o where id = 'eeeeeeee-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  perform pg_temp.check(
+    (select damage from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 7,
+    'flag desligada: cada missão tira 1');
+  update public.app_settings set value = 1 where key = 'feature_boss_weakness';
+  perform pg_temp.check(
+    (select damage from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 14,
+    'na área fraca, cada missão tira 2');
+  perform pg_temp.check(
+    (select max_hp from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 6,
+    'a vida não muda');
+  update public.objectives set category = case when category = 'health' then 'finance' else 'health' end where id = o;
+  perform pg_temp.check(
+    (select damage from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 7,
+    'outra área tira 1');
+  update public.app_settings set value = 0 where key = 'feature_boss_weakness';
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

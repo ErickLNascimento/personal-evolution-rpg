@@ -6,6 +6,7 @@
 import { weeklyBoss } from './challenges';
 import { addDays, compareLocalDates, startOfWeek, weekday, type LocalDate } from './dates';
 import { weekSummary, type HabitLogEntry, type WeekSummary, type XpEntry } from './progress';
+import type { ObjectiveCategory } from './habits';
 import { isHabitScheduledOn, type Habit } from './schedule';
 
 export type RecapTier = 'legendary' | 'great' | 'good' | 'restart';
@@ -64,6 +65,8 @@ export function weeklyRecap(
   today: LocalDate,
   /** Vida do chefe da semana resumida, em % (patente; padrão 80). */
   bossHpPct?: number,
+  /** Fraqueza ativa do chefe daquela semana (missões da área contam 2). */
+  bossWeakness: ObjectiveCategory | null = null,
 ): WeeklyRecap | null {
   const start = recapWeekStart(today);
   const end = addDays(start, 6);
@@ -102,6 +105,6 @@ export function weeklyRecap(
     completedDelta: week.completed - previous.completed,
     xpDelta: week.xp - previous.xp,
     bestHabit,
-    bossDefeated: weeklyBoss(habits, logged, end, start, bossHpPct).defeated,
+    bossDefeated: weeklyBoss(habits, logged, end, start, bossHpPct, bossWeakness).defeated,
   };
 }
