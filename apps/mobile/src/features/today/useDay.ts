@@ -51,7 +51,7 @@ export function useDay(choice: DayChoice) {
   // Missão relâmpago de hoje (o banco sorteia na primeira consulta do dia). Falhar aqui não trava a tela.
   const flashLoad = useCallback(() => fetchFlashMission(), []);
   const flash = useFocusLoad<FlashMission | null>(flashLoad, ready);
-  const { celebrateLevelUp, celebrateTitles } = useCelebration();
+  const { celebrateLevelUp, celebrateTitles, askFeedback } = useCelebration();
   const [notice, setNotice] = useState<string | null>(null);
   // Aviso rápido "+N Cristais"; `key` muda a cada ganho para reanimar.
   const [crystalGain, setCrystalGain] = useState<{ amount: number; key: number } | null>(null);
@@ -157,7 +157,10 @@ export function useDay(choice: DayChoice) {
     // O XP total vem do banco: se cruzou um nível, dispara a cena de evolução.
     const before = levelFromXp(data.totalXp).level;
     const after = levelFromXp(outcome.totalXp).level;
-    if (after > before) celebrateLevelUp(before, after);
+    if (after > before) {
+      celebrateLevelUp(before, after);
+      askFeedback('level_up');
+    }
     if (outcome.titles.length > 0) celebrateTitles(outcome.titles);
     setData((d) => {
       if (!d) return d;
@@ -180,8 +183,10 @@ export function useDay(choice: DayChoice) {
     }
     if (!wasDone && outcome.crystals > 0)
       setCrystalGain({ amount: outcome.crystals, key: Date.now() });
-    if (outcome.perfectDayBonus > 0)
+    if (outcome.perfectDayBonus > 0) {
       setNotice(t('today.perfectNotice', { xp: outcome.perfectDayBonus }));
+      askFeedback('perfect_day');
+    }
   }
 
   return {

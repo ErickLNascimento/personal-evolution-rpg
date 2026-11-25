@@ -889,6 +889,26 @@ const en: Translations = {
     account: 'ACCOUNT',
     deleteHint: 'Deletes your account and all your data forever.',
   },
+  feedbackPrompt: {
+    kicker: 'THE ORACLE WANTS TO HEAR YOU',
+    question: 'How is your journey in the app going?',
+    tap: 'Tap a gem to rate',
+    r1: 'Awful',
+    r2: 'Weak',
+    r3: 'Good',
+    r4: 'Great',
+    r5: 'Legendary',
+    whatImprove: 'WHAT CAN WE IMPROVE?',
+    improvePlaceholder: 'Tell us what got in the way of your journey',
+    tellMore: 'WANT TO TELL US MORE? (OPTIONAL)',
+    optional: 'Optional',
+    send: 'Send',
+    later: 'Not now',
+    never: 'Don\'t ask again',
+    thanks: 'Thank you, adventurer!',
+    thanksText: 'Your answer reached the team and helps make the journey better.',
+    close: 'Continue',
+  },
 };
 
 export default en;

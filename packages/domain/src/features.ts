@@ -13,6 +13,8 @@ export const FEATURES = {
   english: 'feature_english',
   /** Modo férias: pausar dias sem perder o streak (Perfil e tela Hoje). */
   vacation: 'feature_vacation',
+  /** Pop-up que pede uma nota de 1 a 5 depois de momentos bons. */
+  feedbackPrompt: 'feature_feedback_prompt',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

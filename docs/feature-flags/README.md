@@ -65,6 +65,38 @@ update public.app_settings set value = 1 where key = 'feature_data_export';
 update public.app_settings set value = 0 where key = 'feature_data_export';
 ```
 
+### Pedido de feedback: `feature_feedback_prompt`
+
+Pop-up "O Oráculo quer ouvir você", com nota de 1 a 5 em gemas e comentário (com nota 1 ou 2,
+pergunta o que melhorar). Aparece logo depois de um momento bom (dia perfeito, subir de nível ou
+derrotar o chefe), só para quem já usa o app há algum tempo, no máximo uma vez a cada 30 dias, e
+nunca mais depois de enviar, de "Não perguntar mais" ou de 3 "Agora não". Desligada, o pop-up não
+aparece e `submit_feedback_rating` recusa com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_feedback_prompt';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_feedback_prompt';
+```
+
+Os números das regras também ficam em `app_settings` e valem na próxima abertura do app:
+
+| Chave | Padrão | O que é |
+|---|---|---|
+| `feedback_prompt_min_days` | 5 | dias desde o primeiro registro de missão |
+| `feedback_prompt_min_missions` | 15 | missões registradas no total |
+| `feedback_prompt_cooldown_days` | 30 | intervalo mínimo entre dois pedidos |
+| `feedback_prompt_max_dismissals` | 3 | "Agora não" até parar de perguntar |
+
+```sql
+-- ex.: pedir mais cedo
+update public.app_settings set value = 2 where key = 'feedback_prompt_min_days';
+-- notas recebidas (as mais recentes primeiro)
+select created_at, rating, message, platform, app_version
+from public.feedback where source = 'prompt' order by created_at desc;
+```
+
 ### Modo férias: `feature_vacation`
 
 Seção "Modo férias" no Perfil e o aviso de férias na tela Hoje. Nos dias de férias nenhum hábito

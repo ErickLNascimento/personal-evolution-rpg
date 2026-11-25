@@ -24,4 +24,5 @@ export * from './appUpdates';
 export * from './mood';
 export * from './features';
 export * from './vacation';
+export * from './feedbackPrompt';
 export * from './i18n';

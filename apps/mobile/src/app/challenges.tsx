@@ -34,6 +34,7 @@ import { useToday } from '@/features/profile/useToday';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
+import { useCelebration } from '@/features/celebration/CelebrationProvider';
 
 interface ScreenData extends ChallengesData {
   /** Jornadas que acabaram de ser decididas nesta visita. */
@@ -55,6 +56,7 @@ function logsOf(data: ChallengesData, habitId: string): Set<LocalDate> {
 
 /** Desafios com prazo: o chefe da semana e as jornadas de 21 ou 66 dias. */
 function ChallengesScreen() {
+  const { askFeedback } = useCelebration();
   const { t } = useT();
   const { today, ready } = useToday();
 
@@ -118,6 +120,7 @@ function ChallengesScreen() {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setNotice(t('challenges.bossDefeated', { coins: r.data.coins }));
     screen.refresh();
+    askFeedback('boss_defeated');
   }
 
   return (

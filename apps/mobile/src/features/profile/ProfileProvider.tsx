@@ -48,6 +48,8 @@ export interface Profile {
   cosmetics: ReadonlySet<string>;
   /** Feature flags ligadas (app_settings `feature_*` = 1); ver FEATURES no domínio. */
   features: ReadonlySet<string>;
+  /** Todos os números de app_settings (ex.: regras do pedido de feedback). */
+  settings: ReadonlyMap<string, number>;
 }
 
 /** O que vem de outras tabelas além de `profiles`. */
@@ -56,6 +58,7 @@ interface ProfileExtras {
   tourVersion: number | null;
   cosmetics: ReadonlySet<string>;
   features: ReadonlySet<string>;
+  settings: ReadonlyMap<string, number>;
 }
 
 interface ProfileRow {
@@ -162,6 +165,7 @@ async function fetchProfile(
       tourVersion: tour.data?.find((r) => r.key === 'tour_version')?.value ?? null,
       cosmetics: new Set((cosmetics.data ?? []).map((c) => c.item_id)),
       features: snapshot(enabledFeatures(tour.data ?? [])),
+      settings: new Map((tour.data ?? []).map((r) => [r.key, Number(r.value)])),
     }),
     error: null,
   };
@@ -248,12 +252,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 tourVersion: prev.profile.tourVersion,
                 cosmetics: prev.profile.cosmetics,
                 features: prev.profile.features,
+                settings: prev.profile.settings,
               }
             : {
                 earnedTitles: new Set(),
                 tourVersion: null,
                 cosmetics: new Set(),
                 features: new Set(),
+                settings: new Map(),
               },
         ),
         error: null,

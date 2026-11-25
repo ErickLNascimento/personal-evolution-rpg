@@ -890,6 +890,26 @@ const pt = {
     account: 'CONTA',
     deleteHint: 'Apaga a conta e todos os dados para sempre.',
   },
+  feedbackPrompt: {
+    kicker: 'O ORÁCULO QUER OUVIR VOCÊ',
+    question: 'Como está sendo a sua jornada no app?',
+    tap: 'Toque numa gema para dar a nota',
+    r1: 'Péssima',
+    r2: 'Fraca',
+    r3: 'Boa',
+    r4: 'Ótima',
+    r5: 'Lendária',
+    whatImprove: 'O QUE PODEMOS MELHORAR?',
+    improvePlaceholder: 'Conte o que atrapalhou a sua jornada',
+    tellMore: 'QUER CONTAR MAIS? (OPCIONAL)',
+    optional: 'Opcional',
+    send: 'Enviar',
+    later: 'Agora não',
+    never: 'Não perguntar mais',
+    thanks: 'Obrigado, aventureiro!',
+    thanksText: 'Sua resposta chegou à equipe e ajuda a deixar a jornada melhor.',
+    close: 'Continuar',
+  },
 };
 
 export default pt;

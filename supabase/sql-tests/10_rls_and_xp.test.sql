@@ -1955,6 +1955,77 @@ do $$ begin
 end $$;
 reset role;
 
+-- ── Pedido de feedback (pop-up com nota) ───────────────────
+-- Vera (eeee…1111) já tem 4 registros (testes do modo férias): hoje − 7, − 6, − 5 e hoje.
+reset role;
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare
+  u jsonb;
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_feedback_prompt') = 0,
+    'pedido de feedback começa desligado');
+  perform pg_temp.check((select value from public.app_settings where key = 'feedback_prompt_min_missions') = 15,
+    'regras do pedido em app_settings');
+  begin
+    perform public.submit_feedback_rating(5);
+    raise exception 'FALHOU: nota com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+
+  u := public.my_feedback_prompt_usage();
+  perform pg_temp.check((u->>'first_log_date')::date = pg_temp.today() - 7, 'uso: primeiro registro');
+  perform pg_temp.check((u->>'missions_done')::int = 4, 'uso: total de missões');
+  perform pg_temp.check(not (u->>'already_rated')::boolean, 'uso: ainda sem nota');
+
+  -- o formulário continua gravando direto; nota pelo insert direto, não
+  insert into public.feedback (kind, message, platform) values ('ideia', 'Mais chefes, por favor', 'ios');
+  begin
+    insert into public.feedback (kind, message, rating, source) values ('elogio', null, 5, 'prompt');
+    raise exception 'FALHOU: nota gravada direto na tabela';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.feedback (kind, message) values ('outro', null);
+    raise exception 'FALHOU: formulário sem mensagem';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_feedback_prompt';
+set local role authenticated;
+do $$
+declare
+  v_id uuid;
+begin
+  v_id := public.submit_feedback_rating(5, null, '1.0.0', 'ios');
+  perform pg_temp.check(
+    (select kind = 'elogio' and source = 'prompt' and rating = 5 and message is null
+     from public.feedback where id = v_id), 'nota 5 vira elogio, sem comentário');
+  v_id := public.submit_feedback_rating(2, '  Muitas notificações  ');
+  perform pg_temp.check(
+    (select kind = 'outro' and message = 'Muitas notificações' from public.feedback where id = v_id),
+    'nota baixa com o porquê, comentário limpo');
+  perform pg_temp.check((public.my_feedback_prompt_usage()->>'already_rated')::boolean, 'uso: já deu nota');
+  begin
+    perform public.submit_feedback_rating(0);
+    raise exception 'FALHOU: nota 0';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.submit_feedback_rating(4, repeat('a', 1001));
+    raise exception 'FALHOU: comentário longo';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.submit_feedback_rating(4, null, null, 'windows');
+    raise exception 'FALHOU: plataforma inválida';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+reset role;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';
