@@ -10,6 +10,7 @@ import {
   OBJECTIVE_TITLE_MAX,
   type ObjectiveCategory,
 } from './habits';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 import type { Difficulty } from './xp';
 
@@ -97,13 +98,17 @@ export interface PlanRequest {
 }
 
 /** Valida e limpa o formulário do pedido. Tudo é opcional, mas precisa de pelo menos um dia livre. */
-export function normalizePlanRequest(draft: PlanRequestDraft): { value: PlanRequest | null; error: string | null } {
+export function normalizePlanRequest(
+  draft: PlanRequestDraft,
+  locale: Locale = DEFAULT_LOCALE,
+): { value: PlanRequest | null; error: string | null } {
+  const en = locale === 'en';
   const goal = draft.goal.trim().replace(/\s+/g, ' ');
   const past = draft.pastAttempts.trim().replace(/\s+/g, ' ');
-  if (goal.length > PLAN_GOAL_MAX) return { value: null, error: `Use até ${PLAN_GOAL_MAX} caracteres no objetivo.` };
-  if (past.length > PLAN_PAST_MAX) return { value: null, error: `Use até ${PLAN_PAST_MAX} caracteres no que já tentou.` };
+  if (goal.length > PLAN_GOAL_MAX) return { value: null, error: en ? `Use up to ${PLAN_GOAL_MAX} characters for the goal.` : `Use até ${PLAN_GOAL_MAX} caracteres no objetivo.` };
+  if (past.length > PLAN_PAST_MAX) return { value: null, error: en ? `Use up to ${PLAN_PAST_MAX} characters for what you've tried.` : `Use até ${PLAN_PAST_MAX} caracteres no que já tentou.` };
   const days = normalizeScheduleDays(draft.freeDays);
-  if (days.length === 0) return { value: null, error: 'Escolha pelo menos um dia livre.' };
+  if (days.length === 0) return { value: null, error: en ? 'Pick at least one free day.' : 'Escolha pelo menos um dia livre.' };
   return {
     value: { goal: goal || null, minutes_per_day: draft.minutesPerDay, free_days: days, past_attempts: past || null },
     error: null,
@@ -124,11 +129,13 @@ export interface SuggestionEdit {
 export function validateSuggestionEdit(
   index: number,
   edit: { title: string; difficulty: Difficulty; scheduleDays: readonly number[] },
+  locale: Locale = DEFAULT_LOCALE,
 ): { value: SuggestionEdit | null; error: string | null } {
+  const en = locale === 'en';
   const title = edit.title.trim().replace(/\s+/g, ' ');
-  if (!title) return { value: null, error: 'Dê um nome ao hábito.' };
-  if (title.length > HABIT_TITLE_MAX) return { value: null, error: `Use no máximo ${HABIT_TITLE_MAX} caracteres.` };
+  if (!title) return { value: null, error: en ? 'Give the habit a name.' : 'Dê um nome ao hábito.' };
+  if (title.length > HABIT_TITLE_MAX) return { value: null, error: en ? `Use at most ${HABIT_TITLE_MAX} characters.` : `Use no máximo ${HABIT_TITLE_MAX} caracteres.` };
   const days = normalizeScheduleDays(edit.scheduleDays);
-  if (days.length === 0) return { value: null, error: 'Escolha pelo menos um dia da semana.' };
+  if (days.length === 0) return { value: null, error: en ? 'Pick at least one day of the week.' : 'Escolha pelo menos um dia da semana.' };
   return { value: { index, title, difficulty: edit.difficulty, schedule_days: days }, error: null };
 }

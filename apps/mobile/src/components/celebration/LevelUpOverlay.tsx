@@ -17,6 +17,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
 import { tierColor } from '@/components/hero/HeroCard';
+import { useT } from '@/i18n';
 import { colors, radius, spacing } from '@/theme/tokens';
 
 const RAYS = 16;
@@ -74,9 +75,14 @@ export function LevelUpOverlay({
   onClose: () => void;
 }) {
   const { width, height } = useWindowDimensions();
+  const { t, locale } = useT();
   const color = tierColor(toLevel);
-  const unlocks = useMemo(() => unlocksBetween(fromLevel, toLevel, hero.form), [fromLevel, toLevel, hero.form]);
-  const newTitle = heroTitle(toLevel, hero.form) !== heroTitle(fromLevel, hero.form) ? heroTitle(toLevel, hero.form) : null;
+  const unlocks = useMemo(
+    () => unlocksBetween(fromLevel, toLevel, hero.form, locale),
+    [fromLevel, toLevel, hero.form, locale],
+  );
+  const toTitle = heroTitle(toLevel, hero.form, locale);
+  const newTitle = toTitle !== heroTitle(fromLevel, hero.form, locale) ? toTitle : null;
   const raysSize = Math.hypot(width, height) * 1.1;
   const particles = useMemo(
     () => Array.from({ length: PARTICLES }, (_, i) => ({ x: (width / PARTICLES) * i + (i % 3) * 7, delay: (i * 137) % 1400 })),
@@ -160,20 +166,20 @@ export function LevelUpOverlay({
           <View style={styles.heroWrap}>
             <Animated.View style={[styles.glow, { backgroundColor: color, shadowColor: color }, glowStyle]} />
             <Animated.View style={heroStyle}>
-              <HeroAvatar hero={hero} size={190} animated />
+              <HeroAvatar hero={hero} size={190} animated entrance="levelup" />
             </Animated.View>
           </View>
 
           <Animated.Text style={[styles.headline, headlineStyle]} accessibilityRole="header">
-            SUBIU DE NÍVEL!
+            {t('levelUp.headline')}
           </Animated.Text>
-          <Animated.Text style={[styles.number, { color, textShadowColor: color }, numberStyle]} accessibilityLabel={`Nível ${toLevel}`}>
+          <Animated.Text style={[styles.number, { color, textShadowColor: color }, numberStyle]} accessibilityLabel={t('hero.level', { level: toLevel })}>
             {toLevel}
           </Animated.Text>
 
           {newTitle && (
             <Animated.Text entering={FadeInDown.delay(1350).duration(400)} style={styles.newTitle}>
-              Novo título: <Text style={{ color }}>{newTitle}</Text>
+              {t('levelUp.newTitle')} <Text style={{ color }}>{newTitle}</Text>
             </Animated.Text>
           )}
 
@@ -184,7 +190,7 @@ export function LevelUpOverlay({
                 .slice(0, 5)
                 .map((u, i) => (
                   <Animated.Text key={u.label} entering={FadeInDown.delay(1600 + i * 130).duration(350)} style={styles.unlock}>
-                    ✦ Desbloqueado — {u.label}
+                    ✦ {t('levelUp.unlocked', { label: u.label })}
                   </Animated.Text>
                 ))}
             </View>
@@ -196,7 +202,7 @@ export function LevelUpOverlay({
               accessibilityRole="button"
               style={({ pressed }) => [styles.button, { backgroundColor: color }, pressed && { opacity: 0.85 }]}
             >
-              <Text style={styles.buttonText}>Continuar a jornada</Text>
+              <Text style={styles.buttonText}>{t('levelUp.continue')}</Text>
             </Pressable>
           </Animated.View>
         </View>

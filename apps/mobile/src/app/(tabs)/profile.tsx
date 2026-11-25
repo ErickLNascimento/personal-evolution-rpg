@@ -1,14 +1,15 @@
 import {
   DIFFICULTIES,
-  DIFFICULTY_LABEL,
+  DIFFICULTY_LABELS,
   FOCUS_AREAS_MAX,
   hasAiConsent,
   isValidTimeZone,
   normalizeDisplayName,
   OBJECTIVE_CATEGORIES,
-  OBJECTIVE_CATEGORY_LABEL,
+  OBJECTIVE_CATEGORY_LABELS,
   toggleFocusArea,
   validateFocusAreas,
+  FEATURES,
   type Difficulty,
   type ObjectiveCategory,
 } from '@per/domain';
@@ -18,18 +19,28 @@ import { ActivityIndicator, Alert, StyleSheet, Switch, Text, View } from 'react-
 import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
+import { AppTour } from '@/components/tour/AppTour';
+import { latestNewsSlides } from '@/lib/whatsNew';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useHero } from '@/features/hero/useHero';
+import { exportMyData } from '@/features/account/exportData';
+import { useFeature } from '@/features/profile/useFeature';
 import { useProfile } from '@/features/profile/useProfile';
+import { useToday } from '@/features/profile/useToday';
+import { useT } from '@/i18n';
 import { deviceTimeZone } from '@/lib/deviceTimeZone';
+import { ensureReminderPermission, syncReminders } from '@/lib/reminders';
+import { setSmartNotificationsEnabled, smartNotificationsEnabled } from '@/lib/smartNotifications';
 import { supabase } from '@/lib/supabase';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 export default function ProfileScreen() {
+  const { t } = useT();
   const { isDemo } = useAuth();
   if (isDemo) {
     return (
-      <Screen title="Perfil">
-        <Placeholder text="Modo demonstração: configure o Supabase no .env.local para criar sua conta." />
+      <Screen title={t('profile.title')}>
+        <Placeholder text={t('profile.demo')} />
       </Screen>
     );
   }
@@ -37,8 +48,15 @@ export default function ProfileScreen() {
 }
 
 function AccountProfile() {
+  const { t, locale } = useT();
   const { session } = useAuth();
   const { profile, loading, error, reload, update } = useProfile();
+  const smartOn = useFeature(FEATURES.smartNotifications);
+  const exportOn = useFeature(FEATURES.dataExport);
+  const englishOn = useFeature(FEATURES.english);
+  const { hero } = useHero();
+  const [tourOpen, setTourOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
 
   if (loading && !profile) {
     return (
@@ -50,23 +68,26 @@ function AccountProfile() {
 
   if (!profile) {
     return (
-      <Screen title="Perfil">
-        <FormMessage text={error ?? 'Perfil não encontrado.'} />
-        <Button title="Tentar de novo" onPress={reload} variant="secondary" />
+      <Screen title={t('profile.title')}>
+        <FormMessage text={error ?? t('profile.notFound')} />
+        <Button title={t('common.retry')} onPress={reload} variant="secondary" />
         <SignOutButton />
       </Screen>
     );
   }
 
   return (
-    <Screen title="Perfil">
-      <Section title="CONTA">
-        <Text style={typography.caption}>Conectado como</Text>
+    <Screen title={t('profile.title')}>
+      <Section title={t('profile.account')}>
+        <Text style={typography.caption}>{t('profile.signedInAs')}</Text>
         <Text style={typography.body}>{session?.user.email}</Text>
-        <DisplayNameForm initial={profile.displayName} onSave={(v) => update({ display_name: v })} />
+        <DisplayNameForm
+          initial={profile.displayName}
+          onSave={(v) => update({ display_name: v })}
+        />
       </Section>
 
-      <Section title="FOCO E RITMO">
+      <Section title={t('profile.focus')}>
         <FocusForm
           key={`${profile.focusAreas.join()}|${profile.difficulty}`}
           areas={profile.focusAreas}
@@ -75,25 +96,103 @@ function AccountProfile() {
         />
       </Section>
 
-      <Section title="FUSO HORÁRIO">
-        <TimeZoneForm key={profile.timezone} current={profile.timezone} onSave={(tz) => update({ timezone: tz })} />
+      <Section title={t('profile.timezone')}>
+        <TimeZoneForm
+          key={profile.timezone}
+          current={profile.timezone}
+          onSave={(tz) => update({ timezone: tz })}
+        />
       </Section>
 
-      <Section title="ORÁCULO (INTELIGÊNCIA ARTIFICIAL)">
+      <Section title={t('profile.oracle')}>
         <AiConsent
           consentAt={profile.aiConsentAt}
           onChange={(on) => update({ ai_consent_at: on ? new Date().toISOString() : null })}
         />
       </Section>
 
+      {englishOn && <LanguagePicker />}
+
+      {smartOn && (
+        <Section title={t('profile.notifications')}>
+          <SmartNotificationsToggle />
+        </Section>
+      )}
+
+      <Section title={t('profile.help')}>
+        <Button title={t('profile.sendFeedback')} onPress={() => router.push('/feedback')} />
+        <Button
+          title={t('profile.seeTour')}
+          onPress={() => setTourOpen(true)}
+          variant="secondary"
+        />
+        <Button title={t('profile.news')} onPress={() => setNewsOpen(true)} variant="secondary" />
+      </Section>
+      <AppTour visible={tourOpen} hero={hero} onClose={() => setTourOpen(false)} />
+      <AppTour
+        visible={newsOpen}
+        hero={hero}
+        slides={latestNewsSlides(profile?.features, locale)}
+        heading={t('today.news')}
+        finishLabel={t('today.gotIt')}
+        onClose={() => setNewsOpen(false)}
+      />
+
+      {exportOn && profile && (
+        <Section title={t('profile.yourData')}>
+          <DataExport userId={profile.id} />
+        </Section>
+      )}
+
       <SignOutButton />
-      <Button title="Excluir minha conta" onPress={() => router.push('/delete-account')} variant="secondary" />
+      <Button
+        title={t('profile.deleteAccount')}
+        onPress={() => router.push('/delete-account')}
+        variant="secondary"
+      />
     </Screen>
   );
 }
 
-const AREA_OPTIONS = OBJECTIVE_CATEGORIES.map((c) => ({ value: c, label: OBJECTIVE_CATEGORY_LABEL[c] }));
-const DIFFICULTY_OPTIONS = DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] }));
+/** Idioma do app: seguir o celular ou fixar português/inglês (só com a flag feature_english). */
+function LanguagePicker() {
+  const { t, preference, setPreference } = useT();
+  const options = [
+    { value: 'auto' as const, label: t('language.auto') },
+    { value: 'pt-BR' as const, label: t('language.pt') },
+    { value: 'en' as const, label: t('language.en') },
+  ];
+  return (
+    <Section title={t('language.title')}>
+      <Chips options={options} selected={[preference]} onToggle={setPreference} />
+      <Text style={typography.caption}>{t('language.hint')}</Text>
+    </Section>
+  );
+}
+
+/** Baixar um arquivo com todos os dados pessoais (LGPD). */
+function DataExport({ userId }: { userId: string }) {
+  const { t } = useT();
+  const { today } = useToday();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <Text style={typography.caption}>{t('profile.exportText')}</Text>
+      <FormMessage text={error} />
+      <Button
+        title={t('profile.exportButton')}
+        variant="secondary"
+        loading={busy}
+        onPress={async () => {
+          setBusy(true);
+          setError(await exportMyData(userId, today));
+          setBusy(false);
+        }}
+      />
+    </>
+  );
+}
 
 function FocusForm({
   areas: initialAreas,
@@ -104,6 +203,7 @@ function FocusForm({
   difficulty: Difficulty;
   onSave: (areas: ObjectiveCategory[], difficulty: Difficulty) => Promise<string | null>;
 }) {
+  const { t, locale } = useT();
   const [areas, setAreas] = useState(initialAreas);
   const [difficulty, setDifficulty] = useState(initialDifficulty);
   const [saving, setSaving] = useState(false);
@@ -111,7 +211,7 @@ function FocusForm({
   const dirty = areas.join() !== initialAreas.join() || difficulty !== initialDifficulty;
 
   async function save() {
-    const invalid = validateFocusAreas(areas);
+    const invalid = validateFocusAreas(areas, locale);
     if (invalid) {
       setMessage({ text: invalid, tone: 'error' });
       return;
@@ -119,19 +219,31 @@ function FocusForm({
     setSaving(true);
     const err = await onSave(areas, difficulty);
     setSaving(false);
-    setMessage(err ? { text: err, tone: 'error' } : { text: 'Preferências salvas.', tone: 'info' });
+    setMessage(
+      err ? { text: err, tone: 'error' } : { text: t('profile.prefsSaved'), tone: 'info' },
+    );
   }
 
   return (
     <>
-      <Text style={typography.caption}>
-        Áreas onde você quer evoluir (até {FOCUS_AREAS_MAX}) e o ritmo preferido. O Oráculo usa isso para sugerir missões.
-      </Text>
-      <Chips multiple options={AREA_OPTIONS} selected={areas} onToggle={(a) => setAreas((cur) => toggleFocusArea(cur, a))} />
-      <Text style={typography.label}>RITMO</Text>
-      <Chips options={DIFFICULTY_OPTIONS} selected={[difficulty]} onToggle={setDifficulty} />
+      <Text style={typography.caption}>{t('profile.focusHint', { max: FOCUS_AREAS_MAX })}</Text>
+      <Chips
+        multiple
+        options={OBJECTIVE_CATEGORIES.map((c) => ({
+          value: c,
+          label: OBJECTIVE_CATEGORY_LABELS[locale][c],
+        }))}
+        selected={areas}
+        onToggle={(a) => setAreas((cur) => toggleFocusArea(cur, a))}
+      />
+      <Text style={typography.label}>{t('profile.pace')}</Text>
+      <Chips
+        options={DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABELS[locale][d] }))}
+        selected={[difficulty]}
+        onToggle={setDifficulty}
+      />
       <FormMessage text={message?.text ?? null} tone={message?.tone} />
-      {dirty && <Button title="Salvar preferências" onPress={save} loading={saving} />}
+      {dirty && <Button title={t('profile.savePrefs')} onPress={save} loading={saving} />}
     </>
   );
 }
@@ -154,13 +266,14 @@ function DisplayNameForm({
   initial: string | null;
   onSave: (value: string | null) => Promise<string | null>;
 }) {
+  const { t, locale } = useT();
   const [value, setValue] = useState(initial ?? '');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; tone: 'error' | 'info' } | null>(null);
   const dirty = value.trim() !== (initial ?? '');
 
   async function save() {
-    const { value: name, error } = normalizeDisplayName(value);
+    const { value: name, error } = normalizeDisplayName(value, locale);
     if (error) {
       setMessage({ text: error, tone: 'error' });
       return;
@@ -168,19 +281,36 @@ function DisplayNameForm({
     setSaving(true);
     const saveError = await onSave(name);
     setSaving(false);
-    setMessage(saveError ? { text: saveError, tone: 'error' } : { text: 'Nome salvo.', tone: 'info' });
+    setMessage(
+      saveError
+        ? { text: saveError, tone: 'error' }
+        : { text: t('profile.nameSaved'), tone: 'info' },
+    );
   }
 
   return (
     <>
-      <Field label="Nome de exibição" value={value} onChangeText={setValue} placeholder="Como quer ser chamado" maxLength={60} />
+      <Field
+        label={t('profile.displayName')}
+        value={value}
+        onChangeText={setValue}
+        placeholder={t('profile.displayNamePlaceholder')}
+        maxLength={60}
+      />
       <FormMessage text={message?.text ?? null} tone={message?.tone} />
-      {dirty && <Button title="Salvar nome" onPress={save} loading={saving} />}
+      {dirty && <Button title={t('profile.saveName')} onPress={save} loading={saving} />}
     </>
   );
 }
 
-function TimeZoneForm({ current, onSave }: { current: string; onSave: (tz: string) => Promise<string | null> }) {
+function TimeZoneForm({
+  current,
+  onSave,
+}: {
+  current: string;
+  onSave: (tz: string) => Promise<string | null>;
+}) {
+  const { t } = useT();
   const device = deviceTimeZone();
   const [value, setValue] = useState(current);
   const [saving, setSaving] = useState(false);
@@ -189,28 +319,35 @@ function TimeZoneForm({ current, onSave }: { current: string; onSave: (tz: strin
   async function save(tz: string) {
     const trimmed = tz.trim();
     if (!isValidTimeZone(trimmed)) {
-      setMessage({ text: 'Use um fuso no formato Região/Cidade, por exemplo America/Manaus.', tone: 'error' });
+      setMessage({
+        text: t('profile.tzInvalid'),
+        tone: 'error',
+      });
       return;
     }
     setSaving(true);
     const saveError = await onSave(trimmed);
     setSaving(false);
-    setMessage(saveError ? { text: saveError, tone: 'error' } : { text: 'Fuso salvo.', tone: 'info' });
+    setMessage(
+      saveError ? { text: saveError, tone: 'error' } : { text: t('profile.tzSaved'), tone: 'info' },
+    );
   }
 
   return (
     <>
-      <Text style={typography.caption}>
-        O fuso define quando o seu dia começa e termina: missões, streak e dia perfeito usam a data local.
-      </Text>
+      <Text style={typography.caption}>{t('profile.tzHint')}</Text>
       {device && device !== current && (
         <View style={styles.notice}>
-          <Text style={typography.body}>O seu aparelho está em {device}.</Text>
-          <Button title={`Usar ${device}`} onPress={() => save(device)} loading={saving} />
+          <Text style={typography.body}>{t('profile.tzDevice', { tz: device })}</Text>
+          <Button
+            title={t('profile.tzUse', { tz: device })}
+            onPress={() => save(device)}
+            loading={saving}
+          />
         </View>
       )}
       <Field
-        label="Fuso horário"
+        label={t('profile.tzField')}
         value={value}
         onChangeText={setValue}
         autoCapitalize="none"
@@ -218,7 +355,9 @@ function TimeZoneForm({ current, onSave }: { current: string; onSave: (tz: strin
         placeholder="America/Sao_Paulo"
       />
       <FormMessage text={message?.text ?? null} tone={message?.tone} />
-      {value.trim() !== current && <Button title="Salvar fuso" onPress={() => save(value)} loading={saving} />}
+      {value.trim() !== current && (
+        <Button title={t('profile.tzSave')} onPress={() => save(value)} loading={saving} />
+      )}
     </>
   );
 }
@@ -230,6 +369,7 @@ function AiConsent({
   consentAt: string | null;
   onChange: (on: boolean) => Promise<string | null>;
 }) {
+  const { t, locale } = useT();
   const enabled = hasAiConsent({ aiConsentAt: consentAt });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -245,45 +385,70 @@ function AiConsent({
       void toggle(true);
       return;
     }
-    Alert.alert('Desativar a IA?', 'A IA deixa de receber seus dados e não vai mais sugerir planos.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Desativar', style: 'destructive', onPress: () => void toggle(false) },
+    Alert.alert(t('profile.aiOffTitle'), t('profile.aiOffText'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('profile.aiOff'), style: 'destructive', onPress: () => void toggle(false) },
     ]);
   }
 
   return (
     <>
       <View style={styles.switchRow}>
-        <Text style={[typography.body, styles.switchLabel]}>Permitir que a IA use meus dados</Text>
+        <Text style={[typography.body, styles.switchLabel]}>{t('profile.aiAllow')}</Text>
         <Switch
           value={enabled}
           onValueChange={confirmToggle}
           disabled={saving}
-          accessibilityLabel="Permitir que a IA use meus dados"
+          accessibilityLabel={t('profile.aiAllow')}
           trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
         />
       </View>
-      <Text style={typography.caption}>
-        Com a permissão, seus objetivos, hábitos e registros (sem nome nem e-mail) são enviados aos provedores de IA —
-        Google Gemini e, quando ele está ocupado, Groq — só para sugerir planos. A IA só propõe: nada muda sem a sua
-        aprovação, e ela nunca altera seu XP. Você pode desativar quando quiser.
-      </Text>
+      <Text style={typography.caption}>{t('profile.aiHint')}</Text>
       {enabled && consentAt && (
-        <Text style={typography.caption}>Permitido em {new Date(consentAt).toLocaleDateString('pt-BR')}.</Text>
+        <Text style={typography.caption}>
+          {t('profile.aiSince', { date: new Date(consentAt).toLocaleDateString(locale) })}
+        </Text>
       )}
       <FormMessage text={error} />
     </>
   );
 }
 
+/** Liga/desliga os avisos de streak, missão relâmpago e promoção (os lembretes de hábito seguem). */
+function SmartNotificationsToggle() {
+  const { t } = useT();
+  const [on, setOn] = useState(() => smartNotificationsEnabled());
+  async function toggle(next: boolean) {
+    setOn(next);
+    setSmartNotificationsEnabled(next);
+    if (next) await ensureReminderPermission();
+    void syncReminders().catch(() => undefined);
+  }
+  return (
+    <View style={styles.switchRow}>
+      <View style={styles.switchText}>
+        <Text style={typography.body}>{t('profile.heroAlerts')}</Text>
+        <Text style={typography.caption}>{t('profile.heroAlertsHint')}</Text>
+      </View>
+      <Switch
+        value={on}
+        onValueChange={(v) => void toggle(v)}
+        accessibilityLabel={t('profile.heroAlerts')}
+        trackColor={{ true: colors.primary, false: colors.border }}
+      />
+    </View>
+  );
+}
+
 function SignOutButton() {
+  const { t } = useT();
   const [loading, setLoading] = useState(false);
 
   function confirmSignOut() {
-    Alert.alert('Sair da conta?', 'Você vai precisar entrar de novo com e-mail e senha.', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('profile.signOutTitle'), t('profile.signOutText'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Sair',
+        text: t('profile.signOut'),
         style: 'destructive',
         onPress: async () => {
           setLoading(true);
@@ -295,7 +460,14 @@ function SignOutButton() {
     ]);
   }
 
-  return <Button title="Sair" onPress={confirmSignOut} variant="danger" loading={loading} />;
+  return (
+    <Button
+      title={t('profile.signOut')}
+      onPress={confirmSignOut}
+      variant="danger"
+      loading={loading}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
@@ -307,7 +479,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  notice: { gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceRaised },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  notice: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceRaised,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  switchText: { flex: 1, gap: 2 },
   switchLabel: { flex: 1 },
 });

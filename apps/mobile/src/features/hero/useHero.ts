@@ -1,14 +1,15 @@
-import { DEFAULT_HERO, isHeroUnset, levelFromXp, sanitizeHero, type HeroLook, type LevelProgress } from '@per/domain';
+import { DEFAULT_HERO, heroLook, isHeroUnset, levelFromXp, type HeroLook, type LevelProgress } from '@per/domain';
 import { useCallback } from 'react';
 import type { Result } from '@/features/habits/api';
 import { useProfile } from '@/features/profile/ProfileProvider';
 import { supabase } from '@/lib/supabase';
 import { useFocusLoad } from '@/lib/useFocusLoad';
+import { t } from '@/i18n';
 
 async function fetchTotalXp(): Promise<Result<number>> {
-  if (!supabase) return { data: null, error: 'Supabase não configurado.' };
+  if (!supabase) return { data: null, error: t('apiErrors.noSupabase') };
   const { data, error } = await supabase.rpc('my_total_xp');
-  if (error) return { data: null, error: 'Não foi possível carregar o seu nível.' };
+  if (error) return { data: null, error: t('apiErrors.loadLevel') };
   return { data: Number(data ?? 0), error: null };
 }
 
@@ -18,7 +19,7 @@ export function useHero() {
   const load = useCallback(() => fetchTotalXp(), []);
   const xp = useFocusLoad<number>(load, Boolean(profile));
   const level: LevelProgress = levelFromXp(xp.data ?? 0);
-  const hero: HeroLook = profile ? sanitizeHero(profile.hero, level.level, profile.owned) : DEFAULT_HERO;
+  const hero: HeroLook = profile ? heroLook(profile.hero, level.level, profile.heroPath, profile.race, profile.cosmetics) : DEFAULT_HERO;
 
   return {
     hero,

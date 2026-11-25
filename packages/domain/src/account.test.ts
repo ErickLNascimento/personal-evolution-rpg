@@ -1,4 +1,5 @@
 import {
+  dataExportFileName,
   DEFAULT_TIME_ZONE,
   hasAiConsent,
   isDeleteConfirmation,
@@ -57,9 +58,13 @@ describe('credenciais', () => {
   });
 
   it('exige senha, e senha forte só no cadastro', () => {
-    expect(validateCredentials({ ...ok, password: '', mode: 'sign-in' })).toBe('Informe sua senha.');
+    expect(validateCredentials({ ...ok, password: '', mode: 'sign-in' })).toBe(
+      'Informe sua senha.',
+    );
     expect(validateCredentials({ ...ok, password: '123', mode: 'sign-in' })).toBeNull();
-    expect(validateCredentials({ ...ok, password: '1234567', mode: 'sign-up' })).toMatch(/8 caracteres/);
+    expect(validateCredentials({ ...ok, password: '1234567', mode: 'sign-up' })).toMatch(
+      /8 caracteres/,
+    );
   });
 });
 
@@ -84,5 +89,11 @@ describe('confirmação de exclusão', () => {
     expect(isDeleteConfirmation('EXCLUIR')).toBe(true);
     expect(isDeleteConfirmation('excluir conta')).toBe(false);
     expect(isDeleteConfirmation('')).toBe(false);
+  });
+});
+
+describe('exportação de dados', () => {
+  it('nome do arquivo com a data', () => {
+    expect(dataExportFileName('2026-11-24')).toBe('personal-evolution-rpg-dados-2026-11-24.json');
   });
 });

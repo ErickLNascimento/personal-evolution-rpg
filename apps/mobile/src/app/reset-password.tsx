@@ -2,13 +2,21 @@ import { validateNewPassword } from '@per/domain';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Button, Field, FormMessage } from '@/components/Form';
 import { parseAuthRedirect } from '@/lib/authRedirect';
 import { createRecoveryClient } from '@/lib/supabase';
 import { colors, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 type Stage = 'checking' | 'ready' | 'invalid' | 'done';
 
@@ -17,6 +25,7 @@ type Stage = 'checking' | 'ready' | 'invalid' | 'done';
  * Fica fora dos guards de login: funciona logado ou não.
  */
 export default function ResetPasswordScreen() {
+  const { t, locale } = useT();
   const url = Linking.useLinkingURL();
   const recovery = useMemo<SupabaseClient | null>(() => createRecoveryClient(), []);
   const [stage, setStage] = useState<Stage>('checking');
@@ -31,9 +40,11 @@ export default function ResetPasswordScreen() {
     // Sem tokens: pode ser a URL inicial antes do link chegar (erro explícito é tratado na renderização).
     if (!p.accessToken || !p.refreshToken) return;
     let active = true;
-    recovery.auth.setSession({ access_token: p.accessToken, refresh_token: p.refreshToken }).then(({ error: e }) => {
-      if (active) setStage(e ? 'invalid' : 'ready');
-    });
+    recovery.auth
+      .setSession({ access_token: p.accessToken, refresh_token: p.refreshToken })
+      .then(({ error: e }) => {
+        if (active) setStage(e ? 'invalid' : 'ready');
+      });
     return () => {
       active = false;
     };
@@ -45,7 +56,7 @@ export default function ResetPasswordScreen() {
 
   async function save() {
     if (!recovery) return;
-    const invalid = validateNewPassword(password, confirmation);
+    const invalid = validateNewPassword(password, confirmation, locale);
     if (invalid) {
       setError(invalid);
       return;
@@ -55,7 +66,7 @@ export default function ResetPasswordScreen() {
     const { error: e } = await recovery.auth.updateUser({ password });
     setSaving(false);
     if (e) {
-      setError(e.code === 'same_password' ? 'Use uma senha diferente da atual.' : 'Não foi possível salvar a senha. Peça um novo link.');
+      setError(e.code === 'same_password' ? t('auth.samePassword') : t('auth.passwordFailed'));
       return;
     }
     await recovery.auth.signOut({ scope: 'local' });
@@ -64,41 +75,48 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={styles.safe}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={typography.title} accessibilityRole="header">
-            Nova senha
+            {t('auth.newPassword')}
           </Text>
 
           {view === 'checking' && (
             <>
               <ActivityIndicator color={colors.primary} />
-              <Text style={typography.caption}>Verificando o link…</Text>
-              <Button title="Voltar" onPress={() => router.replace('/')} variant="secondary" />
+              <Text style={typography.caption}>{t('auth.checking')}</Text>
+              <Button
+                title={t('auth.back')}
+                onPress={() => router.replace('/')}
+                variant="secondary"
+              />
             </>
           )}
 
           {view === 'invalid' && (
             <>
-              <FormMessage text="Este link expirou ou já foi usado. Peça um novo em “Esqueci minha senha”." />
-              <Button title="Voltar ao login" onPress={() => router.replace('/')} />
+              <FormMessage text={t('auth.expired')} />
+              <Button title={t('auth.backToLogin')} onPress={() => router.replace('/')} />
             </>
           )}
 
           {view === 'ready' && (
             <>
               <Field
-                label="Nova senha"
+                label={t('auth.newPassword')}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 autoCapitalize="none"
                 autoComplete="new-password"
                 textContentType="newPassword"
-                placeholder="Pelo menos 8 caracteres"
+                placeholder={t('auth.passwordHint')}
               />
               <Field
-                label="Repita a nova senha"
+                label={t('auth.repeatPassword')}
                 value={confirmation}
                 onChangeText={setConfirmation}
                 secureTextEntry
@@ -108,14 +126,14 @@ export default function ResetPasswordScreen() {
                 onSubmitEditing={save}
               />
               <FormMessage text={error} />
-              <Button title="Salvar nova senha" onPress={save} loading={saving} />
+              <Button title={t('auth.savePassword')} onPress={save} loading={saving} />
             </>
           )}
 
           {view === 'done' && (
             <>
-              <FormMessage text="Senha alterada. Entre com a nova senha." tone="info" />
-              <Button title="Continuar" onPress={() => router.replace('/')} />
+              <FormMessage text={t('auth.passwordChanged')} tone="info" />
+              <Button title={t('auth.continue')} onPress={() => router.replace('/')} />
             </>
           )}
         </ScrollView>

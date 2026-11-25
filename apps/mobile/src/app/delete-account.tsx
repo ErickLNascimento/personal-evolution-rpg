@@ -1,4 +1,4 @@
-import { DELETE_ACCOUNT_WORD, isDeleteConfirmation } from '@per/domain';
+import { DELETE_ACCOUNT_WORDS, isDeleteConfirmation } from '@per/domain';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -6,16 +6,18 @@ import { Button, Field, FormMessage } from '@/components/Form';
 import { StackScreen } from '@/components/Screen';
 import { deleteAccount } from '@/features/account/deleteAccount';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /**
  * Confirmação de exclusão em tela própria (modal): o aviso fica no topo e o campo logo abaixo,
  * para tudo caber acima do teclado. Com sucesso, a sessão some e o app volta para o login.
  */
 export default function DeleteAccountScreen() {
+  const { t, locale } = useT();
   const [text, setText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const confirmed = isDeleteConfirmation(text);
+  const confirmed = isDeleteConfirmation(text, locale);
 
   async function confirmDelete() {
     if (!confirmed) return;
@@ -31,14 +33,12 @@ export default function DeleteAccountScreen() {
   return (
     <StackScreen>
       <View style={styles.warning}>
-        <Text style={typography.heading}>Isto não pode ser desfeito</Text>
-        <Text style={typography.body}>
-          Sua conta e todos os dados serão apagados para sempre: perfil, objetivos, hábitos, registros, XP e planos da IA.
-        </Text>
+        <Text style={typography.heading}>{t('deleteAccount.warning')}</Text>
+        <Text style={typography.body}>{t('deleteAccount.text')}</Text>
       </View>
 
       <Field
-        label={`Digite ${DELETE_ACCOUNT_WORD} para confirmar`}
+        label={t('deleteAccount.type', { word: DELETE_ACCOUNT_WORDS[locale] })}
         value={text}
         onChangeText={setText}
         autoCapitalize="characters"
@@ -50,13 +50,18 @@ export default function DeleteAccountScreen() {
       <FormMessage text={error} />
 
       <Button
-        title="Excluir definitivamente"
+        title={t('deleteAccount.confirm')}
         onPress={confirmDelete}
         variant="danger"
         loading={deleting}
         disabled={!confirmed}
       />
-      <Button title="Cancelar" onPress={() => router.back()} variant="secondary" disabled={deleting} />
+      <Button
+        title={t('common.cancel')}
+        onPress={() => router.back()}
+        variant="secondary"
+        disabled={deleting}
+      />
     </StackScreen>
   );
 }

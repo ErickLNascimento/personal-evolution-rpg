@@ -31,7 +31,18 @@
       "expo-sqlite",
       "expo-font",
       "expo-localization",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "organization": "myliferpg",
+          "project": "personal-evolution-rpg"
+        }
+      ],
+      "./plugins/withGradleMemory",
+      "./plugins/withLocalCmake",
+      "./plugins/withoutPushEntitlement"
     ],
     "experiments": {
       "typedRoutes": true
@@ -46,6 +57,12 @@
         "projectId": "a1d627b6-40fb-4fe8-b662-50e961f53be0"
       }
     },
-    "owner": "ericklnascimento"
+    "owner": "ericklnascimento",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a1d627b6-40fb-4fe8-b662-50e961f53be0"
+    }
   }
 }

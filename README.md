@@ -10,6 +10,7 @@ apps/mobile/          App Expo (Expo Router, rotas em src/app/)
 packages/domain/      Regras puras: XP, nível, streak, agenda por fuso (com testes)
 supabase/migrations/  Schema, RLS e funções log_habit / undo_habit_log
 supabase/sql-tests/   Testes de RLS e XP em Postgres puro (rodam no CI)
+tools/sprites/        Gerador dos sprites pixel art do herói (Python + Pillow)
 .github/workflows/    CI: typecheck, lint, testes e banco
 ```
 

@@ -8,6 +8,7 @@ import {
   type SuggestionEdit,
 } from '@per/domain';
 import type { Result } from '@/features/habits/api';
+import { currentLocale, t } from '@/i18n';
 import { supabase } from '@/lib/supabase';
 
 /** Trocas de sugestão permitidas por plano (mesmo valor do banco). */
@@ -54,21 +55,23 @@ export async function latestPlan(): Promise<Result<AiPlan | null>> {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle<PlanRow>();
-  if (error) return { data: null, error: 'Não foi possível carregar as sugestões.' };
+  if (error) return { data: null, error: t('apiErrors.loadPlan') };
   return { data: data ? fromRow(data) : null, error: null };
 }
 
 async function invokeAiPlan(body: Record<string, unknown>): Promise<Result<AiPlan>> {
-  const { data, error } = await client().functions.invoke<{ plan: PlanRow }>('ai-plan', { body });
+  const { data, error } = await client().functions.invoke<{ plan: PlanRow }>('ai-plan', {
+    body: { ...body, locale: currentLocale() },
+  });
   if (error) {
-    // A função devolve { error: "mensagem em português" } com o status HTTP.
+    // A função devolve { error: "mensagem" } no idioma pedido, com o status HTTP.
     if (error instanceof FunctionsHttpError) {
       const res = await (error.context as Response).json().catch(() => null);
       if (res && typeof res.error === 'string') return { data: null, error: res.error };
     }
-    return { data: null, error: 'Não foi possível falar com a IA. Verifique a internet e tente de novo.' };
+    return { data: null, error: t('apiErrors.aiUnreachable') };
   }
-  if (!data?.plan) return { data: null, error: 'A IA não devolveu um plano.' };
+  if (!data?.plan) return { data: null, error: t('apiErrors.aiNoPlan') };
   return { data: fromRow(data.plan), error: null };
 }
 
@@ -96,9 +99,9 @@ export async function decidePlan(
     p_edits: edits,
   });
   if (error) {
-    if (error.code === '22023') return { data: null, error: 'Este plano já foi decidido ou mudou. Atualize a tela.' };
-    if (error.code === '23514') return { data: null, error: 'Algum ajuste ficou inválido. Confira nome e dias.' };
-    return { data: null, error: 'Não foi possível salvar a decisão. Tente de novo.' };
+    if (error.code === '22023') return { data: null, error: t('apiErrors.planChanged') };
+    if (error.code === '23514') return { data: null, error: t('apiErrors.planInvalidEdit') };
+    return { data: null, error: t('apiErrors.planDecide') };
   }
   return { data: { habitsCreated: Number((data as { habits_created: number }).habits_created) }, error: null };
 }

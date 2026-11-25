@@ -2,18 +2,21 @@
   "name": "@per/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "./index",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "postinstall": "setup-skia-web public"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@per/domain": "*",
     "@react-native-community/datetimepicker": "9.2.1",
+    "@sentry/react-native": "~8.28.0",
+    "@shopify/react-native-skia": "2.14.0",
     "@supabase/supabase-js": "^2.119.2",
     "expo": "~58.0.26",
     "expo-constants": "~58.0.16",
@@ -25,6 +28,7 @@
     "expo-router": "~58.0.32",
     "expo-sqlite": "~58.0.18",
     "expo-status-bar": "~58.0.5",
+    "expo-updates": "~58.0.22",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",

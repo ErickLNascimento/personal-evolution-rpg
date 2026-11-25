@@ -1,0 +1,262 @@
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+
+/**
+ * Novidades: a cada atualização entregue aos usuários (build novo ou EAS Update), acrescente
+ * uma entrada no INÍCIO de RELEASE_NOTES com `version` maior que a anterior. Quem abrir o app
+ * vê um tour curto só com o que mudou desde a última nota que viu.
+ */
+
+export interface ReleaseNoteItem {
+  /** Nome de um ícone do Ionicons (ex.: 'stats-chart'). */
+  icon: string;
+  title: string;
+  text: string;
+  /** Tela para "Ver agora" (rota do Expo Router), se houver. */
+  route?: string;
+  /** Só aparece com esta feature flag ligada (ver features.ts). */
+  flag?: string;
+  /** Título e texto em inglês (obrigatórios nas notas novas). */
+  en?: { title: string; text: string };
+}
+
+export interface ReleaseNote {
+  /** Inteiro crescente; o app guarda a última versão vista. */
+  version: number;
+  /** Data da entrega (AAAA-MM-DD). */
+  date: string;
+  items: ReleaseNoteItem[];
+}
+
+export const RELEASE_NOTES: readonly ReleaseNote[] = [
+  {
+    version: 6,
+    date: '2026-11-30',
+    items: [
+      {
+        icon: 'skull',
+        title: 'Chefes à vista',
+        text: 'Os monstros do chefe da semana e o Oráculo agora são desenhados do mesmo jeito que o seu herói, e não somem mais da tela.',
+        en: {
+          title: 'Bosses in sight',
+          text: 'The weekly boss monsters and the Oracle are now drawn the same way as your hero, so they no longer disappear from the screen.',
+        },
+        route: '/challenges',
+      },
+      {
+        icon: 'language',
+        flag: 'feature_english',
+        title: 'Inglês no app todo',
+        text: 'Herói, caminhos, títulos, chefes, Oráculo e notificações agora também em inglês.',
+        en: {
+          title: 'English everywhere',
+          text: 'Your hero, paths, titles, bosses, the Oracle and notifications now speak English too.',
+        },
+      },
+    ],
+  },
+  {
+    version: 5,
+    date: '2026-11-29',
+    items: [
+      {
+        icon: 'language',
+        flag: 'feature_english',
+        title: 'Now in English',
+        text: 'O app agora fala inglês: ele segue o idioma do celular, e dá para escolher em Perfil → Idioma.',
+        en: {
+          title: 'Now in English',
+          text: 'The app now speaks English: it follows your phone\'s language, and you can choose in Profile → Language.',
+        },
+        route: '/profile',
+      },
+    ],
+  },
+  {
+    version: 4,
+    date: '2026-11-28',
+    items: [
+      {
+        icon: 'download',
+        flag: 'feature_data_export',
+        title: 'Baixe os seus dados',
+        text: 'Em Perfil → Seus dados, baixe um arquivo com tudo o que o app guarda sobre você: hábitos, registros, XP, Cristais, diário e mais.',
+        en: {
+          title: 'Download your data',
+          text: 'In Profile → Your data, download a file with everything the app stores about you: habits, logs, XP, Crystals, journal and more.',
+        },
+        route: '/profile',
+      },
+    ],
+  },
+  {
+    version: 3,
+    date: '2026-11-27',
+    items: [
+      {
+        icon: 'shield',
+        title: 'Ícone novo',
+        text: 'O app ganhou um brasão próprio na tela inicial: o escudo com a seta de subir de nível.',
+        en: {
+          title: 'New icon',
+          text: 'The app has its own crest on your home screen: the shield with the level-up arrow.',
+        },
+      },
+      {
+        icon: 'happy',
+        flag: 'feature_mood_journal',
+        title: 'Diário de humor',
+        text: 'Na tela Hoje, conte como você está com um toque (e, se quiser, sentimentos e uma nota). O primeiro registro do dia rende 3 Cristais. Só você vê.',
+        en: {
+          title: 'Mood journal',
+          text: 'On the Today screen, share how you feel with one tap (plus feelings and a note, if you like). Your first check-in of the day earns 3 Crystals. Only you can see it.',
+        },
+      },
+      {
+        icon: 'analytics',
+        flag: 'feature_mood_journal',
+        title: 'O que mexe com o seu humor',
+        text: 'Em Progresso, veja seu humor dos últimos 14 dias e se ele melhora nos dias em que você cumpre todas as missões.',
+        en: {
+          title: 'What moves your mood',
+          text: 'In Progress, see your mood over the last 14 days and whether it improves on days you finish all your missions.',
+        },
+        route: '/progress',
+      },
+    ],
+  },
+  {
+    version: 2,
+    date: '2026-11-26',
+    items: [
+      {
+        icon: 'people',
+        title: 'Amigos',
+        text: 'Na nova aba Social, adicione amigos pelo código ou pelo nome. Vocês veem o herói, o nível, o streak e quantas missões cada um fez hoje. Os nomes dos hábitos continuam só seus.',
+        en: {
+          title: 'Friends',
+          text: 'In the new Social tab, add friends by code or name. You see each other\'s hero, level, streak and how many missions each did today. Your habit names stay private.',
+        },
+        route: '/social',
+      },
+      {
+        icon: 'shield-half',
+        title: 'Grupos contra o chefe',
+        text: 'Crie um grupo de até 6 pessoas: cada missão de qualquer um tira 1 de vida do chefe da semana do grupo. Derrotado, cada membro ganha 30 Cristais.',
+        en: {
+          title: 'Groups vs. the boss',
+          text: 'Create a group of up to 6 people: every mission anyone completes takes 1 HP from the group\'s weekly boss. Once it\'s defeated, each member earns 30 Crystals.',
+        },
+        route: '/social',
+      },
+      {
+        icon: 'skull',
+        title: 'Os chefes ganharam vida',
+        text: 'Golem, Hidra, Lich, Dragão, Sombra e Basilisco agora são monstros animados: provocam você, sentem cada missão feita, enfraquecem e se desfazem em luz quando derrotados.',
+        en: {
+          title: 'The bosses came alive',
+          text: 'Golem, Hydra, Lich, Dragon, Shadow and Basilisk are now animated monsters: they taunt you, feel every mission you complete, weaken and dissolve into light when defeated.',
+        },
+        route: '/challenges',
+      },
+      {
+        icon: 'happy',
+        title: 'Comemoração sempre à vista',
+        text: 'Concluiu uma missão lá embaixo na lista? Seu herói aparece num balão e comemora com você.',
+        en: {
+          title: 'Celebration always in view',
+          text: 'Completed a mission far down the list? Your hero pops up in a bubble and celebrates with you.',
+        },
+      },
+      {
+        icon: 'cloud-download',
+        title: 'Atualizações avisadas',
+        text: 'Quando sair uma versão nova, o app avisa, baixa em segundo plano e aplica na próxima vez que você abrir.',
+        en: {
+          title: 'Update notices',
+          text: 'When a new version comes out, the app lets you know, downloads it in the background and applies it the next time you open it.',
+        },
+      },
+    ],
+  },
+  {
+    version: 1,
+    date: '2026-11-25',
+    items: [
+      {
+        icon: 'skull',
+        title: 'Chefe da semana',
+        text: 'Toda semana um chefe novo aparece. Cada missão feita tira 1 de vida dele. Derrote-o e ganhe 40 Cristais.',
+        en: {
+          title: 'Weekly boss',
+          text: 'A new boss shows up every week. Each mission you complete takes 1 HP from it. Defeat it to earn 40 Crystals.',
+        },
+        route: '/challenges',
+      },
+      {
+        icon: 'trail-sign',
+        title: 'Jornadas de 21 e 66 dias',
+        text: 'Escolha um hábito e um prazo. Faça-o em 80% dos dias da agenda para vencer e ganhar até 450 Cristais.',
+        en: {
+          title: '21- and 66-day journeys',
+          text: 'Pick a habit and a duration. Do it on 80% of its scheduled days to win up to 450 Crystals.',
+        },
+        route: '/challenges',
+      },
+      {
+        icon: 'water',
+        title: 'Novos tipos de hábito',
+        text: 'Além de “Fazer”, agora há “Evitar” (ex.: não fumar) e “Contar” (ex.: 8 copos de água, com + e − no card).',
+        en: {
+          title: 'New habit types',
+          text: 'Besides “Do”, there\'s now “Avoid” (e.g. no smoking) and “Count” (e.g. 8 glasses of water, with + and − on the card).',
+        },
+        route: '/habit/new',
+      },
+      {
+        icon: 'stats-chart',
+        title: 'Estatísticas por hábito',
+        text: 'Toque num hábito para ver a taxa de conclusão, a melhor sequência e o mapa das últimas 12 semanas.',
+        en: {
+          title: 'Habit stats',
+          text: 'Tap a habit to see its completion rate, best streak and a map of the last 12 weeks.',
+        },
+      },
+      {
+        icon: 'storefront',
+        title: 'Loja',
+        text: 'Gaste Cristais em auras, roupas e cabelos exclusivos, ou crie recompensas da vida real (“ver um episódio = 50 Cristais”).',
+        en: {
+          title: 'Shop',
+          text: 'Spend Crystals on exclusive auras, outfits and hair colors, or create real-life rewards (“watch an episode = 50 Crystals”).',
+        },
+        route: '/shop',
+      },
+    ],
+  },
+];
+
+export const LATEST_RELEASE_NOTE_VERSION = RELEASE_NOTES[0]?.version ?? 0;
+
+/**
+ * Itens que o usuário ainda não viu (os mais novos primeiro). Itens de uma feature flag
+ * desligada ficam de fora.
+ */
+export function unseenReleaseItems(
+  seenVersion: number,
+  notes: readonly ReleaseNote[] = RELEASE_NOTES,
+  features: ReadonlySet<string> = new Set(),
+): ReleaseNoteItem[] {
+  return notes
+    .filter((n) => n.version > seenVersion)
+    .sort((a, b) => b.version - a.version)
+    .flatMap((n) => n.items)
+    .filter((i) => !i.flag || features.has(i.flag));
+}
+
+/** Título e texto do item no idioma (sem tradução, fica o português). */
+export function releaseItemText(
+  item: ReleaseNoteItem,
+  locale: Locale = DEFAULT_LOCALE,
+): { title: string; text: string } {
+  return locale === 'en' && item.en ? item.en : { title: item.title, text: item.text };
+}

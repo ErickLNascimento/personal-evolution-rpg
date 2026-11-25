@@ -35,6 +35,9 @@ Deno.serve(async (req) => {
   if (error || !data.user) return reply(401, { error: "Sessão inválida. Entre de novo." });
 
   const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  // Arquivo da exportação de dados (LGPD), se houver: o Storage não apaga em cascata com a conta.
+  const { error: storageError } = await admin.storage.from("exports").remove([`${data.user.id}/dados.json`]);
+  if (storageError) console.error("exports.remove", storageError.message);
   const { error: deleteError } = await admin.auth.admin.deleteUser(data.user.id);
   if (deleteError) {
     console.error("deleteUser", deleteError.message);

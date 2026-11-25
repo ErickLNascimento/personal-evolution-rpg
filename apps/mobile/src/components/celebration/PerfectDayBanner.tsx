@@ -2,23 +2,43 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming, ZoomIn } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  ZoomIn,
+} from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /** Selo dourado de dia perfeito: entra com salto, brilha e vibra. */
 export function PerfectDayBanner({ text }: { text: string }) {
+  const { t } = useT();
   const glow = useSharedValue(0);
   useEffect(() => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    glow.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }), 6, true);
+    glow.value = withRepeat(
+      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+      6,
+      true,
+    );
   }, [glow]);
-  const glowStyle = useAnimatedStyle(() => ({ shadowOpacity: 0.3 + glow.value * 0.6, borderColor: glow.value > 0.5 ? '#FFE08A' : colors.xp }));
+  const glowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.3 + glow.value * 0.6,
+    borderColor: glow.value > 0.5 ? '#FFE08A' : colors.xp,
+  }));
 
   return (
-    <Animated.View entering={ZoomIn.springify().damping(9)} style={[styles.banner, glowStyle]} accessibilityLiveRegion="polite">
+    <Animated.View
+      entering={ZoomIn.springify().damping(9)}
+      style={[styles.banner, glowStyle]}
+      accessibilityLiveRegion="polite"
+    >
       <Ionicons name="star" size={26} color={colors.xp} />
       <View style={styles.body}>
-        <Text style={styles.title}>DIA PERFEITO!</Text>
+        <Text style={styles.title}>{t('today.perfectDay')}</Text>
         <Text style={styles.text}>{text}</Text>
       </View>
       <Ionicons name="star" size={26} color={colors.xp} />

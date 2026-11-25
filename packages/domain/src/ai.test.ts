@@ -83,3 +83,14 @@ describe('ajuste de sugestão', () => {
     expect(validateSuggestionEdit(0, { title: 'Ler', difficulty: 'easy', scheduleDays: [] }).error).not.toBeNull();
   });
 });
+
+describe('mensagens da IA em inglês', () => {
+  it('pedido e ajuste', () => {
+    expect(
+      normalizePlanRequest({ goal: '', minutesPerDay: null, freeDays: [], pastAttempts: '' }, 'en').error,
+    ).toBe('Pick at least one free day.');
+    expect(validateSuggestionEdit(0, { title: ' ', difficulty: 'easy', scheduleDays: [1] }, 'en').error).toBe(
+      'Give the habit a name.',
+    );
+  });
+});

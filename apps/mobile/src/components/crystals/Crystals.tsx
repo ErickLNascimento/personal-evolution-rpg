@@ -3,23 +3,30 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { radius, spacing } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /** Cor dos Cristais em todo o app. */
 export const CRYSTAL = '#5CE1E6';
 
 /** Saldo de Cristais: ícone + número. */
 export function CrystalBadge({ amount, size = 'md' }: { amount: number; size?: 'sm' | 'md' }) {
+  const { t, locale } = useT();
   const small = size === 'sm';
   return (
-    <View style={[styles.badge, small && styles.badgeSm]} accessible accessibilityLabel={`${amount} Cristais`}>
+    <View
+      style={[styles.badge, small && styles.badgeSm]}
+      accessible
+      accessibilityLabel={t('common.crystals', { amount })}
+    >
       <Ionicons name="diamond" size={small ? 12 : 15} color={CRYSTAL} />
-      <Text style={[styles.amount, small && styles.amountSm]}>{amount.toLocaleString('pt-BR')}</Text>
+      <Text style={[styles.amount, small && styles.amountSm]}>{amount.toLocaleString(locale)}</Text>
     </View>
   );
 }
 
 /** "+N Cristais" que aparece por 1,8 s quando uma missão rende Cristais. */
 export function CrystalToast({ gain }: { gain: { amount: number; key: number } | null }) {
+  const { t } = useT();
   // Some sozinho: guarda qual ganho já foi dispensado; um ganho novo (outra `key`) aparece de novo.
   const [dismissed, setDismissed] = useState<number | null>(null);
   useEffect(() => {
@@ -38,7 +45,7 @@ export function CrystalToast({ gain }: { gain: { amount: number; key: number } |
       accessibilityLiveRegion="polite"
     >
       <Ionicons name="diamond" size={16} color={CRYSTAL} />
-      <Text style={styles.toastText}>+{shown.amount} Cristais</Text>
+      <Text style={styles.toastText}>{t('common.plusCrystals', { amount: shown.amount })}</Text>
     </Animated.View>
   );
 }

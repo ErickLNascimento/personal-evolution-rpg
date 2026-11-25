@@ -61,4 +61,5 @@ jobs:
         with:
           deno-version: v2.x
       - name: Checar tipos
-        run: deno check supabase/functions/*/index.ts
+        # Config própria: o tsconfig da raiz é do Expo e o package.json é do npm.
+        run: deno check --config supabase/deno.json supabase/functions/*/index.ts

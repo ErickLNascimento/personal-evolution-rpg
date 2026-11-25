@@ -388,7 +388,7 @@ begin
   perform pg_temp.check((select count(*) from public.xp_transactions) = 0, 'B não vê XP de A');
   perform pg_temp.check((select count(*) from public.ai_plans) = 0, 'B não vê planos de A');
   perform pg_temp.check(public.my_total_xp() = 0, 'XP de B = 0');
-  perform pg_temp.check((select count(*) from public.xp_rules) = 4, 'regras de XP são públicas');
+  perform pg_temp.check((select count(*) from public.xp_rules) = 5, 'regras de XP são públicas (inclui o bônus relâmpago)');
 
   -- Perfil (tela Perfil): B edita o próprio consentimento e fuso, nunca o de A
   update public.profiles set ai_consent_at = now(), timezone = 'Europe/Lisbon';
@@ -581,7 +581,7 @@ do $$ begin
 end $$;
 
 -- ── Cristais ─────────────────────────────────────────────────
--- Gil: Guerreiro (classe padrão, +10% em Saúde), com 990 XP (nível 4).
+-- Gil: caminho Marcial (estágio 0, +5% em Saúde), com 990 XP (nível 4).
 reset role;
 insert into auth.users (id, email) values ('88888888-8888-8888-8888-888888888888', 'gil@teste.dev');
 update public.profiles set timezone = 'America/Manaus' where id = '88888888-8888-8888-8888-888888888888';
@@ -600,9 +600,17 @@ set local role authenticated;
 do $$
 declare r jsonb;
 begin
-  -- fácil (5) + 10% em Saúde (arredonda para cima: +1) = 6; e o XP chega a 1000 → nível 5 → +50
+  -- sem caminho ainda; a primeira escolha não inicia a espera de troca
+  r := public.my_hero_path();
+  perform pg_temp.check(r->>'path' is null and (r->>'level')::int = 4, 'sem caminho, nível 4');
+  r := public.choose_path('marcial');
+  perform pg_temp.check((r->>'stage')::int = 0 and (r->>'changed')::boolean, 'escolhe Marcial no estágio 0');
+  perform pg_temp.check((select path_changed_at from public.profiles) is null, 'primeira escolha sem espera');
+
+  -- fácil (5) + 5% em Saúde (arredonda para cima: +1) = 6; e o XP chega a 1000 → nível 5 → +50
   r := public.log_habit('b1000000-0000-0000-0000-000000000001', pg_temp.today());
   perform pg_temp.check((r->>'xp_awarded')::int = 10, 'XP da missão continua igual');
+  perform pg_temp.check((r->>'flash_bonus')::int = 0, 'sem missão relâmpago, sem bônus');
   perform pg_temp.check((r->>'coins_awarded')::int = 56, 'missão (6) + subida para o nível 5 (50)');
   perform pg_temp.check((r->>'coin_balance')::int = 56, 'saldo 56');
   perform pg_temp.check(public.my_coin_balance() = 56, 'my_coin_balance bate');
@@ -621,15 +629,15 @@ begin
   r := public.log_habit('b1000000-0000-0000-0000-000000000002', pg_temp.today());
   perform pg_temp.check((r->>'coin_balance')::int = 81, 'registrar de novo devolve 25');
 
-  -- missão de ontem rende metade: ceil(5/2)=3, +10% Saúde = 4
+  -- missão de ontem rende metade: ceil(5/2)=3, +5% Saúde = 4
   r := public.log_habit('b1000000-0000-0000-0000-000000000001', pg_temp.today() - 1);
   perform pg_temp.check((r->>'coins_awarded')::int = 4, 'ontem rende metade');
 
-  -- compra: saldo insuficiente
+  -- a loja de classes acabou: a classe vem do caminho
   begin
     perform public.buy_item('paladino');
-    raise exception 'FALHOU: comprou sem Cristais';
-  exception when sqlstate 'PR004' then null;
+    raise exception 'FALHOU: comprou classe';
+  exception when insufficient_privilege then null;
   end;
 
   -- o app não grava Cristais nem desbloqueios direto
@@ -644,66 +652,25 @@ begin
     raise exception 'FALHOU: desbloqueou classe direto';
   exception when insufficient_privilege then null;
   end;
+
+  -- caminho, ramo e estágio não se editam direto; raça e aparência sim
   begin
-    update public.profiles set hero = '{"heroClass":"paladino"}';
-    raise exception 'FALHOU: equipou classe sem comprar';
-  exception when sqlstate 'PR005' then null;
-  end;
-end $$;
-
--- Mais Cristais para testar a loja (só o backend grava)
-reset role;
-insert into public.coin_transactions (user_id, amount, source_type, local_date, idempotency_key)
-values ('88888888-8888-8888-8888-888888888888', 500, 'level_up', pg_temp.today(), 'seed:gil-coins');
-set local role authenticated;
-
-do $$
-declare r jsonb; v_coin int;
-begin
-  begin
-    perform public.buy_item('necromante');
-    raise exception 'FALHOU: comprou classe de nível 10 no nível 5';
-  exception when sqlstate 'PR003' then null;
-  end;
-
-  r := public.buy_item('paladino');
-  perform pg_temp.check((r->>'coin_balance')::int = 285, 'compra desconta 300 (585 → 285)');
-  perform pg_temp.check(public.my_coin_balance() = 285, 'saldo após a compra');
-  perform pg_temp.check(exists (select 1 from public.user_unlocks where item_id = 'paladino'), 'paladino adquirido');
-
-  begin
-    perform public.buy_item('paladino');
-    raise exception 'FALHOU: comprou duas vezes';
-  exception when sqlstate 'PR002' then null;
+    update public.profiles set stage = 5;
+    raise exception 'FALHOU: pulou de estágio direto';
+  exception when sqlstate 'PR010' then null;
   end;
   begin
-    perform public.buy_item('guerreiro');
-    raise exception 'FALHOU: comprou classe grátis';
-  exception when invalid_parameter_value then null;
+    update public.profiles set path = 'arcano';
+    raise exception 'FALHOU: trocou de caminho direto';
+  exception when sqlstate 'PR010' then null;
   end;
+  update public.profiles set race = 'elfo', hero = '{"heroClass":"paladino"}';
+  perform pg_temp.check((select race from public.profiles) = 'elfo', 'raça é escolha livre');
   begin
-    perform public.buy_item('dragao-inexistente');
-    raise exception 'FALHOU: comprou item inexistente';
-  exception when no_data_found then null;
+    update public.profiles set race = 'vampiro';
+    raise exception 'FALHOU: aceitou raça desconhecida';
+  exception when check_violation then null;
   end;
-
-  -- equipar o que comprou é permitido; o que não comprou, não
-  update public.profiles set hero = '{"heroClass":"paladino"}';
-  perform pg_temp.check((select hero->>'heroClass' from public.profiles) = 'paladino', 'equipa a classe comprada');
-  begin
-    update public.profiles set hero = '{"heroClass":"necromante"}';
-    raise exception 'FALHOU: equipou necromante sem comprar';
-  exception when sqlstate 'PR005' then null;
-  end;
-
-  -- Paladino: +15% em Crescimento pessoal (hábito sem objetivo conta como essa área): 10 + 2 = 12
-  perform public.undo_habit_log('b1000000-0000-0000-0000-000000000002', pg_temp.today());
-  perform public.log_habit('b1000000-0000-0000-0000-000000000002', pg_temp.today());
-  select t.amount into v_coin
-  from public.coin_transactions t
-  join public.habit_logs l on l.id = t.source_id
-  where t.source_type = 'habit' and l.habit_id = 'b1000000-0000-0000-0000-000000000002';
-  perform pg_temp.check(v_coin = 12, 'bônus de área da classe equipada');
 end $$;
 
 -- ── Títulos ──────────────────────────────────────────────────
@@ -804,6 +771,1020 @@ begin
   end;
   update public.profiles set equipped_title = 'conquista-health';
   perform pg_temp.check((select equipped_title from public.profiles) = 'conquista-health', 'exibe o título épico');
+end $$;
+
+-- ── Caminho, promoções e missão relâmpago ────────────────────
+-- Gil: nível 5, Marcial estágio 0, 2 missões em Saúde.
+select set_config('request.jwt.claim.sub', '88888888-8888-8888-8888-888888888888', true);
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.my_hero_path();
+  perform pg_temp.check((r->>'area_missions')::int = 2, '2 missões em Saúde');
+  perform pg_temp.check(not (r->>'can_promote')::boolean, 'estágio 1 pede 10 missões');
+  begin
+    perform public.promote_hero();
+    raise exception 'FALHOU: promoveu sem os requisitos';
+  exception when sqlstate 'PR014' then null;
+  end;
+end $$;
+
+-- mais 8 missões antigas em Saúde (10 no total)
+reset role;
+insert into public.habits (id, user_id, objective_id, title, difficulty, start_date) values
+  ('b1000000-0000-0000-0000-000000000003', '88888888-8888-8888-8888-888888888888',
+   'b0000000-0000-0000-0000-000000000001', 'Treino antigo', 'hard', pg_temp.today() - 200);
+insert into public.habit_logs (user_id, habit_id, local_date)
+select '88888888-8888-8888-8888-888888888888', 'b1000000-0000-0000-0000-000000000003', pg_temp.today() - d
+from generate_series(2, 9) d;
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.my_hero_path();
+  perform pg_temp.check((r->>'can_promote')::boolean, 'nível 5 + 10 missões: promoção liberada');
+  r := public.promote_hero();
+  perform pg_temp.check((r->>'stage')::int = 1, 'promovido ao estágio 1');
+  perform pg_temp.check(
+    (select count(*) from public.hero_history where event = 'promote' and stage = 1) = 1, 'promoção no histórico');
+  begin
+    perform public.promote_hero();
+    raise exception 'FALHOU: promoveu ao estágio 2 no nível 5';
+  exception when sqlstate 'PR014' then null;
+  end;
+end $$;
+
+-- nível 20 e 120 missões em Saúde (só o backend grava XP)
+reset role;
+insert into public.xp_transactions (user_id, amount, source_type, local_date, idempotency_key)
+values ('88888888-8888-8888-8888-888888888888', 18000, 'habit', pg_temp.today() - 30, 'seed:gil-nivel-20');
+insert into public.habit_logs (user_id, habit_id, local_date)
+select '88888888-8888-8888-8888-888888888888', 'b1000000-0000-0000-0000-000000000003', pg_temp.today() - d
+from generate_series(10, 119) d;
+-- arquivado ontem: os registros continuam contando, mas ele sai da agenda de hoje
+update public.habits set archived_on = pg_temp.today() - 1 where id = 'b1000000-0000-0000-0000-000000000003';
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.promote_hero();
+  perform pg_temp.check((r->>'stage')::int = 2, 'estágio 2');
+  r := public.my_hero_path();
+  perform pg_temp.check((r->>'needs_branch')::boolean, 'o estágio 3 pede o ramo');
+  begin
+    perform public.promote_hero();
+    raise exception 'FALHOU: promoveu ao estágio 3 sem ramo';
+  exception when sqlstate 'PR015' then null;
+  end;
+  r := public.promote_hero('B');
+  perform pg_temp.check((r->>'stage')::int = 3 and r->>'branch' = 'B', 'estágio 3 no ramo B');
+  begin
+    perform public.promote_hero();
+    raise exception 'FALHOU: promoveu ao estágio 4 no nível 20';
+  exception when sqlstate 'PR014' then null;
+  end;
+
+  -- trocar de ramo mantém o estágio e inicia a espera de 14 dias
+  r := public.choose_path('marcial', 'A');
+  perform pg_temp.check((r->>'stage')::int = 3 and r->>'branch' = 'A', 'troca para o ramo A no mesmo estágio');
+  perform pg_temp.check((select path_changed_at from public.profiles) is not null, 'troca inicia a espera');
+  r := public.choose_path('marcial', 'A');
+  perform pg_temp.check(not (r->>'changed')::boolean, 'escolher o mesmo não conta como troca');
+  begin
+    perform public.choose_path('arcano');
+    raise exception 'FALHOU: trocou de caminho durante a espera';
+  exception when sqlstate 'PR011' then null;
+  end;
+  begin
+    perform public.choose_path('pirata');
+    raise exception 'FALHOU: aceitou caminho inexistente';
+  exception when no_data_found then null;
+  end;
+end $$;
+
+-- passaram 15 dias desde a troca
+reset role;
+select set_config('per.hero_progress', 'on', true);
+update public.profiles set path_changed_at = now() - interval '15 days'
+where id = '88888888-8888-8888-8888-888888888888';
+select set_config('per.hero_progress', 'off', true);
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  -- Arcano: nenhuma missão em Conhecimento → recomeça no estágio 0 (o nível continua 20)
+  r := public.choose_path('arcano');
+  perform pg_temp.check((r->>'stage')::int = 0 and r->>'branch' is null, 'novo caminho recalcula o estágio');
+  r := public.my_hero_path();
+  perform pg_temp.check((r->>'level')::int = 20, 'o nível não muda');
+  perform pg_temp.check(r->>'change_available_at' is not null, 'nova espera após a troca');
+end $$;
+
+-- vantagens do caminho (lidas pelo backend em log_habit)
+reset role;
+select set_config('per.hero_progress', 'on', true);
+update public.profiles set path = 'destreza', branch = 'B', stage = 2
+where id = '88888888-8888-8888-8888-888888888888';
+do $$ begin
+  perform pg_temp.check(not (select yesterday_full from public.hero_perks('88888888-8888-8888-8888-888888888888')),
+    'Destreza B: Cristais cheios de ontem só a partir do estágio 3');
+end $$;
+update public.profiles set stage = 3 where id = '88888888-8888-8888-8888-888888888888';
+do $$ begin
+  perform pg_temp.check((select yesterday_full from public.hero_perks('88888888-8888-8888-8888-888888888888')),
+    'Destreza B no estágio 3: Cristais cheios de ontem');
+  perform pg_temp.check((select area_pct from public.hero_perks('88888888-8888-8888-8888-888888888888')) = 12,
+    'estágio 3: +12% na área');
+end $$;
+update public.profiles set path = 'natureza', branch = null, stage = 0
+where id = '88888888-8888-8888-8888-888888888888';
+do $$ begin
+  perform pg_temp.check((select easy_extra from public.hero_perks('88888888-8888-8888-8888-888888888888')) = 2,
+    'Natureza: +2 Cristais por missão fácil');
+end $$;
+select set_config('per.hero_progress', 'off', true);
+
+-- Missão relâmpago: Gil ganha um hábito novo; é a única missão de hoje ainda não feita
+insert into public.habits (id, user_id, title, difficulty, start_date) values
+  ('b1000000-0000-0000-0000-000000000004', '88888888-8888-8888-8888-888888888888', 'Meditar', 'medium', pg_temp.today() - 1);
+set local role authenticated;
+
+do $$
+declare r jsonb; v_log uuid;
+begin
+  r := public.my_flash_mission();
+  perform pg_temp.check(r->>'habit_id' = 'b1000000-0000-0000-0000-000000000004', 'sorteia a missão ainda não feita');
+  perform pg_temp.check(not (r->>'done')::boolean, 'ainda não feita');
+  perform pg_temp.check((r->>'deadline')::timestamptz between now() and now() + interval '4 hours', 'prazo de até 4 horas (sem passar da meia-noite)');
+  perform pg_temp.check(public.my_flash_mission()->>'habit_id' = r->>'habit_id', 'o sorteio fica fixo no dia');
+
+  -- média (20 XP) dentro do prazo: +50% = 10 XP e +10 Cristais
+  r := public.log_habit('b1000000-0000-0000-0000-000000000004', pg_temp.today());
+  perform pg_temp.check((r->>'flash_bonus')::int = 10, 'relâmpago: +50% do XP');
+  select id into v_log from public.habit_logs
+  where habit_id = 'b1000000-0000-0000-0000-000000000004' and local_date = pg_temp.today();
+  perform pg_temp.check(exists (select 1 from public.coin_transactions where idempotency_key = 'coins:flash:' || v_log),
+    'relâmpago: +10 Cristais');
+  perform pg_temp.check((public.my_flash_mission()->>'done')::boolean, 'relâmpago concluída');
+  perform pg_temp.check((public.my_flash_mission()->>'awarded')::boolean, 'bônus relâmpago concedido');
+
+  -- desfazer estorna o bônus relâmpago (XP e Cristais)
+  perform public.undo_habit_log('b1000000-0000-0000-0000-000000000004', pg_temp.today());
+  perform pg_temp.check(exists (select 1 from public.xp_transactions where idempotency_key = 'reversal:flash:' || v_log),
+    'estorna o XP relâmpago');
+  perform pg_temp.check(exists (select 1 from public.coin_transactions where idempotency_key = 'reversal:coins:flash:' || v_log),
+    'estorna os Cristais relâmpago');
+
+  -- o app não grava a missão relâmpago direto
+  begin
+    update public.flash_missions set deadline = now() + interval '1 day';
+    raise exception 'FALHOU: estendeu o prazo direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- prazo vencido: concluir não dá bônus
+reset role;
+update public.flash_missions set deadline = now() - interval '1 minute'
+where user_id = '88888888-8888-8888-8888-888888888888';
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.log_habit('b1000000-0000-0000-0000-000000000004', pg_temp.today());
+  perform pg_temp.check((r->>'flash_bonus')::int = 0, 'fora do prazo, sem bônus');
+  perform pg_temp.check(
+    (public.my_flash_mission()->>'done')::boolean and not (public.my_flash_mission()->>'awarded')::boolean,
+    'concluída fora do prazo: feita, mas sem bônus');
+end $$;
+
+-- Bia não vê o caminho nem a missão relâmpago de Gil
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.hero_history) = 0, 'B não vê o histórico do herói de Gil');
+  perform pg_temp.check((select count(*) from public.flash_missions) = 0, 'B não vê a missão relâmpago de Gil');
+  perform pg_temp.check((public.my_hero_path()->>'path') is null, 'B ainda não escolheu caminho');
+end $$;
+
+-- ── Tour e feedback ──────────────────────────────────────────
+select set_config('request.jwt.claim.sub', '88888888-8888-8888-8888-888888888888', true);
+set local role authenticated;
+
+do $$ begin
+  update public.profiles set tour_seen_at = now(), tour_seen_version = 1;
+  perform pg_temp.check((select tour_seen_at from public.profiles) is not null, 'marca o tour como visto');
+  perform pg_temp.check(
+    (select value from public.app_settings where key = 'tour_version') = 1, 'versão do tour é pública');
+  begin
+    update public.app_settings set value = 99 where key = 'tour_version';
+    raise exception 'FALHOU: usuário mudou a versão do tour';
+  exception when insufficient_privilege then null;
+  end;
+
+  insert into public.feedback (kind, message, app_version, platform) values ('bug', 'O herói some ao rolar', '0.1.0', 'android');
+  perform pg_temp.check((select count(*) from public.feedback) = 1, 'envia e lê o próprio feedback');
+  perform pg_temp.check((select user_id from public.feedback) = '88888888-8888-8888-8888-888888888888', 'feedback fica no nome de quem enviou');
+
+  begin
+    insert into public.feedback (user_id, kind, message) values ('22222222-2222-2222-2222-222222222222', 'ideia', 'em nome de outra pessoa');
+    raise exception 'FALHOU: enviou feedback em nome de outro usuário';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.feedback (kind, message) values ('ideia', '  ');
+    raise exception 'FALHOU: aceitou feedback vazio';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.feedback (kind, message) values ('reclamacao', 'tipo desconhecido');
+    raise exception 'FALHOU: aceitou tipo desconhecido';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.feedback set message = 'editado';
+    raise exception 'FALHOU: editou feedback enviado';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.feedback) = 0, 'B não lê o feedback de Gil');
+end $$;
+
+reset role;
+set local role anon;
+do $$ begin
+  begin
+    insert into public.feedback (kind, message) values ('bug', 'sem login');
+    raise exception 'FALHOU: visitante enviou feedback';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- ── Escudos de streak ────────────────────────────────────────
+-- Ivo: um hábito diário há 10 dias; fez tudo menos há 3 dias; tem 200 Cristais.
+reset role;
+insert into auth.users (id, email) values ('aaaaaaaa-1111-1111-1111-111111111111', 'ivo@teste.dev');
+update public.profiles set timezone = 'America/Manaus' where id = 'aaaaaaaa-1111-1111-1111-111111111111';
+insert into public.habits (id, user_id, title, start_date) values
+  ('aaaaaaaa-2222-2222-2222-222222222222', 'aaaaaaaa-1111-1111-1111-111111111111', 'Alongar', pg_temp.today() - 10);
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'aaaaaaaa-1111-1111-1111-111111111111', 'aaaaaaaa-2222-2222-2222-222222222222', pg_temp.today() - d
+from generate_series(1, 10) d where d <> 3;
+insert into public.coin_transactions (user_id, amount, source_type, local_date, idempotency_key)
+values ('aaaaaaaa-1111-1111-1111-111111111111', 200, 'level_up', pg_temp.today(), 'seed:ivo-coins');
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+do $$
+declare r jsonb;
+begin
+  r := public.my_streak_shields();
+  perform pg_temp.check((r->>'held')::int = 0 and (r->>'max')::int = 2 and (r->>'price')::int = 60, 'sem escudos; limite 2; preço 60');
+  begin
+    perform public.use_streak_shield(pg_temp.today() - 3);
+    raise exception 'FALHOU: usou escudo sem ter';
+  exception when sqlstate 'PR022' then null;
+  end;
+
+  r := public.buy_streak_shield();
+  perform pg_temp.check((r->>'held')::int = 1 and (r->>'coin_balance')::int = 140, 'compra 1 escudo por 60');
+  r := public.buy_streak_shield();
+  perform pg_temp.check((r->>'held')::int = 2, 'compra o 2º escudo');
+  begin
+    perform public.buy_streak_shield();
+    raise exception 'FALHOU: passou do limite de escudos';
+  exception when sqlstate 'PR020' then null;
+  end;
+
+  r := public.use_streak_shield(pg_temp.today() - 3);
+  perform pg_temp.check((r->>'used')::boolean and (r->>'held')::int = 1, 'escudo protege o dia perdido');
+  r := public.use_streak_shield(pg_temp.today() - 3);
+  perform pg_temp.check(not (r->>'used')::boolean and (r->>'held')::int = 1, 'repetir o dia não gasta outro escudo');
+  perform pg_temp.check(
+    (public.my_streak_shields()->'used_dates') @> to_jsonb(array[(pg_temp.today() - 3)::text]), 'dia protegido aparece na lista');
+
+  begin
+    perform public.use_streak_shield(pg_temp.today() - 1);
+    raise exception 'FALHOU: usou escudo em dia que ainda aceita registro';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.use_streak_shield(pg_temp.today() - 9);
+    raise exception 'FALHOU: usou escudo fora da janela de 7 dias';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.use_streak_shield(pg_temp.today() - 4);
+    raise exception 'FALHOU: usou escudo em dia completo';
+  exception when sqlstate 'PR021' then null;
+  end;
+  begin
+    insert into public.streak_shield_uses (user_id, local_date) values ('aaaaaaaa-1111-1111-1111-111111111111', pg_temp.today() - 5);
+    raise exception 'FALHOU: gravou escudo direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.streak_shield_uses) = 0, 'B não vê os escudos de Ivo');
+end $$;
+
+-- ── Loja: cosméticos e recompensas ───────────────────────────
+-- Ivo tem 80 Cristais (200 − 2 escudos de 60).
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+do $$ begin
+  perform pg_temp.check(public.my_coin_balance() = 80, 'Ivo começa com 80 Cristais');
+  begin
+    perform public.buy_cosmetic('loja-cabelo-rosa');
+    raise exception 'FALHOU: comprou cabelo de 100 com 80';
+  exception when sqlstate 'PR004' then null;
+  end;
+  perform pg_temp.check(not exists (select 1 from public.user_cosmetics), 'compra recusada não deixa rastro');
+end $$;
+
+-- mais Cristais (só o backend grava)
+reset role;
+insert into public.coin_transactions (user_id, amount, source_type, local_date, idempotency_key)
+values ('aaaaaaaa-1111-1111-1111-111111111111', 300, 'level_up', pg_temp.today(), 'seed:ivo-loja');
+set local role authenticated;
+
+do $$
+declare r jsonb; v_reward uuid;
+begin
+  r := public.buy_cosmetic('loja-cabelo-rosa');
+  perform pg_temp.check((r->>'coin_balance')::int = 280, 'cabelo rosa por 100 (380 → 280)');
+  perform pg_temp.check(exists (select 1 from public.user_cosmetics where item_id = 'loja-cabelo-rosa'), 'cosmético na conta');
+  begin
+    perform public.buy_cosmetic('loja-cabelo-rosa');
+    raise exception 'FALHOU: comprou o mesmo cosmético duas vezes';
+  exception when sqlstate 'PR002' then null;
+  end;
+  begin
+    perform public.buy_cosmetic('loja-dragao');
+    raise exception 'FALHOU: comprou item inexistente';
+  exception when no_data_found then null;
+  end;
+  begin
+    insert into public.user_cosmetics (user_id, item_id) values ('aaaaaaaa-1111-1111-1111-111111111111', 'loja-aura-sombra');
+    raise exception 'FALHOU: ganhou cosmético direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- recompensas: o usuário cria, edita e resgata
+  insert into public.custom_rewards (title, emoji, price) values ('Ver um episódio', '🎬', 50) returning id into v_reward;
+  update public.custom_rewards set price = 60 where id = v_reward;
+  r := public.redeem_reward(v_reward);
+  perform pg_temp.check((r->>'coin_balance')::int = 220, 'resgate desconta 60 (280 → 220)');
+  perform pg_temp.check(
+    (select count(*) from public.reward_redemptions where title = 'Ver um episódio' and price = 60) = 1,
+    'resgate no histórico');
+  begin
+    insert into public.custom_rewards (title, price) values ('Barato demais', 1);
+    raise exception 'FALHOU: aceitou preço abaixo do mínimo';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.custom_rewards (user_id, title, price) values ('22222222-2222-2222-2222-222222222222', 'De outro', 50);
+    raise exception 'FALHOU: criou recompensa para outro usuário';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.reward_redemptions (user_id, title, price) values ('aaaaaaaa-1111-1111-1111-111111111111', 'grátis', 0);
+    raise exception 'FALHOU: gravou resgate direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- recompensa cara demais para o saldo
+  insert into public.custom_rewards (title, price) values ('Viagem', 5000) returning id into v_reward;
+  begin
+    perform public.redeem_reward(v_reward);
+    raise exception 'FALHOU: resgatou sem Cristais';
+  exception when sqlstate 'PR004' then null;
+  end;
+
+  -- apagar a recompensa mantém o histórico
+  delete from public.custom_rewards where title = 'Ver um episódio';
+  perform pg_temp.check(
+    (select reward_id from public.reward_redemptions where title = 'Ver um episódio') is null, 'histórico fica sem o vínculo');
+end $$;
+
+-- guarda o id de uma recompensa de Ivo para tentar resgatá-la como Bia
+reset role;
+select set_config('test.ivo_reward', (select id::text from public.custom_rewards where title = 'Viagem'), true);
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.custom_rewards) = 0, 'B não vê as recompensas de Ivo');
+  perform pg_temp.check((select count(*) from public.user_cosmetics) = 0, 'B não vê os cosméticos de Ivo');
+  begin
+    perform public.redeem_reward(current_setting('test.ivo_reward')::uuid);
+    raise exception 'FALHOU: B resgatou recompensa de outro';
+  exception when no_data_found then null;
+  end;
+  update public.custom_rewards set price = 5 where id = current_setting('test.ivo_reward')::uuid;
+end $$;
+
+reset role;
+do $$ begin
+  perform pg_temp.check(
+    (select price from public.custom_rewards where id = current_setting('test.ivo_reward')::uuid) = 5000,
+    'B não edita recompensa de outro');
+end $$;
+
+-- ── Tipos de hábito: evitar e contador ──────────────────────
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+insert into public.habits (id, title, kind, target_qty, unit, start_date) values
+  ('aaaaaaaa-3333-3333-3333-333333333333', 'Beber água', 'count', 3, 'copos', pg_temp.today() - 1);
+insert into public.habits (id, title, kind, start_date) values
+  ('aaaaaaaa-4444-4444-4444-444444444444', 'Não fumar', 'avoid', pg_temp.today());
+
+do $$
+declare
+  r jsonb;
+  xp0 integer := public.my_total_xp();
+begin
+  begin
+    insert into public.habits (title, kind, start_date) values ('Sem meta', 'count', pg_temp.today());
+    raise exception 'FALHOU: contador sem meta';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.habits (title, kind, target_qty, start_date) values ('Meta quebrada', 'count', 2.5, pg_temp.today());
+    raise exception 'FALHOU: contador com meta fracionada';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.habit_counts (user_id, habit_id, local_date, qty)
+    values ('aaaaaaaa-1111-1111-1111-111111111111', 'aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 3);
+    raise exception 'FALHOU: app gravou contagem direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 1);
+  perform pg_temp.check((r->>'done')::boolean = false and r->'log' = 'null'::jsonb, '1 de 3 ainda não conclui');
+  perform pg_temp.check(public.my_total_xp() = xp0, 'progresso parcial não dá XP');
+  perform pg_temp.check(not exists (select 1 from public.habit_logs where habit_id = 'aaaaaaaa-3333-3333-3333-333333333333'),
+    'progresso parcial não cria registro');
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 3);
+  perform pg_temp.check((r->>'done')::boolean and (r->'log'->>'logged')::boolean, 'bater a meta conclui a missão');
+  perform pg_temp.check(public.my_total_xp() > xp0, 'bater a meta dá o XP (via log_habit)');
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 4);
+  perform pg_temp.check(r->'log' = 'null'::jsonb, 'passar da meta não dá XP de novo');
+  perform pg_temp.check((select qty from public.habit_logs where habit_id = 'aaaaaaaa-3333-3333-3333-333333333333') = 4,
+    'registro guarda a contagem');
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 2);
+  perform pg_temp.check((r->'undo'->>'undone')::boolean, 'baixar da meta desfaz a missão');
+  perform pg_temp.check(public.my_total_xp() = xp0, 'desfazer estorna o XP');
+  perform pg_temp.check((select qty from public.habit_counts where habit_id = 'aaaaaaaa-3333-3333-3333-333333333333') = 2,
+    'contagem parcial fica salva');
+
+  r := public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today() - 1, 3);
+  perform pg_temp.check((r->>'done')::boolean, 'contador também vale para ontem');
+  begin
+    perform public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today() - 2, 3);
+    raise exception 'FALHOU: contou fora da janela';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), -1);
+    raise exception 'FALHOU: contagem negativa';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.set_habit_count('aaaaaaaa-4444-4444-4444-444444444444', pg_temp.today(), 1);
+    raise exception 'FALHOU: contou hábito que não é contador';
+  exception when invalid_parameter_value then null;
+  end;
+
+  r := public.log_habit('aaaaaaaa-4444-4444-4444-444444444444', pg_temp.today());
+  perform pg_temp.check((r->>'logged')::boolean, 'hábito a evitar conclui com um toque');
+end $$;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.habit_counts) = 0, 'B não vê as contagens de Ivo');
+  begin
+    perform public.set_habit_count('aaaaaaaa-3333-3333-3333-333333333333', pg_temp.today(), 3);
+    raise exception 'FALHOU: B contou hábito de outro';
+  exception when no_data_found then null;
+  end;
+end $$;
+
+-- ── Desafios: jornadas e chefe da semana ────────────────────
+-- Juca: Meditar (feito de −25 a −5), Correr (nunca feito), Ler e Alongar (novos).
+reset role;
+insert into auth.users (id, email) values ('bbbbbbbb-1111-1111-1111-111111111111', 'juca@teste.dev');
+update public.profiles set timezone = 'America/Manaus' where id = 'bbbbbbbb-1111-1111-1111-111111111111';
+insert into public.habits (id, user_id, title, start_date) values
+  ('bbbbbbbb-2222-2222-2222-222222222221', 'bbbbbbbb-1111-1111-1111-111111111111', 'Meditar', pg_temp.today() - 40),
+  ('bbbbbbbb-2222-2222-2222-222222222222', 'bbbbbbbb-1111-1111-1111-111111111111', 'Correr', pg_temp.today() - 40),
+  ('bbbbbbbb-2222-2222-2222-222222222223', 'bbbbbbbb-1111-1111-1111-111111111111', 'Ler', pg_temp.today()),
+  ('bbbbbbbb-2222-2222-2222-222222222224', 'bbbbbbbb-1111-1111-1111-111111111111', 'Alongar', pg_temp.today());
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'bbbbbbbb-1111-1111-1111-111111111111', 'bbbbbbbb-2222-2222-2222-222222222221', pg_temp.today() - d
+from generate_series(5, 25) d;
+-- jornadas que começaram no passado (o app só começa hoje, via start_journey)
+insert into public.journeys (id, user_id, habit_id, length_days, start_date) values
+  ('bbbbbbbb-3333-3333-3333-333333333331', 'bbbbbbbb-1111-1111-1111-111111111111',
+   'bbbbbbbb-2222-2222-2222-222222222221', 21, pg_temp.today() - 25),
+  ('bbbbbbbb-3333-3333-3333-333333333332', 'bbbbbbbb-1111-1111-1111-111111111111',
+   'bbbbbbbb-2222-2222-2222-222222222222', 21, pg_temp.today() - 20);
+-- semana passada inteira feita (Meditar e Correr agendados todo dia → 14 missões, vida 12)
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'bbbbbbbb-1111-1111-1111-111111111111', h, date_trunc('week', pg_temp.today())::date - 7 + d
+from generate_series(0, 6) d,
+     unnest(array['bbbbbbbb-2222-2222-2222-222222222221', 'bbbbbbbb-2222-2222-2222-222222222222']::uuid[]) h
+on conflict (habit_id, local_date) do nothing;
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+set local role authenticated;
+
+do $$
+declare
+  r jsonb;
+  coins0 integer := (select coalesce(sum(amount), 0) from public.coin_transactions);
+begin
+  begin
+    insert into public.journeys (user_id, habit_id, length_days, start_date)
+    values ('bbbbbbbb-1111-1111-1111-111111111111', 'bbbbbbbb-2222-2222-2222-222222222223', 21, pg_temp.today() - 30);
+    raise exception 'FALHOU: app criou jornada direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.resolve_journey('bbbbbbbb-3333-3333-3333-333333333331');
+  perform pg_temp.check(r->>'status' = 'won' and (r->>'coins_awarded')::int = 120, 'jornada de 21 dias vencida rende 120');
+  r := public.resolve_journey('bbbbbbbb-3333-3333-3333-333333333331');
+  perform pg_temp.check((select coalesce(sum(amount), 0) from public.coin_transactions) = coins0 + 120,
+    'resolver de novo não paga outra vez');
+
+  r := public.resolve_journey('bbbbbbbb-3333-3333-3333-333333333332');
+  perform pg_temp.check(r->>'status' = 'lost', 'faltas demais perdem a jornada antes do fim');
+
+  r := public.start_journey('bbbbbbbb-2222-2222-2222-222222222223', 21);
+  perform pg_temp.check(
+    (select start_date from public.journeys where id = (r->>'id')::uuid) = pg_temp.today(), 'jornada começa hoje');
+  perform pg_temp.check(public.resolve_journey((r->>'id')::uuid)->>'status' = 'active', 'jornada nova segue ativa');
+  begin
+    perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222223', 66);
+    raise exception 'FALHOU: duas jornadas no mesmo hábito';
+  exception when sqlstate 'PR030' then null;
+  end;
+  begin
+    perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222224', 30);
+    raise exception 'FALHOU: duração inválida';
+  exception when invalid_parameter_value then null;
+  end;
+  perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222224', 66);
+  perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222221', 21); -- a anterior foi vencida
+  begin
+    perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222222', 21);
+    raise exception 'FALHOU: passou do limite de jornadas';
+  exception when sqlstate 'PR031' then null;
+  end;
+  perform public.abandon_journey((r->>'id')::uuid);
+  perform pg_temp.check((select status from public.journeys where id = (r->>'id')::uuid) = 'abandoned', 'abandona a jornada');
+
+  -- chefe da semana passada derrotado
+  r := public.claim_weekly_boss(date_trunc('week', pg_temp.today())::date - 7);
+  perform pg_temp.check((r->>'claimed')::boolean and (r->>'coins_awarded')::int = 40, 'chefe derrotado rende 40');
+  r := public.claim_weekly_boss(date_trunc('week', pg_temp.today())::date - 7);
+  perform pg_temp.check(not (r->>'claimed')::boolean, 'chefe só paga uma vez');
+  begin
+    perform public.claim_weekly_boss(date_trunc('week', pg_temp.today())::date - 14);
+    raise exception 'FALHOU: resgatou chefe antigo';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+
+-- o chefe desta semana ainda está de pé (precisa de missões em dias que ainda não chegaram)
+reset role;
+delete from public.habit_logs where user_id = 'bbbbbbbb-1111-1111-1111-111111111111'
+  and local_date >= date_trunc('week', pg_temp.today())::date;
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.claim_weekly_boss(date_trunc('week', pg_temp.today())::date);
+    raise exception 'FALHOU: resgatou chefe não derrotado';
+  exception when sqlstate 'PR032' then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.journeys) = 0, 'B não vê as jornadas de Juca');
+  begin
+    perform public.resolve_journey('bbbbbbbb-3333-3333-3333-333333333332');
+    raise exception 'FALHOU: B resolveu jornada de outro';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.abandon_journey('bbbbbbbb-3333-3333-3333-333333333332');
+    raise exception 'FALHOU: B abandonou jornada de outro';
+  exception when no_data_found then null;
+  end;
+end $$;
+
+-- ── Social: amigos e grupos ─────────────────────────────────
+-- Lia (sem hábitos) e Mel (um hábito diário secreto, feito nos últimos 20 dias).
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('cccccccc-1111-1111-1111-111111111111', 'lia@teste.dev', '{"display_name":"Lia"}'),
+  ('dddddddd-1111-1111-1111-111111111111', 'mel@teste.dev', '{"display_name":"Mel"}');
+update public.profiles set timezone = 'America/Manaus'
+where id in ('cccccccc-1111-1111-1111-111111111111', 'dddddddd-1111-1111-1111-111111111111');
+update public.profiles set display_name = 'Juca' where id = 'bbbbbbbb-1111-1111-1111-111111111111';
+insert into public.habits (id, user_id, title, start_date) values
+  ('dddddddd-2222-2222-2222-222222222222', 'dddddddd-1111-1111-1111-111111111111', 'Segredo da Mel', pg_temp.today() - 30);
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'dddddddd-1111-1111-1111-111111111111', 'dddddddd-2222-2222-2222-222222222222', pg_temp.today() - d
+from generate_series(1, 20) d;
+select set_config('test.mel_code', (select friend_code from public.profiles where id = 'dddddddd-1111-1111-1111-111111111111'), true);
+select set_config('test.lia_code', (select friend_code from public.profiles where id = 'cccccccc-1111-1111-1111-111111111111'), true);
+do $$ begin
+  perform pg_temp.check(current_setting('test.mel_code') ~ '^[A-HJ-NP-Z2-9]{6}$', 'código de amigo com 6 letras sem ambíguas');
+  perform pg_temp.check(public.user_streak('dddddddd-1111-1111-1111-111111111111') = 20, 'streak no banco segue as regras do app');
+end $$;
+
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  begin
+    update public.profiles set friend_code = 'AAAAAA' where id = 'cccccccc-1111-1111-1111-111111111111';
+    raise exception 'FALHOU: trocou o código de amigo';
+  exception when sqlstate 'PR045' then null;
+  end;
+  begin
+    perform public.send_friend_request(current_setting('test.lia_code'));
+    raise exception 'FALHOU: pediu amizade a si mesma';
+  exception when sqlstate 'PR040' then null;
+  end;
+  begin
+    perform public.send_friend_request('ZZZZZZ');
+    raise exception 'FALHOU: código inexistente';
+  exception when no_data_found then null;
+  end;
+  begin
+    insert into public.friendships (requester, addressee)
+    values ('cccccccc-1111-1111-1111-111111111111', 'dddddddd-1111-1111-1111-111111111111');
+    raise exception 'FALHOU: app criou amizade direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.send_friend_request(lower(substr(current_setting('test.mel_code'), 1, 3) || '-' || substr(current_setting('test.mel_code'), 4)));
+  perform pg_temp.check(r->>'status' = 'pending', 'código com hífen e minúsculas vira pedido pendente');
+  r := public.my_friends();
+  perform pg_temp.check(jsonb_array_length(r->'outgoing') = 1 and jsonb_array_length(r->'friends') = 0,
+    'pedido aparece como enviado, ainda sem amizade');
+  perform pg_temp.check(not (r::text like '%"streak"%'), 'pedido pendente não mostra o resumo');
+end $$;
+
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.my_friends();
+  perform pg_temp.check(jsonb_array_length(r->'incoming') = 1, 'Mel recebe o pedido');
+  perform public.respond_friend_request((r->'incoming'->0->>'request_id')::uuid, true);
+  update public.profiles set discoverable = false where id = 'dddddddd-1111-1111-1111-111111111111';
+end $$;
+
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb; f jsonb;
+begin
+  r := public.my_friends();
+  f := r->'friends'->0;
+  perform pg_temp.check(f->>'display_name' = 'Mel' and (f->>'streak')::int = 20
+    and (f->>'today_total')::int = 1 and (f->>'today_done')::int = 0 and (f->>'level')::int >= 1,
+    'amiga vê nome, streak, nível e missões de hoje');
+  perform pg_temp.check(not (r::text like '%Segredo%'), 'nomes dos hábitos não aparecem para amigos');
+  perform pg_temp.check((select count(*) from public.habits) = 0, 'RLS: Lia não lê os hábitos de Mel');
+  begin
+    perform public.send_friend_request(current_setting('test.mel_code'));
+    raise exception 'FALHOU: pediu amizade a quem já é amiga';
+  exception when sqlstate 'PR041' then null;
+  end;
+
+  -- busca: Mel desligou a busca; Juca aparece
+  perform pg_temp.check(jsonb_array_length(public.search_users('Me')) = 0, 'quem desliga a busca não aparece');
+  r := public.search_users('  juc ');
+  perform pg_temp.check(jsonb_array_length(r) = 1 and r->0->'user'->>'display_name' = 'Juca'
+    and r->0->'relation' = 'null'::jsonb and not (r::text like '%"streak"%'), 'busca acha Juca, só com o cartão curto');
+  perform pg_temp.check(jsonb_array_length(public.search_users('%%')) = 0, 'curinga do LIKE é tratado como texto');
+  begin
+    perform public.search_users('j');
+    raise exception 'FALHOU: busca com 1 letra';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.send_friend_request(p_user => 'dddddddd-1111-1111-1111-111111111111');
+    raise exception 'FALHOU: pediu pela busca a quem não aparece nela';
+  exception when no_data_found then null;
+  end;
+  r := public.send_friend_request(p_user => 'bbbbbbbb-1111-1111-1111-111111111111');
+  perform pg_temp.check(r->>'status' = 'pending', 'pedido pela busca');
+  perform pg_temp.check(public.search_users('Juca')->0->>'relation' = 'pending_out', 'busca mostra pedido enviado');
+end $$;
+
+-- Juca pede de volta: vira amizade na hora; depois desfaz
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.send_friend_request(current_setting('test.lia_code'));
+  perform pg_temp.check(r->>'status' = 'accepted', 'pedido cruzado vira amizade');
+  perform public.remove_friend('cccccccc-1111-1111-1111-111111111111');
+  perform pg_temp.check(jsonb_array_length(public.my_friends()->'friends') = 0, 'desfaz a amizade');
+end $$;
+
+-- Grupos: Lia cria, Mel entra; o chefe soma as missões das duas
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.create_group('  Time   da manhã ');
+  perform set_config('test.group', r->>'id', true);
+  perform set_config('test.group_code', (select invite_code from public.groups where id = (r->>'id')::uuid), true);
+  perform pg_temp.check((select name from public.groups) = 'Time da manhã', 'grupo criado com o nome limpo');
+  begin
+    perform public.create_group('   ');
+    raise exception 'FALHOU: grupo sem nome';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform public.join_group(current_setting('test.group_code'));
+  perform public.join_group(current_setting('test.group_code')); -- de novo: nada muda
+  perform pg_temp.check((select count(*) from public.group_members) = 2, 'Mel entra no grupo uma vez');
+end $$;
+
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb; v_last date := date_trunc('week', pg_temp.today())::date - 7;
+begin
+  r := public.group_detail(current_setting('test.group')::uuid);
+  perform pg_temp.check(jsonb_array_length(r->'members') = 2 and (r->>'is_owner')::boolean, 'detalhe com 2 membros');
+  perform pg_temp.check(not (r::text like '%Segredo%'), 'grupo não expõe nomes de hábitos');
+  perform pg_temp.check((r->'last_boss'->>'max_hp')::int = 6 and (r->'last_boss'->>'damage')::int = 7,
+    'chefe da semana passada: vida 80% de 7 missões, dano 7');
+  r := public.claim_group_boss(current_setting('test.group')::uuid, v_last);
+  perform pg_temp.check((r->>'claimed')::boolean and (r->>'coins_awarded')::int = 30, 'chefe do grupo rende 30 a cada membro');
+  r := public.claim_group_boss(current_setting('test.group')::uuid, v_last);
+  perform pg_temp.check(not (r->>'claimed')::boolean, 'chefe do grupo paga uma vez por membro');
+  perform pg_temp.check(jsonb_array_length(public.my_groups()) = 1, 'grupo aparece na lista');
+end $$;
+
+-- completa 6 membros; o 7º não entra
+reset role;
+insert into public.group_members (group_id, user_id)
+select current_setting('test.group')::uuid, u
+from unnest(array['aaaaaaaa-1111-1111-1111-111111111111', 'bbbbbbbb-1111-1111-1111-111111111111',
+                  '88888888-8888-8888-8888-888888888888', '99999999-9999-9999-9999-999999999999']::uuid[]) u;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.groups) = 0 and (select count(*) from public.friendships) = 0,
+    'B não vê grupos nem amizades dos outros');
+  begin
+    perform public.group_detail(current_setting('test.group')::uuid);
+    raise exception 'FALHOU: B viu grupo de fora';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.claim_group_boss(current_setting('test.group')::uuid, date_trunc('week', pg_temp.today())::date - 7);
+    raise exception 'FALHOU: B resgatou chefe de grupo alheio';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.join_group(current_setting('test.group_code'));
+    raise exception 'FALHOU: entrou no grupo cheio';
+  exception when sqlstate 'PR044' then null;
+  end;
+end $$;
+
+-- a dona sai: o membro mais antigo assume
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform public.leave_group(current_setting('test.group')::uuid);
+  perform pg_temp.check(jsonb_array_length(public.my_groups()) = 0, 'Lia saiu do grupo');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.check(
+    (select owner from public.groups where id = current_setting('test.group')::uuid) = 'dddddddd-1111-1111-1111-111111111111',
+    'Mel vira dona do grupo');
+end $$;
+
+-- ── Diário de humor ─────────────────────────────────────────
+-- começa desligado pela feature flag: nada é gravado
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_mood_journal') = 0,
+    'diário começa desligado');
+  begin
+    perform public.save_mood_entry(pg_temp.today(), 4);
+    raise exception 'FALHOU: gravou com o diário desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    update public.app_settings set value = 1 where key = 'feature_mood_journal';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_mood_journal') = 0,
+    'o app não liga a flag sozinho');
+end $$;
+update public.app_settings set value = 1 where key = 'feature_mood_journal';
+set local role authenticated;
+do $$
+declare
+  r jsonb;
+  coins0 integer := (select coalesce(sum(amount), 0) from public.coin_transactions);
+begin
+  begin
+    insert into public.mood_entries (user_id, local_date, mood)
+    values ('cccccccc-1111-1111-1111-111111111111', pg_temp.today(), 4);
+    raise exception 'FALHOU: app gravou humor direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.save_mood_entry(pg_temp.today(), 4, array['grato', 'motivado', 'grato'], '  Dia bom  ');
+  perform pg_temp.check((r->>'coins_awarded')::int = 3, 'primeiro check-in do dia rende 3 Cristais');
+  perform pg_temp.check(
+    (select tags = array['grato', 'motivado'] and note = 'Dia bom' from public.mood_entries
+     where local_date = pg_temp.today()), 'sentimentos sem repetição e nota limpa');
+
+  r := public.save_mood_entry(pg_temp.today(), 2, '{}', null);
+  perform pg_temp.check((r->>'coins_awarded')::int = 0, 'editar o dia não paga de novo');
+  perform pg_temp.check((select mood from public.mood_entries where local_date = pg_temp.today()) = 2, 'humor atualizado');
+  perform pg_temp.check((select coalesce(sum(amount), 0) from public.coin_transactions) = coins0 + 3, 'só 3 Cristais no total');
+
+  perform public.save_mood_entry(pg_temp.today() - 1, 5);
+  begin
+    perform public.save_mood_entry(pg_temp.today() - 2, 3);
+    raise exception 'FALHOU: humor fora da janela';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.save_mood_entry(pg_temp.today(), 6);
+    raise exception 'FALHOU: humor 6';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.save_mood_entry(pg_temp.today(), 3, array['feliz']);
+    raise exception 'FALHOU: sentimento fora da lista';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.save_mood_entry(pg_temp.today(), 3, '{}', repeat('a', 501));
+    raise exception 'FALHOU: nota longa';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+
+-- amiga (Mel) não vê o humor de Lia
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.mood_entries) = 0, 'humor é privado, nem amigos veem');
+end $$;
+
+-- ── Feature flags dos recursos antigos ──────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check(
+    (select count(*) from public.app_settings where key like 'feature\_%' and value = 1) >= 9,
+    'flags dos recursos antigos nascem ligadas');
+  perform pg_temp.check(not exists (
+      select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname like '%\_\_impl'
+        and has_function_privilege('authenticated', p.oid, 'execute')),
+    'o app não chama as funções __impl direto (só pelos porteiros)');
+end $$;
+update public.app_settings set value = 0
+where key in ('feature_shop', 'feature_challenges', 'feature_social', 'feature_flash_mission', 'feature_streak_shields');
+
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.buy_cosmetic('aura_fogo');
+    raise exception 'FALHOU: Loja desligada vendeu';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.start_journey('bbbbbbbb-2222-2222-2222-222222222223', 21);
+    raise exception 'FALHOU: Desafios desligados';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.search_users('Juca');
+    raise exception 'FALHOU: Social desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.my_flash_mission();
+    raise exception 'FALHOU: Missão relâmpago desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.buy_streak_shield();
+    raise exception 'FALHOU: Escudos desligados';
+  exception when sqlstate 'PR050' then null;
+  end;
+  -- ler continua liberado
+  perform public.my_friends();
+  perform public.my_groups();
+end $$;
+
+-- linha ausente = ligada (só para recursos antigos)
+reset role;
+delete from public.app_settings where key = 'feature_social';
+set local role authenticated;
+do $$ begin
+  perform public.search_users('Juca');
+end $$;
+
+-- Oráculo desligado: a Edge Function recebe o motivo do bloqueio
+reset role;
+update public.app_settings set value = 0 where key = 'feature_oracle';
+set local role service_role;
+do $$ begin
+  perform pg_temp.check(
+    public.ai_plan_block_reason('cccccccc-1111-1111-1111-111111111111', 'plan') like '%Oráculo está desativado%',
+    'Oráculo desligado bloqueia novos planos');
+end $$;
+reset role;
+update public.app_settings set value = 1 where key in ('feature_shop', 'feature_challenges', 'feature_flash_mission', 'feature_streak_shields', 'feature_oracle', 'feature_habit_kinds', 'feature_habit_stats', 'feature_smart_notifications');
+insert into public.app_settings (key, value) values ('feature_social', 1) on conflict (key) do update set value = 1;
+set local role service_role;
+do $$ begin
+  perform pg_temp.check(
+    coalesce(public.ai_plan_block_reason('cccccccc-1111-1111-1111-111111111111', 'plan'), '') not like '%desativado%',
+    'Oráculo ligado volta ao limite normal');
+end $$;
+reset role;
+
+-- ── Exportação de dados (LGPD) ──────────────────────────────
+reset role;
+update public.app_settings set value = 0 where key = 'feature_data_export';
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.export_my_data();
+    raise exception 'FALHOU: exportou com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_data_export';
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  r := public.export_my_data();
+  perform pg_temp.check(r->'conta'->>'email' = 'mel@teste.dev', 'exporta o e-mail da conta');
+  perform pg_temp.check(r->'perfil'->>'display_name' = 'Mel', 'exporta o perfil');
+  perform pg_temp.check(jsonb_array_length(r->'habits') = 1 and r->'habits'->0->>'title' = 'Segredo da Mel',
+    'exporta os próprios hábitos');
+  perform pg_temp.check(jsonb_array_length(r->'habit_logs') >= 20, 'exporta os registros');
+  perform pg_temp.check(not (r->'habits'->0 ? 'user_id'), 'sem user_id repetido em cada linha');
+  perform pg_temp.check(jsonb_array_length(r->'friendships') = 1, 'exporta o vínculo com a amiga');
+  perform pg_temp.check(not (r::text like '%lia@teste.dev%') and not (r::text like '%"Lia"%'),
+    'nada dos dados pessoais da amiga');
+  perform pg_temp.check(jsonb_array_length(r->'groups') = 1 and (r->'groups'->0->>'sou_dono')::boolean,
+    'exporta o grupo (Mel virou dona)');
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_data_export';
+
+-- ── App em inglês ───────────────────────────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_english') = 0,
+    'inglês começa desligado');
 end $$;
 
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros

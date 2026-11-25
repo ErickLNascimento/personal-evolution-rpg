@@ -1,0 +1,8 @@
+{
+  "image": "oracle_idle.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 12,
+  "fps": 8,
+  "loop": true
+}

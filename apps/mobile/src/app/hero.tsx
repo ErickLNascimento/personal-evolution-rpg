@@ -1,23 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  CLASS_CATALOG,
-  HERO_CLASS_INFO,
-  ownsClass,
-  heroClassLabel,
-  HERO_FORM_LABEL,
+  formLabel,
   HERO_FORMS,
-  HERO_CLASSES,
   HERO_SLOTS,
   isUnlocked,
-  type HeroClass,
+  itemLabel,
+  pathLabel,
+  pathMotto,
+  RACES,
+  raceDescription,
+  raceLabel,
+  rarityLabel,
+  slotLabel,
+  stageName,
+  titleDescription,
+  titleHint,
   type HeroForm,
+  type Race,
   type HeroItem,
   type HeroLook,
   type HeroSlot,
   displayedTitle,
   hasTitle,
   RARITY_COLOR,
-  RARITY_LABEL,
   RARITY_ORDER,
   TITLE_IDS,
   titleInfo,
@@ -29,16 +34,19 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Chips } from '@/components/Chips';
 import { Button, FormMessage } from '@/components/Form';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
+import { PathTree } from '@/components/hero/PathTree';
 import { tierColor } from '@/components/hero/HeroCard';
 import { StackScreen } from '@/components/Screen';
 import { useCelebration } from '@/features/celebration/CelebrationProvider';
 import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/ProfileProvider';
+import { useT } from '@/i18n';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 
-const SLOT_KEY: Record<HeroSlot, keyof Omit<HeroLook, 'heroClass' | 'form'>> = {
+const SLOT_KEY: Record<HeroSlot, keyof Omit<HeroLook, 'heroClass' | 'form' | 'kit' | 'tier' | 'race'>> = {
   skin: 'skin',
   eyes: 'eyes',
   hair: 'hair',
@@ -63,8 +71,11 @@ export default function HeroScreen() {
 
 function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
   const { save } = useHero();
+  const { t, locale } = useT();
   const { profile, update } = useProfile();
-  const owned = profile?.owned ?? new Set<string>();
+  const heroPath = profile?.heroPath;
+  const initialRace: Race = profile?.race ?? 'humano';
+  const [race, setRace] = useState<Race>(initialRace);
   const earned = profile?.earnedTitles ?? new Set<string>();
   const initialTitle = displayedTitle(profile?.equippedTitle, level, earned);
   const [title, setTitle] = useState<TitleId>(initialTitle);
@@ -74,7 +85,8 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
   const [error, setError] = useState<string | null>(null);
   const frame = tierColor(level);
   const titleChanged = title !== initialTitle;
-  const dirty = JSON.stringify(look) !== JSON.stringify(initial) || titleChanged;
+  const raceChanged = race !== initialRace;
+  const dirty = JSON.stringify(look) !== JSON.stringify(initial) || titleChanged || raceChanged;
 
   function choose(next: Partial<HeroLook>) {
     void Haptics.selectionAsync();
@@ -84,9 +96,10 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
   async function submit() {
     setSaving(true);
     // Título e aparência são salvos juntos; o banco confere se o título foi conquistado.
-    const err = titleChanged
-      ? await update({ hero: look, equipped_title: title })
-      : await save(look);
+    const err =
+      titleChanged || raceChanged
+        ? await update({ hero: look, race, ...(titleChanged ? { equipped_title: title } : {}) })
+        : await save(look);
     setSaving(false);
     if (err) {
       setError(err);
@@ -101,15 +114,23 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
       {/* Herói fixo no topo: cada escolha aparece nele na hora, enquanto as opções rolam embaixo. */}
       <View style={[styles.stage, { borderColor: frame }]}>
         <View style={styles.portrait}>
-          <HeroAvatar hero={look} size={112} animated />
+          <HeroAvatar hero={{ ...look, race }} size={112} animated />
         </View>
         <View style={styles.stageInfo}>
           <Text style={[styles.title, { color: RARITY_COLOR[titleInfo(title).rarity] }]}>
-            {titleName(title, look.form).toUpperCase()}
+            {titleName(title, look.form, locale).toUpperCase()}
           </Text>
-          <Text style={typography.heading}>{heroClassLabel(look.heroClass, look.form)}</Text>
-          <Text style={typography.caption}>Nível {level}</Text>
-          <Text style={typography.caption}>{HERO_CLASS_INFO[look.heroClass].motto}</Text>
+          <Text style={typography.heading}>
+            {heroPath?.path
+              ? stageName(heroPath.path, heroPath.branch, heroPath.stage, look.form, locale)
+              : t('heroScreen.noPath')}
+          </Text>
+          <Text style={typography.caption}>
+            {t('heroScreen.raceLevel', { race: raceLabel(race, look.form, locale), level })}
+          </Text>
+          {heroPath?.path && (
+            <Text style={typography.caption}>{pathMotto(heroPath.path, locale)}</Text>
+          )}
         </View>
       </View>
 
@@ -130,7 +151,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
           }}
         />
 
-        <Text style={typography.label}>PERSONAGEM</Text>
+        <Text style={typography.label}>{t('heroScreen.character')}</Text>
         <View style={styles.forms}>
           {HERO_FORMS.map((f: HeroForm) => {
             const active = look.form === f;
@@ -140,7 +161,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
                 onPress={() => choose({ form: f })}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={HERO_FORM_LABEL[f]}
+                accessibilityLabel={formLabel(f, locale)}
                 style={({ pressed }) => [
                   styles.formCard,
                   active && { borderColor: colors.primary },
@@ -148,54 +169,42 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
                 ]}
               >
                 <HeroAvatar hero={{ ...look, form: f, aura: 'nenhuma' }} size={52} />
-                <Text style={typography.body}>{HERO_FORM_LABEL[f]}</Text>
+                <Text style={typography.body}>{formLabel(f, locale)}</Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={typography.label}>CLASSE</Text>
-        <View style={styles.classes}>
-          {HERO_CLASSES.map((c: HeroClass) => {
-            const active = look.heroClass === c;
-            // Classe paga ainda não comprada: cadeado e atalho para a Loja.
-            const usable = ownsClass(c, owned);
-            return (
-              <Pressable
-                key={c}
-                onPress={() => (usable ? choose({ heroClass: c }) : router.push('/shop'))}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: active, disabled: !usable }}
-                accessibilityLabel={
-                  usable
-                    ? `${heroClassLabel(c, look.form)}. ${HERO_CLASS_INFO[c].motto}`
-                    : `${heroClassLabel(c, look.form)}, bloqueada. Toque para ver na Loja.`
-                }
-                style={({ pressed }) => [
-                  styles.classCard,
-                  active && { borderColor: colors.primary },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={!usable && styles.locked}>
-                  <HeroAvatar hero={{ ...look, heroClass: c, aura: 'nenhuma' }} size={56} />
-                </View>
-                <Text style={typography.body}>{heroClassLabel(c, look.form)}</Text>
-                {usable ? (
-                  <Text style={[typography.caption, styles.center]}>
-                    {HERO_CLASS_INFO[c].motto}
-                  </Text>
-                ) : (
-                  <View style={styles.classLock}>
-                    <Ionicons name="lock-closed" size={11} color={colors.textSecondary} />
-                    <Text style={typography.caption}>
-                      Nv {CLASS_CATALOG[c].minLevel} · {CLASS_CATALOG[c].price} Cristais
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
+        <View style={styles.slot}>
+          <Text style={typography.label}>{t('heroScreen.race')}</Text>
+          <Chips
+            options={RACES.map((r) => ({ value: r, label: raceLabel(r, look.form, locale) }))}
+            selected={[race]}
+            onToggle={(r) => {
+              void Haptics.selectionAsync();
+              setRace(r);
+            }}
+          />
+          <Text style={typography.caption}>
+            {raceDescription(race, locale)} {t('heroScreen.raceHint')}
+          </Text>
+        </View>
+
+        <View style={styles.slot}>
+          <Text style={typography.label}>{t('heroScreen.path')}</Text>
+          {heroPath?.path ? (
+            <>
+              <Text style={typography.heading}>{pathLabel(heroPath.path, locale)}</Text>
+              <PathTree state={{ ...heroPath, path: heroPath.path }} form={look.form} />
+            </>
+          ) : (
+            <Text style={typography.body}>{t('heroScreen.noPathYet')}</Text>
+          )}
+          <Button
+            title={heroPath?.path ? t('heroScreen.changePath') : t('heroScreen.choosePath')}
+            onPress={() => router.push('/path')}
+            variant="secondary"
+          />
         </View>
 
         {(Object.keys(HERO_SLOTS) as HeroSlot[]).map((slot) => (
@@ -204,12 +213,13 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
             slot={slot}
             value={look[SLOT_KEY[slot]]}
             level={level}
+            owned={profile?.cosmetics ?? new Set()}
             onChoose={(id) => choose({ [SLOT_KEY[slot]]: id })}
           />
         ))}
 
         <Button
-          title={`Prévia: cena do nível ${level + 1}`}
+          title={t('heroScreen.preview', { level: level + 1 })}
           onPress={() => celebrateLevelUp(level, level + 1)}
           variant="secondary"
         />
@@ -219,7 +229,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <FormMessage text={error} />
         <Button
-          title={dirty ? 'Salvar herói' : 'Pronto'}
+          title={dirty ? t('heroScreen.save') : t('heroScreen.done')}
           onPress={dirty ? submit : () => router.back()}
           loading={saving}
         />
@@ -242,6 +252,7 @@ function TitlePicker({
   form: HeroLook['form'];
   onChoose: (id: TitleId) => void;
 }) {
+  const { t, locale } = useT();
   const [showLocked, setShowLocked] = useState(false);
   const mine = TITLE_IDS.filter((id) => hasTitle(id, level, earned)).sort(
     (a, b) => RARITY_ORDER[titleInfo(b).rarity] - RARITY_ORDER[titleInfo(a).rarity],
@@ -250,7 +261,7 @@ function TitlePicker({
 
   return (
     <View style={styles.slot}>
-      <Text style={typography.label}>TÍTULO EXIBIDO</Text>
+      <Text style={typography.label}>{t('heroScreen.shownTitle')}</Text>
       <View style={styles.options}>
         {mine.map((id) => {
           const info = titleInfo(id);
@@ -262,7 +273,7 @@ function TitlePicker({
               onPress={() => onChoose(id)}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={`${titleName(id, form)}, ${RARITY_LABEL[info.rarity]}. ${info.description}`}
+              accessibilityLabel={`${titleName(id, form, locale)}, ${rarityLabel(info.rarity, locale)}. ${titleDescription(id, locale)}`}
               style={({ pressed }) => [
                 styles.chip,
                 { borderColor: active ? color : colors.border },
@@ -273,14 +284,14 @@ function TitlePicker({
               <View style={styles.chipRow}>
                 <View style={[styles.dot, { backgroundColor: color }]} />
                 <Text style={[styles.chipText, active && { color: colors.text }]}>
-                  {titleName(id, form)}
+                  {titleName(id, form, locale)}
                 </Text>
               </View>
             </Pressable>
           );
         })}
       </View>
-      <Text style={typography.caption}>{titleInfo(value).description}</Text>
+      <Text style={typography.caption}>{titleDescription(value, locale)}</Text>
 
       <Pressable
         onPress={() => setShowLocked((v) => !v)}
@@ -293,7 +304,7 @@ function TitlePicker({
           color={colors.textSecondary}
         />
         <Text style={typography.caption}>
-          {showLocked ? 'Esconder' : 'Ver'} títulos a conquistar ({locked.length})
+          {t(showLocked ? 'heroScreen.hideLocked' : 'heroScreen.showLocked', { count: locked.length })}
         </Text>
       </Pressable>
       {showLocked &&
@@ -307,8 +318,8 @@ function TitlePicker({
               accessible
               accessibilityLabel={
                 secret
-                  ? `Título secreto. Pista: ${info.hint}`
-                  : `${titleName(id, form)}: ${info.description}`
+                  ? t('heroScreen.secretA11y', { hint: titleHint(id, locale) ?? '' })
+                  : `${titleName(id, form, locale)}: ${titleDescription(id, locale)}`
               }
             >
               <Ionicons
@@ -317,13 +328,15 @@ function TitlePicker({
                 color={RARITY_COLOR[info.rarity]}
               />
               <View style={styles.flex}>
-                <Text style={typography.body}>{secret ? '???' : titleName(id, form)}</Text>
+                <Text style={typography.body}>{secret ? '???' : titleName(id, form, locale)}</Text>
                 <Text style={typography.caption}>
-                  {secret ? `Pista: ${info.hint}` : info.description}
+                  {secret
+                    ? t('heroScreen.hint', { hint: titleHint(id, locale) ?? '' })
+                    : titleDescription(id, locale)}
                 </Text>
               </View>
               <Text style={[styles.rarityTag, { color: RARITY_COLOR[info.rarity] }]}>
-                {RARITY_LABEL[info.rarity]}
+                {rarityLabel(info.rarity, locale)}
               </Text>
             </View>
           );
@@ -336,30 +349,42 @@ function SlotPicker({
   slot,
   value,
   level,
+  owned,
   onChoose,
 }: {
   slot: HeroSlot;
   value: string;
   level: number;
+  /** Cosméticos comprados na Loja. */
+  owned: ReadonlySet<string>;
   onChoose: (id: string) => void;
 }) {
-  const { label, items } = HERO_SLOTS[slot];
+  const { t, locale } = useT();
+  const { items } = HERO_SLOTS[slot];
   const isColor = items.every((i) => i.color) && slot !== 'aura';
   return (
     <View style={styles.slot}>
-      <Text style={typography.label}>{label.toUpperCase()}</Text>
+      <Text style={typography.label}>{slotLabel(slot, locale).toUpperCase()}</Text>
       <View style={styles.options}>
         {items.map((item: HeroItem) => {
-          const unlocked = isUnlocked(item, level);
+          const unlocked = isUnlocked(item, level, owned);
+          const fromShop = item.price !== undefined;
           const active = item.id === value;
-          const a11y = unlocked ? item.label : `${item.label}, bloqueado até o nível ${item.level}`;
+          const name = itemLabel(slot, item, locale);
+          const a11y = unlocked
+            ? name
+            : fromShop
+              ? t('heroScreen.itemInShop', { name, price: item.price ?? 0 })
+              : t('heroScreen.itemLocked', { name, level: item.level });
           return (
             <Pressable
               key={item.id}
               onPress={() =>
                 unlocked
                   ? onChoose(item.id)
-                  : Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+                  : fromShop
+                    ? router.push('/shop')
+                    : Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
               }
               accessibilityRole="radio"
               accessibilityState={{ selected: active, disabled: !unlocked }}
@@ -376,14 +401,14 @@ function SlotPicker({
                 <View style={styles.chipRow}>
                   {item.color && <View style={[styles.dot, { backgroundColor: item.color }]} />}
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {item.label}
+                    {name}
                   </Text>
                 </View>
               )}
               {!unlocked && (
                 <View style={styles.lockBadge}>
-                  <Ionicons name="lock-closed" size={10} color={colors.text} />
-                  <Text style={styles.lockText}>{item.level}</Text>
+                  <Ionicons name={fromShop ? 'diamond' : 'lock-closed'} size={10} color={colors.text} />
+                  <Text style={styles.lockText}>{fromShop ? item.price : item.level}</Text>
                 </View>
               )}
             </Pressable>
@@ -421,9 +446,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   title: { fontSize: 13, fontWeight: '800', letterSpacing: 1.4 },
-  classes: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   forms: { flexDirection: 'row', gap: spacing.sm },
-  classLock: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   titleActive: { borderWidth: 3 },
   lockedToggle: {
     flexDirection: 'row',
@@ -449,17 +472,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  classCard: {
-    width: '48%',
-    alignItems: 'center',
-    gap: 2,
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  center: { textAlign: 'center' },
   slot: { gap: spacing.sm },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   swatch: {

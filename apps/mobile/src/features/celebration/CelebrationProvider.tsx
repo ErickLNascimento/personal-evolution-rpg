@@ -1,4 +1,4 @@
-import { DEFAULT_HERO, isTitleId, sanitizeHero, type TitleId } from '@per/domain';
+import { DEFAULT_HERO, heroLook, isTitleId, type TitleId } from '@per/domain';
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { LevelUpOverlay } from '@/components/celebration/LevelUpOverlay';
 import { TitleUnlockedOverlay } from '@/components/celebration/TitleUnlockedOverlay';
@@ -44,7 +44,7 @@ export function CelebrationProvider({ children }: { children: ReactNode }) {
   const current = queue[0];
   const next = () => setQueue((q) => q.slice(1));
   const level = current?.kind === 'level' ? current.to : 1;
-  const hero = profile ? sanitizeHero(profile.hero, level, profile.owned) : DEFAULT_HERO;
+  const hero = profile ? heroLook(profile.hero, level, profile.heroPath, profile.race, profile.cosmetics) : DEFAULT_HERO;
 
   return (
     <CelebrationContext.Provider value={{ celebrateLevelUp, celebrateTitles }}>

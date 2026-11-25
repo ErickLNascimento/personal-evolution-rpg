@@ -7,6 +7,13 @@ This is an Expo/React Native mobile application (monorepo: `apps/mobile`, `packa
 - XP is written only by the database functions `log_habit` / `undo_habit_log`. The app and the AI never insert into `xp_transactions`.
 - Every table with personal data has RLS. Any migration change must keep `supabase/sql-tests/10_rls_and_xp.test.sql` passing; add a test for new rules.
 - Run `npm run check` from the repo root before declaring a task done.
+- Every update shipped to users (new build or EAS Update) with user-visible changes must add an entry at the top of `RELEASE_NOTES` in `packages/domain/src/whatsNew.ts` (next `version`, short items in Portuguese, optional `route`). The app shows it as a "Novidades" tour.
+- Every new user-facing feature ships behind a feature flag the team manages in Supabase:
+  - a row `feature_<name>` in `public.app_settings`, inserted by the feature's migration with value `0` (off; `1` = on);
+  - the key registered in `FEATURES` (`packages/domain/src/features.ts`) and read in the app with `useFeature`;
+  - when off, the app hides the feature's UI, and every RPC that writes for it raises `PR050` (see `save_mood_entry`), with a SQL test for both states;
+  - its "Novidades" items carry `flag: 'feature_<name>'`;
+  - add the flag and its on/off commands to `docs/feature-flags/README.md`.
 
 ## Expo has changed — do not trust your training data
 

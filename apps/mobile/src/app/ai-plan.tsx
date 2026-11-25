@@ -2,27 +2,29 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   canDecide,
   describeSchedule,
+  attributeLabel,
   DIFFICULTIES,
-  DIFFICULTY_LABEL,
+  DIFFICULTY_LABELS,
   estimateMissionCrystals,
   hasAiConsent,
-  HERO_ATTRIBUTES,
   normalizePlanRequest,
-  OBJECTIVE_CATEGORY_LABEL,
+  OBJECTIVE_CATEGORY_LABELS,
   PLAN_GOAL_MAX,
   PLAN_MINUTES_OPTIONS,
   PLAN_PAST_MAX,
-  sanitizeHero,
+  heroLook,
   toggleScheduleDay,
   validateSuggestionEdit,
-  WEEKDAY_SHORT,
+  WEEKDAY_SHORTS,
   xpForHabit,
   type AiHabitSuggestion,
   type AiPlanKind,
   type Difficulty,
   type HeroClass,
+  type Locale,
   type PlanMinutes,
   type SuggestionEdit,
+  FEATURES,
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -31,6 +33,8 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'rea
 import { Chips } from '@/components/Chips';
 import { CRYSTAL } from '@/components/crystals/Crystals';
 import { Button, Field, FormMessage } from '@/components/Form';
+import { OracleHeader } from '@/components/oracle/OracleHeader';
+import { FeatureGate } from '@/components/FeatureGate';
 import { StackScreen } from '@/components/Screen';
 import {
   decidePlan,
@@ -41,27 +45,31 @@ import {
   type AiPlan,
 } from '@/features/ai/api';
 import { useProfile } from '@/features/profile/useProfile';
+import { useT, type TKey } from '@/i18n';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 
-const KIND_LABEL: Record<AiPlanKind, string> = {
-  initial: 'Missões reveladas',
-  weekly: 'Revisão semanal',
+const KIND_LABEL: Record<AiPlanKind, TKey> = {
+  initial: 'aiPlan.kindInitial',
+  weekly: 'aiPlan.kindWeekly',
 };
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-const DAY_OPTIONS = WEEKDAY_SHORT.map((label, value) => ({ value, label }));
-const MINUTE_OPTIONS = [
-  { value: 0, label: 'Sem preferência' },
-  ...PLAN_MINUTES_OPTIONS.map((m) => ({
-    value: m as number,
-    label: m === 60 ? '1 h' : `${m} min`,
-  })),
-];
-const DIFFICULTY_OPTIONS = DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] }));
+const dayOptions = (locale: Locale) =>
+  WEEKDAY_SHORTS[locale].map((label, value) => ({ value, label }));
+const difficultyOptions = (locale: Locale) =>
+  DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABELS[locale][d] }));
 
 type Draft = { title: string; difficulty: Difficulty; scheduleDays: number[] };
 
-export default function AiPlanScreen() {
+function AiPlanScreen() {
   const { profile, loading: profileLoading } = useProfile();
+  const { t, locale } = useT();
+  const minuteOptions = [
+    { value: 0, label: t('aiPlan.noPreference') },
+    ...PLAN_MINUTES_OPTIONS.map((m) => ({
+      value: m as number,
+      label: m === 60 ? '1 h' : `${m} min`,
+    })),
+  ];
   const [plan, setPlan] = useState<AiPlan | null | undefined>(undefined);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [edits, setEdits] = useState<Record<number, Draft>>({});
@@ -111,27 +119,26 @@ export default function AiPlanScreen() {
   if (!profile || !hasAiConsent(profile)) {
     return (
       <StackScreen>
-        <Text style={typography.body}>
-          Para receber sugestões, ative “Permitir que a IA use meus dados” no Perfil. Seus
-          objetivos, hábitos e registros (sem nome nem e-mail) vão para os provedores de IA (Google
-          Gemini e, como reserva, Groq). A IA só propõe: nada muda sem a sua aprovação, e ela nunca
-          altera seu XP.
-        </Text>
-        <Button title="Ir para o Perfil" onPress={() => router.navigate('/profile')} />
+        <OracleHeader says={t('aiPlan.consentSays')} />
+        <Text style={typography.body}>{t('aiPlan.consentBody')}</Text>
+        <Button title={t('aiPlan.goProfile')} onPress={() => router.navigate('/profile')} />
       </StackScreen>
     );
   }
 
   // Classe equipada (para mostrar os Cristais com o bônus dela)
-  const heroClass: HeroClass = sanitizeHero(profile.hero, 999, profile.owned).heroClass;
+  const heroClass: HeroClass = heroLook(profile.hero, 999, profile.heroPath).heroClass;
 
   async function generate(kind: AiPlanKind) {
-    const req = normalizePlanRequest({
-      goal,
-      minutesPerDay: minutes === 0 ? null : (minutes as PlanMinutes),
-      freeDays,
-      pastAttempts: past,
-    });
+    const req = normalizePlanRequest(
+      {
+        goal,
+        minutesPerDay: minutes === 0 ? null : (minutes as PlanMinutes),
+        freeDays,
+        pastAttempts: past,
+      },
+      locale,
+    );
     if (req.error !== null || !req.value) {
       setError(req.error);
       return;
@@ -175,9 +182,9 @@ export default function AiPlanScreen() {
       for (const i of chosen) {
         const d = edits[i];
         if (!d) continue;
-        const v = validateSuggestionEdit(i, d);
+        const v = validateSuggestionEdit(i, d, locale);
         if (v.error !== null || !v.value) {
-          setError(`Sugestão ${i + 1}: ${v.error}`);
+          setError(t('aiPlan.suggestionError', { n: i + 1, error: v.error ?? '' }));
           setEditing(i);
           return;
         }
@@ -197,16 +204,18 @@ export default function AiPlanScreen() {
     setNotice(
       accept
         ? r.data.habitsCreated === 0
-          ? 'Plano aceito, sem novos hábitos.'
-          : `${r.data.habitsCreated} ${r.data.habitsCreated === 1 ? 'hábito criado' : 'hábitos criados'}. Eles já aparecem nas missões.`
-        : 'Plano recusado. Nada foi alterado.',
+          ? t('aiPlan.acceptedNone')
+          : t(r.data.habitsCreated === 1 ? 'aiPlan.createdOne' : 'aiPlan.createdMany', {
+              count: r.data.habitsCreated,
+            })
+        : t('aiPlan.rejected'),
     );
   }
 
   function confirmReject(current: AiPlan) {
-    Alert.alert('Recusar as sugestões?', 'Nenhum hábito será criado.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Recusar', style: 'destructive', onPress: () => void decide(current, false) },
+    Alert.alert(t('aiPlan.rejectTitle'), t('aiPlan.rejectText'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('aiPlan.reject'), style: 'destructive', onPress: () => void decide(current, false) },
     ]);
   }
 
@@ -214,28 +223,35 @@ export default function AiPlanScreen() {
   const generating = busy === 'initial' || busy === 'weekly';
   const swapsLeft = plan ? MAX_SWAPS - plan.swaps : 0;
 
+  const oracleSays = generating
+    ? t('aiPlan.saysReading')
+    : plan && pending
+      ? t('aiPlan.saysPlan')
+      : t('aiPlan.saysIdle');
+
   return (
     <StackScreen>
+      <OracleHeader says={oracleSays} />
       <FormMessage text={notice} tone="info" />
       <FormMessage text={error} />
 
       {generating && (
         <View style={styles.thinking} accessibilityLiveRegion="polite">
           <ActivityIndicator color={colors.primary} />
-          <Text style={[typography.body, styles.flex]}>O Oráculo está lendo sua jornada…</Text>
+          <Text style={[typography.body, styles.flex]}>{t('aiPlan.thinking')}</Text>
         </View>
       )}
 
       {plan && !generating && (
         <View style={styles.card}>
           <Text style={typography.label}>
-            {KIND_LABEL[plan.kind].toUpperCase()} ·{' '}
-            {new Date(plan.createdAt).toLocaleDateString('pt-BR')}
+            {t(KIND_LABEL[plan.kind]).toUpperCase()} ·{' '}
+            {new Date(plan.createdAt).toLocaleDateString(locale)}
           </Text>
           {plan.summary ? <Text style={typography.body}>{plan.summary}</Text> : null}
           {!pending && (
             <Text style={typography.caption}>
-              {plan.status === 'accepted' ? 'Você aceitou este plano.' : 'Você recusou este plano.'}
+              {plan.status === 'accepted' ? t('aiPlan.youAccepted') : t('aiPlan.youRejected')}
             </Text>
           )}
         </View>
@@ -244,16 +260,14 @@ export default function AiPlanScreen() {
       {plan && pending && !generating && (
         <>
           {plan.suggestions.length === 0 ? (
-            <Text style={typography.caption}>
-              Sem hábitos novos desta vez: continue com a rotina atual.
-            </Text>
+            <Text style={typography.caption}>{t('aiPlan.noNew')}</Text>
           ) : (
             <Text style={typography.caption}>
-              Escolha o que quer adicionar. Ajuste ou troque o que não combinar com você
               {swapsLeft > 0
-                ? ` (${swapsLeft} ${swapsLeft === 1 ? 'troca restante' : 'trocas restantes'})`
-                : ''}
-              .
+                ? t(swapsLeft === 1 ? 'aiPlan.chooseSwapOne' : 'aiPlan.chooseSwapMany', {
+                    count: swapsLeft,
+                  })
+                : t('aiPlan.choose')}
             </Text>
           )}
           {plan.suggestions.map((s) => (
@@ -296,10 +310,12 @@ export default function AiPlanScreen() {
           <Button
             title={
               plan.suggestions.length === 0
-                ? 'Ok, entendi'
+                ? t('aiPlan.ok')
                 : selected.size === 0
-                  ? 'Selecione ao menos um'
-                  : `Adicionar ${selected.size} ${selected.size === 1 ? 'hábito' : 'hábitos'}`
+                  ? t('aiPlan.selectOne')
+                  : t(selected.size === 1 ? 'aiPlan.addOne' : 'aiPlan.addMany', {
+                      count: selected.size,
+                    })
             }
             onPress={() => decide(plan, true)}
             loading={busy === 'decide'}
@@ -310,7 +326,7 @@ export default function AiPlanScreen() {
           />
           {plan.suggestions.length > 0 && (
             <Button
-              title="Recusar"
+              title={t('aiPlan.reject')}
               onPress={() => confirmReject(plan)}
               variant="secondary"
               disabled={busy !== null}
@@ -321,54 +337,48 @@ export default function AiPlanScreen() {
 
       {!pending && !generating && (
         <View style={styles.actions}>
-          <Text style={typography.label}>CONTE O QUE VOCÊ QUER</Text>
-          <Text style={typography.caption}>
-            Tudo opcional. Quanto mais você contar, mais o plano combina com a sua vida.
-          </Text>
+          <Text style={typography.label}>{t('aiPlan.tellUs')}</Text>
+          <Text style={typography.caption}>{t('aiPlan.tellUsHint')}</Text>
           <Field
-            label="O que você quer conquistar?"
+            label={t('aiPlan.goalLabel')}
             value={goal}
             onChangeText={setGoal}
-            placeholder="Escreva com as suas palavras"
+            placeholder={t('aiPlan.goalPlaceholder')}
             maxLength={PLAN_GOAL_MAX}
             multiline
           />
-          <Text style={typography.label}>TEMPO POR DIA</Text>
-          <Chips options={MINUTE_OPTIONS} selected={[minutes]} onToggle={setMinutes} />
-          <Text style={typography.label}>DIAS LIVRES</Text>
+          <Text style={typography.label}>{t('aiPlan.timePerDay')}</Text>
+          <Chips options={minuteOptions} selected={[minutes]} onToggle={setMinutes} />
+          <Text style={typography.label}>{t('aiPlan.freeDays')}</Text>
           <Chips
             multiple
-            options={DAY_OPTIONS}
+            options={dayOptions(locale)}
             selected={freeDays}
             onToggle={(d) => setFreeDays((cur) => toggleScheduleDay(cur, d))}
           />
           <Field
-            label="Algo que já tentou e não deu certo?"
+            label={t('aiPlan.pastLabel')}
             value={past}
             onChangeText={setPast}
-            placeholder="Conte com as suas palavras"
+            placeholder={t('aiPlan.pastPlaceholder')}
             maxLength={PLAN_PAST_MAX}
             multiline
           />
 
-          <Text style={[typography.label, styles.spaced]}>CONSULTAR O ORÁCULO</Text>
+          <Text style={[typography.label, styles.spaced]}>{t('aiPlan.consult')}</Text>
           <Button
-            title="Revelar missões"
+            title={t('aiPlan.reveal')}
             onPress={() => generate('initial')}
             disabled={busy !== null}
           />
-          <Text style={typography.caption}>
-            O Oráculo sugere de 2 a 5 missões a partir do que você contou.
-          </Text>
+          <Text style={typography.caption}>{t('aiPlan.revealHint')}</Text>
           <Button
-            title="Revisar minha semana"
+            title={t('aiPlan.review')}
             onPress={() => generate('weekly')}
             variant="secondary"
             disabled={busy !== null}
           />
-          <Text style={typography.caption}>
-            O Oráculo lê seus últimos 14 dias e sugere ajustes.
-          </Text>
+          <Text style={typography.caption}>{t('aiPlan.reviewHint')}</Text>
         </View>
       )}
     </StackScreen>
@@ -400,16 +410,22 @@ function SuggestionRow({
   onChange: (d: Draft) => void;
   onSwap: () => void;
 }) {
+  const { t, locale } = useT();
+  const DIFFICULTY_LABEL = DIFFICULTY_LABELS[locale];
   const s = suggestion;
   const title = draft?.title ?? s.title;
   const difficulty = draft?.difficulty ?? s.difficulty;
   const days = draft?.scheduleDays ?? s.scheduleDays;
-  const meta = `${DIFFICULTY_LABEL[difficulty]} · ${describeSchedule(days)}`;
+  const meta = `${DIFFICULTY_LABEL[difficulty]} · ${describeSchedule(days, locale)}`;
   const objective = s.objectiveTitle
-    ? `${s.objectiveTitle} (${OBJECTIVE_CATEGORY_LABEL[s.objectiveCategory]})`
+    ? `${s.objectiveTitle} (${OBJECTIVE_CATEGORY_LABELS[locale][s.objectiveCategory]})`
     : null;
   const crystals = estimateMissionCrystals(difficulty, s.objectiveCategory, heroClass);
-  const reward = `+${xpForHabit(difficulty)} XP · +${crystals} Cristais · treina ${HERO_ATTRIBUTES[s.objectiveCategory].label}`;
+  const reward = t('aiPlan.reward', {
+    xp: xpForHabit(difficulty),
+    crystals,
+    attribute: attributeLabel(s.objectiveCategory, locale),
+  });
 
   return (
     <View style={[styles.row, checked && styles.rowChecked]}>
@@ -417,7 +433,7 @@ function SuggestionRow({
         onPress={onToggle}
         accessibilityRole="checkbox"
         accessibilityState={{ checked }}
-        accessibilityLabel={`${title}, ${meta}. ${reward}${objective ? `, objetivo ${objective}` : ''}`}
+        accessibilityLabel={`${title}, ${meta}. ${reward}${objective ? `, ${t('aiPlan.objectiveA11y', { objective })}` : ''}`}
         style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}
       >
         <Ionicons
@@ -428,7 +444,7 @@ function SuggestionRow({
         <View style={styles.body}>
           <Text style={typography.body}>
             {title}
-            {draft ? <Text style={styles.edited}> · ajustado</Text> : null}
+            {draft ? <Text style={styles.edited}> · {t('aiPlan.edited')}</Text> : null}
           </Text>
           <Text style={typography.caption}>{meta}</Text>
           <Text style={styles.reward}>{reward}</Text>
@@ -441,7 +457,7 @@ function SuggestionRow({
         <Pressable
           onPress={onEdit}
           accessibilityRole="button"
-          accessibilityLabel={`Ajustar ${title}`}
+          accessibilityLabel={t('aiPlan.editA11y', { title })}
           style={styles.smallButton}
         >
           <Ionicons
@@ -449,13 +465,13 @@ function SuggestionRow({
             size={15}
             color={colors.text}
           />
-          <Text style={styles.smallText}>{editing ? 'Fechar' : 'Ajustar'}</Text>
+          <Text style={styles.smallText}>{editing ? t('aiPlan.close') : t('aiPlan.edit')}</Text>
         </Pressable>
         <Pressable
           onPress={onSwap}
           disabled={!canSwap}
           accessibilityRole="button"
-          accessibilityLabel={`Trocar ${title} por outra sugestão`}
+          accessibilityLabel={t('aiPlan.swapA11y', { title })}
           style={[styles.smallButton, !canSwap && styles.disabled]}
         >
           {swapping ? (
@@ -463,28 +479,28 @@ function SuggestionRow({
           ) : (
             <Ionicons name="refresh" size={15} color={colors.text} />
           )}
-          <Text style={styles.smallText}>Trocar</Text>
+          <Text style={styles.smallText}>{t('aiPlan.swap')}</Text>
         </Pressable>
       </View>
 
       {editing && draft && (
         <View style={styles.editor}>
           <Field
-            label="Nome"
+            label={t('aiPlan.name')}
             value={draft.title}
-            onChangeText={(t) => onChange({ ...draft, title: t })}
+            onChangeText={(text) => onChange({ ...draft, title: text })}
             maxLength={120}
           />
-          <Text style={typography.label}>DIFICULDADE</Text>
+          <Text style={typography.label}>{t('aiPlan.difficulty')}</Text>
           <Chips
-            options={DIFFICULTY_OPTIONS}
+            options={difficultyOptions(locale)}
             selected={[draft.difficulty]}
             onToggle={(d) => onChange({ ...draft, difficulty: d })}
           />
-          <Text style={typography.label}>DIAS</Text>
+          <Text style={typography.label}>{t('aiPlan.days')}</Text>
           <Chips
             multiple
-            options={DAY_OPTIONS}
+            options={dayOptions(locale)}
             selected={draft.scheduleDays}
             onToggle={(d) =>
               onChange({ ...draft, scheduleDays: toggleScheduleDay(draft.scheduleDays, d) })
@@ -549,3 +565,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
 });
+
+export default function AiPlanScreenRoute() {
+  return (
+    <FeatureGate feature={FEATURES.oracle}>
+      <AiPlanScreen />
+    </FeatureGate>
+  );
+}

@@ -1,24 +1,33 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { LevelProgress } from '@per/domain';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 export function XpBar({ progress }: { progress: LevelProgress }) {
+  const { t } = useT();
   const pct = Math.round(progress.progress * 100);
   return (
     <View
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={`Nível ${progress.level}`}
-      accessibilityValue={{ min: 0, max: 100, now: pct, text: `${progress.xpToNextLevel} XP para o próximo nível` }}
+      accessibilityLabel={t('hero.level', { level: progress.level })}
+      accessibilityValue={{
+        min: 0,
+        max: 100,
+        now: pct,
+        text: t('hero.xpToNext', { xp: progress.xpToNextLevel }),
+      }}
     >
       <View style={styles.row}>
-        <Text style={styles.level}>Nível {progress.level}</Text>
+        <Text style={styles.level}>{t('hero.level', { level: progress.level })}</Text>
         <Text style={styles.xp}>{progress.totalXp} XP</Text>
       </View>
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${pct}%` }]} />
       </View>
-      <Text style={typography.caption}>{progress.xpToNextLevel} XP para o nível {progress.level + 1}</Text>
+      <Text style={typography.caption}>
+        {t('hero.xpToLevel', { xp: progress.xpToNextLevel, level: progress.level + 1 })}
+      </Text>
     </View>
   );
 }

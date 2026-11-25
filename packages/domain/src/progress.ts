@@ -5,7 +5,13 @@
  */
 import { addDays, compareLocalDates, startOfWeek, type LocalDate } from './dates';
 import { dayProgress, missionsForDay, type Habit } from './schedule';
-import { computeStreak, type DayStatus, type StreakOptions } from './streak';
+import {
+  computeStreak,
+  SHIELD_WINDOW_DAYS,
+  shieldTargets,
+  type DayStatus,
+  type StreakOptions,
+} from './streak';
 
 export interface HabitLogEntry {
   habitId: string;
@@ -56,13 +62,16 @@ export function dayStatuses(
 /** Primeiro dia com hábito valendo, ou `null` se não há hábitos. */
 export function firstHabitDate(habits: readonly Habit[]): LocalDate | null {
   let first: LocalDate | null = null;
-  for (const h of habits) if (first === null || compareLocalDates(h.startDate, first) < 0) first = h.startDate;
+  for (const h of habits)
+    if (first === null || compareLocalDates(h.startDate, first) < 0) first = h.startDate;
   return first;
 }
 
 export interface StreakSummary {
   current: number;
   restDaysUsed: number;
+  /** Escudos que seguraram a sequência. */
+  shieldsUsed: number;
   /** `true` se a sequência chegou ao limite da janela lida (mostrar como "N+"). */
   capped: boolean;
 }
@@ -79,7 +88,8 @@ export function streakFrom(
   options: StreakOptions = {},
 ): StreakSummary {
   const first = firstHabitDate(habits);
-  if (first === null || compareLocalDates(first, today) > 0) return { current: 0, restDaysUsed: 0, capped: false };
+  if (first === null || compareLocalDates(first, today) > 0)
+    return { current: 0, restDaysUsed: 0, shieldsUsed: 0, capped: false };
 
   const windowStart = addDays(today, -(windowDays - 1));
   const truncated = compareLocalDates(first, windowStart) < 0;
@@ -87,13 +97,42 @@ export function streakFrom(
   const statuses = dayStatuses(habits, logs, from, today);
   const result = computeStreak(statuses, today, from, options);
 
-  // A contagem não quebrou se cada dia da janela foi completo, perdoado, sem missão ou hoje em andamento.
+  // A contagem não quebrou se cada dia da janela foi completo, perdoado, protegido, sem missão
+  // ou ainda em aberto (hoje e, com openDays, os dias que ainda aceitam registro).
+  const openUntil = addDays(today, -(options.openDays ?? 0));
   let noneDays = 0;
-  for (const s of statuses.values()) if (s === 'none') noneDays += 1;
-  const todayInProgress = statuses.get(today) === 'missed' ? 1 : 0;
-  const unbroken = result.current + result.restDaysUsed + noneDays + todayInProgress === statuses.size;
+  let openMissed = 0;
+  for (const [date, s] of statuses) {
+    if (s === 'none') noneDays += 1;
+    else if (s === 'missed' && compareLocalDates(date, openUntil) >= 0) openMissed += 1;
+  }
+  const unbroken =
+    result.current + result.restDaysUsed + result.shieldsUsed + noneDays + openMissed ===
+    statuses.size;
 
   return { ...result, capped: truncated && unbroken };
+}
+
+/** Dias de histórico que bastam para decidir os escudos (janela + uma semana de folga). */
+export const SHIELD_LOOKBACK_DAYS = SHIELD_WINDOW_DAYS + 7;
+
+/**
+ * Dias fechados em que um escudo deve ser usado agora para salvar o streak, considerando
+ * ontem ainda em aberto e os dias já protegidos. Lê no máximo SHIELD_LOOKBACK_DAYS.
+ */
+export function streakShieldDates(
+  habits: readonly Habit[],
+  logs: readonly HabitLogEntry[],
+  today: LocalDate,
+  available: number,
+  shielded: ReadonlySet<LocalDate>,
+): LocalDate[] {
+  const first = firstHabitDate(habits);
+  if (available <= 0 || first === null || compareLocalDates(first, today) > 0) return [];
+  const windowStart = addDays(today, -(SHIELD_LOOKBACK_DAYS - 1));
+  const from = compareLocalDates(first, windowStart) < 0 ? windowStart : first;
+  const statuses = dayStatuses(habits, logs, from, today);
+  return shieldTargets(statuses, today, from, available, { openDays: 1, shielded });
 }
 
 export interface DailyXp {
@@ -148,7 +187,10 @@ export function weekSummary(
   }
 
   const xpTotal = xp
-    .filter((e) => compareLocalDates(e.localDate, weekStart) >= 0 && compareLocalDates(e.localDate, last) <= 0)
+    .filter(
+      (e) =>
+        compareLocalDates(e.localDate, weekStart) >= 0 && compareLocalDates(e.localDate, last) <= 0,
+    )
     .reduce((sum, e) => sum + e.amount, 0);
 
   return {

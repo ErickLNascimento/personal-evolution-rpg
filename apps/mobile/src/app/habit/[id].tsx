@@ -1,18 +1,36 @@
-import { describeSchedule, DIFFICULTY_LABEL, retireHabit, type HabitDraft } from '@per/domain';
+import {
+  describeSchedule,
+  DIFFICULTY_LABELS,
+  FEATURES,
+  retireHabit,
+  type HabitDraft,
+  type LocalDate,
+} from '@per/domain';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { Button, FormMessage } from '@/components/Form';
 import { StackScreen } from '@/components/Screen';
-import { getHabit, isLoggedOn, retire, updateHabit, type HabitRecord } from '@/features/habits/api';
+import {
+  getHabit,
+  isLoggedOn,
+  listHabitLogDates,
+  retire,
+  updateHabit,
+  type HabitRecord,
+} from '@/features/habits/api';
 import { HabitForm } from '@/features/habits/HabitForm';
+import { HabitStatsCard } from '@/features/habits/HabitStatsCard';
+import { useFeature } from '@/features/profile/useFeature';
 import { useToday } from '@/features/profile/useToday';
 import { syncReminders } from '@/lib/reminders';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { currentLocale, useT } from '@/i18n';
 
 function toDraft(h: HabitRecord): HabitDraft {
   return {
     title: h.title,
+    kind: h.kind,
     difficulty: h.difficulty,
     scheduleDays: h.scheduleDays,
     objectiveId: h.objectiveId,
@@ -23,13 +41,16 @@ function toDraft(h: HabitRecord): HabitDraft {
 }
 
 function formatDate(date: string) {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString(currentLocale(), { timeZone: 'UTC' });
 }
 
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { today, ready } = useToday();
+  const { t, locale } = useT();
+  const statsOn = useFeature(FEATURES.habitStats);
   const [habit, setHabit] = useState<HabitRecord | null>(null);
+  const [logged, setLogged] = useState<Set<LocalDate> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retiring, setRetiring] = useState(false);
 
@@ -39,6 +60,10 @@ export default function EditHabitScreen() {
       if (!active) return;
       if (r.error !== null) setError(r.error);
       else setHabit(r.data);
+    });
+    // As estatísticas são extras: se falharem, a tela continua editável.
+    listHabitLogDates(id).then((r) => {
+      if (active && r.error === null) setLogged(r.data);
     });
     return () => {
       active = false;
@@ -53,18 +78,28 @@ export default function EditHabitScreen() {
     );
   }
 
+  const stats =
+    logged && ready && statsOn ? (
+      <HabitStatsCard habit={habit} logged={logged} today={today} />
+    ) : null;
+
   if (habit.archivedOn) {
     return (
       <StackScreen>
         <View style={styles.card}>
           <Text style={typography.heading}>{habit.title}</Text>
           <Text style={typography.caption}>
-            {DIFFICULTY_LABEL[habit.difficulty]} · {describeSchedule(habit.scheduleDays)}
+            {DIFFICULTY_LABELS[locale][habit.difficulty]} ·{' '}
+            {describeSchedule(habit.scheduleDays, locale)}
           </Text>
           <Text style={typography.body}>
-            Arquivado. Valeu de {formatDate(habit.startDate)} até {formatDate(habit.archivedOn)}; o XP ganho continua seu.
+            {t('habit.archivedInfo', {
+              from: formatDate(habit.startDate),
+              to: formatDate(habit.archivedOn),
+            })}
           </Text>
         </View>
+        {stats}
       </StackScreen>
     );
   }
@@ -82,17 +117,15 @@ export default function EditHabitScreen() {
 
     const [title, message, confirm] =
       action.kind === 'delete'
-        ? ['Excluir hábito?', 'Ele ainda não tem nenhum registro, então será excluído.', 'Excluir']
+        ? [t('habit.deleteTitle'), t('habit.deleteText'), t('habit.delete')]
         : [
-            'Arquivar hábito?',
-            action.archivedOn === today
-              ? 'A missão de hoje já feita continua valendo. A partir de amanhã o hábito sai das suas missões.'
-              : 'Ele sai das suas missões a partir de hoje. O histórico e o XP ganho continuam.',
-            'Arquivar',
+            t('habit.archiveTitle'),
+            action.archivedOn === today ? t('habit.archiveToday') : t('habit.archiveNow'),
+            t('habit.archive'),
           ];
 
     Alert.alert(title, message, [
-      { text: 'Cancelar', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
       {
         text: confirm,
         style: 'destructive',
@@ -112,9 +145,10 @@ export default function EditHabitScreen() {
 
   return (
     <StackScreen>
+      {stats}
       <HabitForm
         initial={toDraft(habit)}
-        submitLabel="Salvar alterações"
+        submitLabel={t('habitForm.save')}
         onSubmit={async (input) => {
           const r = await updateHabit(habit.id, input);
           if (r.error !== null) return r.error;
@@ -124,12 +158,15 @@ export default function EditHabitScreen() {
         }}
       />
       <View style={styles.divider} />
-      <Text style={typography.caption}>
-        Mudanças de dificuldade valem para os próximos registros. Para tirar o hábito da rotina sem perder o histórico,
-        arquive-o.
-      </Text>
+      <Text style={typography.caption}>{t('habit.editHint')}</Text>
       <FormMessage text={error} />
-      <Button title="Arquivar hábito" onPress={() => askRetire(habit)} variant="danger" loading={retiring} disabled={!ready} />
+      <Button
+        title={t('habit.archiveButton')}
+        onPress={() => askRetire(habit)}
+        variant="danger"
+        loading={retiring}
+        disabled={!ready}
+      />
     </StackScreen>
   );
 }

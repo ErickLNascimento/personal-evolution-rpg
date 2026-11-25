@@ -1,6 +1,7 @@
 import { parseAiPlan, type HabitLogEntry, type LocalDate, type XpEntry } from '@per/domain';
 import { listHabits, type HabitRecord, type Result } from '@/features/habits/api';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 /** O PostgREST devolve no máximo 1000 linhas por chamada; lemos em páginas. */
 const PAGE = 1000;
@@ -26,7 +27,7 @@ function client() {
   return supabase;
 }
 
-async function fetchAll<T>(
+export async function fetchAll<T>(
   page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
 ): Promise<T[] | null> {
   const rows: T[] = [];
@@ -42,15 +43,30 @@ async function fetchAll<T>(
  * Dados da tela Progresso: registros desde `logsFrom` (para o streak),
  * XP desde `xpFrom` (gráfico e resumos), XP total e a última revisão semanal.
  */
-export async function fetchProgress(logsFrom: LocalDate, xpFrom: LocalDate): Promise<Result<ProgressData>> {
+export async function fetchProgress(
+  logsFrom: LocalDate,
+  xpFrom: LocalDate,
+): Promise<Result<ProgressData>> {
   const db = client();
   const [habits, logs, xp, total, review, attributes] = await Promise.all([
     listHabits(),
     fetchAll<{ habit_id: string; local_date: string }>((a, b) =>
-      db.from('habit_logs').select('habit_id, local_date').gte('local_date', logsFrom).order('local_date').order('id').range(a, b),
+      db
+        .from('habit_logs')
+        .select('habit_id, local_date')
+        .gte('local_date', logsFrom)
+        .order('local_date')
+        .order('id')
+        .range(a, b),
     ),
     fetchAll<{ amount: number; local_date: string }>((a, b) =>
-      db.from('xp_transactions').select('amount, local_date').gte('local_date', xpFrom).order('local_date').order('id').range(a, b),
+      db
+        .from('xp_transactions')
+        .select('amount, local_date')
+        .gte('local_date', xpFrom)
+        .order('local_date')
+        .order('id')
+        .range(a, b),
     ),
     db.rpc('my_total_xp'),
     db
@@ -64,7 +80,7 @@ export async function fetchProgress(logsFrom: LocalDate, xpFrom: LocalDate): Pro
   ]);
 
   if (habits.error !== null) return habits;
-  if (!logs || !xp || total.error) return { data: null, error: 'Não foi possível carregar o seu progresso.' };
+  if (!logs || !xp || total.error) return { data: null, error: t('progress.errorLoad') };
 
   return {
     data: {
@@ -74,7 +90,11 @@ export async function fetchProgress(logsFrom: LocalDate, xpFrom: LocalDate): Pro
       totalXp: Number(total.data ?? 0),
       // A revisão é opcional: se falhar, o resto da tela continua.
       review: review.data
-        ? { createdAt: review.data.created_at, status: review.data.status, summary: parseAiPlan(review.data.payload).summary || null }
+        ? {
+            createdAt: review.data.created_at,
+            status: review.data.status,
+            summary: parseAiPlan(review.data.payload).summary || null,
+          }
         : null,
       // Sem os atributos, a ficha aparece zerada; o resto da tela continua.
       attributeXp: ((attributes.data ?? []) as { category: string; xp: number }[]).map((a) => ({

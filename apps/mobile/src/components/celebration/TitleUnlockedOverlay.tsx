@@ -1,4 +1,13 @@
-import { RARITY_COLOR, RARITY_LABEL, titleInfo, titleName, type HeroForm, type TitleId } from '@per/domain';
+import {
+  RARITY_COLOR,
+  rarityLabel,
+  titleDescription,
+  titleInfo,
+  titleName,
+  type HeroForm,
+  type TitleId,
+} from '@per/domain';
+import { useT } from '@/i18n';
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -32,6 +41,7 @@ export function TitleUnlockedOverlay({
   onEquip: () => void;
   onClose: () => void;
 }) {
+  const { t, locale } = useT();
   const info = titleInfo(titleId);
   const color = RARITY_COLOR[info.rarity];
   const secret = info.kind === 'secret';
@@ -42,11 +52,11 @@ export function TitleUnlockedOverlay({
 
   useEffect(() => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const t = setTimeout(() => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 450);
+    const timer = setTimeout(() => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 450);
     glow.value = withRepeat(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }), -1, true);
     shine.value = withDelay(500, withRepeat(withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.cubic) }), -1));
     nameScale.value = withDelay(400, withSequence(withSpring(1.12, { damping: 6 }), withSpring(1, { damping: 10 })));
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [glow, shine, nameScale]);
 
   const glowStyle = useAnimatedStyle(() => ({ shadowOpacity: 0.4 + glow.value * 0.6, opacity: 0.85 + glow.value * 0.15 }));
@@ -64,16 +74,16 @@ export function TitleUnlockedOverlay({
             <Animated.View style={[styles.shine, shineStyle]} />
           </View>
           <Text style={[styles.kicker, { color }]}>
-            {secret ? '✦ TÍTULO SECRETO DESBLOQUEADO ✦' : 'TÍTULO DESBLOQUEADO'}
+            {secret ? t('titleUnlocked.secret') : t('titleUnlocked.kicker')}
           </Text>
           <Animated.Text style={[styles.name, { textShadowColor: color }, nameStyle]} accessibilityRole="header">
-            {titleName(titleId, form)}
+            {titleName(titleId, form, locale)}
           </Animated.Text>
           <View style={[styles.rarity, { backgroundColor: `${color}26`, borderColor: color }]}>
-            <Text style={[styles.rarityText, { color }]}>{RARITY_LABEL[info.rarity].toUpperCase()}</Text>
+            <Text style={[styles.rarityText, { color }]}>{rarityLabel(info.rarity, locale).toUpperCase()}</Text>
           </View>
           <Animated.Text entering={FadeInDown.delay(700)} style={styles.description}>
-            {info.description}
+            {titleDescription(titleId, locale)}
           </Animated.Text>
           <Animated.View entering={FadeIn.delay(1000)} style={styles.buttons}>
             <Pressable
@@ -81,10 +91,10 @@ export function TitleUnlockedOverlay({
               accessibilityRole="button"
               style={({ pressed }) => [styles.button, { backgroundColor: color }, pressed && styles.pressed]}
             >
-              <Text style={styles.buttonText}>Exibir este título</Text>
+              <Text style={styles.buttonText}>{t('titleUnlocked.equip')}</Text>
             </Pressable>
             <Pressable onPress={onClose} accessibilityRole="button" style={({ pressed }) => [styles.ghost, pressed && styles.pressed]}>
-              <Text style={styles.ghostText}>Continuar</Text>
+              <Text style={styles.ghostText}>{t('titleUnlocked.continue')}</Text>
             </Pressable>
           </Animated.View>
         </Animated.View>

@@ -1,4 +1,4 @@
-import { OBJECTIVE_CATEGORY_LABEL } from '@per/domain';
+import { OBJECTIVE_CATEGORY_LABELS } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,12 +12,14 @@ import {
 } from '@/features/objectives/api';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /**
  * Objetivos ativos com o progresso até poder declará-los conquistados.
  * Conquistar concede o título épico da área (uma vez por área) e +100 Cristais.
  */
 export function ObjectivesCard() {
+  const { t, locale } = useT();
   const load = useCallback(() => fetchObjectivesProgress(), []);
   const { data, error, refresh } = useFocusLoad<ObjectiveProgress[]>(load);
   const { celebrateTitles } = useCelebration();
@@ -35,34 +37,25 @@ export function ObjectivesCard() {
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (r.data.titleNew) celebrateTitles([r.data.title]);
-    else setMessage(`"${o.title}" conquistado! +${r.data.crystals} Cristais.`);
+    else setMessage(t('objectives.conquered', { title: o.title, crystals: r.data.crystals }));
     refresh();
   }
 
   function confirm(o: ObjectiveProgress) {
-    Alert.alert(
-      `Conquistou "${o.title}"?`,
-      'O objetivo sai da lista de ativos e vira uma conquista sua. Os hábitos ligados a ele continuam como estão.',
-      [
-        { text: 'Ainda não', style: 'cancel' },
-        { text: 'Conquistei!', onPress: () => void complete(o) },
-      ],
-    );
+    Alert.alert(t('objectives.confirmTitle', { title: o.title }), t('objectives.confirmText'), [
+      { text: t('objectives.notYet'), style: 'cancel' },
+      { text: t('objectives.done'), onPress: () => void complete(o) },
+    ]);
   }
 
   if (!data) return error ? <FormMessage text={error} /> : null;
   if (data.length === 0) {
-    return (
-      <Text style={typography.caption}>Sem objetivos ativos. Crie um ao montar um hábito.</Text>
-    );
+    return <Text style={typography.caption}>{t('objectives.none')}</Text>;
   }
 
   return (
     <View style={styles.list}>
-      <Text style={typography.caption}>
-        Chegou lá de verdade? Com {OBJECTIVE_MIN_LOGS} registros nos hábitos do objetivo, você pode
-        declará-lo conquistado e ganhar um título épico.
-      </Text>
+      <Text style={typography.caption}>{t('objectives.rule', { min: OBJECTIVE_MIN_LOGS })}</Text>
       <FormMessage text={message} tone="info" />
       {data.map((o) => {
         const ready = o.logs >= OBJECTIVE_MIN_LOGS;
@@ -73,8 +66,11 @@ export function ObjectivesCard() {
               <View style={styles.flex}>
                 <Text style={typography.body}>{o.title}</Text>
                 <Text style={typography.caption}>
-                  {OBJECTIVE_CATEGORY_LABEL[o.category]} · {Math.min(o.logs, OBJECTIVE_MIN_LOGS)}/
-                  {OBJECTIVE_MIN_LOGS} registros
+                  {t('objectives.logs', {
+                    category: OBJECTIVE_CATEGORY_LABELS[locale][o.category],
+                    count: Math.min(o.logs, OBJECTIVE_MIN_LOGS),
+                    min: OBJECTIVE_MIN_LOGS,
+                  })}
                 </Text>
               </View>
               <Pressable
@@ -83,8 +79,11 @@ export function ObjectivesCard() {
                 accessibilityRole="button"
                 accessibilityLabel={
                   ready
-                    ? `Conquistei ${o.title}`
-                    : `${o.title}: faltam ${OBJECTIVE_MIN_LOGS - o.logs} registros`
+                    ? t('objectives.doneA11y', { title: o.title })
+                    : t('objectives.missingA11y', {
+                        title: o.title,
+                        count: OBJECTIVE_MIN_LOGS - o.logs,
+                      })
                 }
                 style={({ pressed }) => [
                   styles.button,
@@ -96,8 +95,8 @@ export function ObjectivesCard() {
                   {busy === o.id
                     ? '…'
                     : ready
-                      ? 'Conquistei!'
-                      : `Faltam ${OBJECTIVE_MIN_LOGS - o.logs}`}
+                      ? t('objectives.done')
+                      : t('objectives.missing', { count: OBJECTIVE_MIN_LOGS - o.logs })}
                 </Text>
               </Pressable>
             </View>

@@ -1,7 +1,22 @@
-import type { Difficulty, HeroLook, ObjectiveCategory, OnboardingHabit } from '@per/domain';
+import {
+  enabledFeatures,
+  isPathId,
+  isRace,
+  type Branch,
+  type Difficulty,
+  type HeroLook,
+  type HeroPathState,
+  type ObjectiveCategory,
+  type OnboardingHabit,
+  type PathId,
+  type Race,
+  type Tier,
+} from '@per/domain';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { setFeatureSnapshot } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n/translate';
 
 export interface Profile {
   id: string;
@@ -11,20 +26,36 @@ export interface Profile {
   difficulty: Difficulty;
   focusAreas: ObjectiveCategory[];
   onboardingDone: boolean;
-  /** Aparência do herói como salva (jsonb); leia com `sanitizeHero` do domínio. */
+  /** Aparência do herói como salva (jsonb); leia com `heroLook` do domínio. */
   hero: unknown;
-  /** Classes compradas na loja (as iniciais são grátis e não aparecem aqui). */
-  owned: ReadonlySet<string>;
+  /** Raça (só visual). */
+  race: Race;
+  /** Caminho, ramo e estágio: só mudam pelas funções do banco (promoção e troca). */
+  heroPath: HeroPathState;
+  /** Última troca de caminho ou ramo (início da espera de 14 dias). */
+  pathChangedAt: Date | null;
+  /** Quando viu (ou pulou) o tour do app pela última vez. */
+  tourSeenAt: Date | null;
+  /** Última versão do tour que viu (0 = nunca). */
+  tourSeenVersion: number;
+  /** Versão atual do tour, definida pela equipe (app_settings); null se não carregou. */
+  tourVersion: number | null;
   /** Título escolhido para exibir (null = o de nível atual). */
   equippedTitle: string | null;
   /** Títulos especiais já concedidos pelo banco. */
   earnedTitles: ReadonlySet<string>;
+  /** Cosméticos comprados na Loja. */
+  cosmetics: ReadonlySet<string>;
+  /** Feature flags ligadas (app_settings `feature_*` = 1); ver FEATURES no domínio. */
+  features: ReadonlySet<string>;
 }
 
 /** O que vem de outras tabelas além de `profiles`. */
 interface ProfileExtras {
-  owned: ReadonlySet<string>;
   earnedTitles: ReadonlySet<string>;
+  tourVersion: number | null;
+  cosmetics: ReadonlySet<string>;
+  features: ReadonlySet<string>;
 }
 
 interface ProfileRow {
@@ -37,6 +68,13 @@ interface ProfileRow {
   onboarding_done: boolean;
   hero: unknown;
   equipped_title: string | null;
+  race: string;
+  path: string | null;
+  branch: string | null;
+  stage: number;
+  path_changed_at: string | null;
+  tour_seen_at: string | null;
+  tour_seen_version: number;
 }
 
 export type ProfileChanges = Partial<{
@@ -47,6 +85,9 @@ export type ProfileChanges = Partial<{
   difficulty: Difficulty;
   hero: HeroLook;
   equipped_title: string | null;
+  race: Race;
+  tour_seen_at: string | null;
+  tour_seen_version: number;
 }>;
 
 export interface OnboardingInput {
@@ -57,7 +98,8 @@ export interface OnboardingInput {
   habits: OnboardingHabit[];
 }
 
-const COLUMNS = 'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero, equipped_title';
+const COLUMNS =
+  'id, display_name, timezone, ai_consent_at, difficulty, focus_areas, onboarding_done, hero, equipped_title, race, path, branch, stage, path_changed_at, tour_seen_at, tour_seen_version';
 
 function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
   return {
@@ -71,21 +113,55 @@ function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
     focusAreas: row.focus_areas,
     onboardingDone: row.onboarding_done,
     hero: row.hero,
+    race: isRace(row.race) ? row.race : 'humano',
+    heroPath: {
+      path: isPathId(row.path) ? (row.path as PathId) : null,
+      branch: row.branch === 'A' || row.branch === 'B' ? (row.branch as Branch) : null,
+      stage: Math.max(0, Math.min(5, row.stage ?? 0)) as Tier,
+    },
+    pathChangedAt: row.path_changed_at ? new Date(row.path_changed_at) : null,
+    tourSeenAt: row.tour_seen_at ? new Date(row.tour_seen_at) : null,
+    tourSeenVersion: row.tour_seen_version ?? 0,
   };
 }
 
-async function fetchProfile(userId: string): Promise<{ profile: Profile | null; error: string | null }> {
-  if (!supabase) return { profile: null, error: 'Supabase não configurado.' };
-  const [profile, unlocks, titles] = await Promise.all([
+/**
+ * Só no build de desenvolvimento: flags forçadas pela variável EXPO_PUBLIC_DEV_FEATURES
+ * (ex.: "feature_english,feature_data_export"), para testar um recurso sem ligá-lo no Supabase
+ * para todos. Builds de produção ignoram.
+ */
+const DEV_FEATURES_RAW: string = process.env.EXPO_PUBLIC_DEV_FEATURES ?? '';
+const DEV_FEATURES: string[] = __DEV__
+  ? DEV_FEATURES_RAW.split(',')
+      .map((k: string) => k.trim())
+      .filter(Boolean)
+  : [];
+
+/** Guarda as flags também para o código fora do React (lib/featureSnapshot). */
+function snapshot(features: Set<string>): Set<string> {
+  for (const k of DEV_FEATURES) features.add(k);
+  setFeatureSnapshot(features);
+  return features;
+}
+
+async function fetchProfile(
+  userId: string,
+): Promise<{ profile: Profile | null; error: string | null }> {
+  if (!supabase) return { profile: null, error: t('apiErrors.noSupabase') };
+  const [profile, titles, tour, cosmetics] = await Promise.all([
     supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>(),
-    supabase.from('user_unlocks').select('item_id').returns<{ item_id: string }[]>(),
     supabase.from('user_titles').select('title_id').returns<{ title_id: string }[]>(),
+    // Versão do tour e feature flags (feature_*): a tabela é pequena, lê tudo e filtra aqui.
+    supabase.from('app_settings').select('key, value').returns<{ key: string; value: number }[]>(),
+    supabase.from('user_cosmetics').select('item_id').returns<{ item_id: string }[]>(),
   ]);
-  if (profile.error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
+  if (profile.error) return { profile: null, error: t('apiErrors.loadProfile') };
   return {
     profile: fromRow(profile.data, {
-      owned: new Set((unlocks.data ?? []).map((u) => u.item_id)),
       earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
+      tourVersion: tour.data?.find((r) => r.key === 'tour_version')?.value ?? null,
+      cosmetics: new Set((cosmetics.data ?? []).map((c) => c.item_id)),
+      features: snapshot(enabledFeatures(tour.data ?? [])),
     }),
     error: null,
   };
@@ -114,7 +190,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   // Guarda de quem é o perfil carregado, para nunca mostrar o de outra conta após trocar de login.
-  const [loaded, setLoaded] = useState<{ userId: string; profile: Profile | null; error: string | null } | null>(null);
+  const [loaded, setLoaded] = useState<{
+    userId: string;
+    profile: Profile | null;
+    error: string | null;
+  } | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -137,27 +217,44 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const update = useCallback(
     async (changes: ProfileChanges) => {
-      if (!supabase || !userId) return 'Você precisa estar conectado.';
+      if (!supabase || !userId) return t('apiErrors.signedOut');
+      // kit, estágio e raça da aparência são calculados (caminho e perfil): não vão para o jsonb.
+      const row = changes.hero
+        ? {
+            ...changes,
+            hero: { ...changes.hero, kit: undefined, tier: undefined, race: undefined },
+          }
+        : changes;
       const { data, error } = await supabase
         .from('profiles')
-        .update(changes)
+        .update(row)
         .eq('id', userId)
         .select(COLUMNS)
         .single<ProfileRow>();
       if (error) {
-        if (error.code === '22023') return 'Fuso horário inválido.';
-        if (error.code === '23514') return 'Valor inválido. Confira os campos.';
-        if (error.code === 'PR005') return 'Essa classe ainda não foi comprada na Loja.';
-        if (error.code === 'PR007') return 'Esse título ainda não foi conquistado.';
-        return 'Não foi possível salvar. Tente de novo.';
+        if (error.code === '22023') return t('apiErrors.timeZone');
+        if (error.code === '23514') return t('apiErrors.invalidValue');
+        if (error.code === 'PR010') return t('apiErrors.pathLocked');
+        if (error.code === 'PR007') return t('apiErrors.titleLocked');
+        return t('apiErrors.save');
       }
       setLoaded((prev) => ({
         userId,
         profile: fromRow(
           data,
           prev?.userId === userId && prev.profile
-            ? { owned: prev.profile.owned, earnedTitles: prev.profile.earnedTitles }
-            : { owned: new Set(), earnedTitles: new Set() },
+            ? {
+                earnedTitles: prev.profile.earnedTitles,
+                tourVersion: prev.profile.tourVersion,
+                cosmetics: prev.profile.cosmetics,
+                features: prev.profile.features,
+              }
+            : {
+                earnedTitles: new Set(),
+                tourVersion: null,
+                cosmetics: new Set(),
+                features: new Set(),
+              },
         ),
         error: null,
       }));
@@ -168,7 +265,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const completeOnboarding = useCallback(
     async (input: OnboardingInput) => {
-      if (!supabase || !userId) return 'Você precisa estar conectado.';
+      if (!supabase || !userId) return t('apiErrors.signedOut');
       const { error } = await supabase.rpc('complete_onboarding', {
         p_display_name: input.displayName,
         p_focus_areas: input.focusAreas,
@@ -182,8 +279,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           reload();
           return null;
         }
-        if (error.code === '22023') return 'Fuso horário inválido.';
-        return 'Não foi possível salvar. Verifique a internet e tente de novo.';
+        if (error.code === '22023') return t('apiErrors.timeZone');
+        return t('apiErrors.saveOnline');
       }
       const r = await fetchProfile(userId);
       setLoaded({ userId, profile: r.profile, error: r.error });
