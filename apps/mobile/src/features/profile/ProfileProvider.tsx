@@ -125,19 +125,19 @@ function fromRow(row: ProfileRow, extras: ProfileExtras): Profile {
   };
 }
 
-/** Guarda as flags também para o código fora do React (lib/featureSnapshot). */
 /**
  * Só no build de desenvolvimento: flags forçadas pela variável EXPO_PUBLIC_DEV_FEATURES
  * (ex.: "feature_english,feature_data_export"), para testar um recurso sem ligá-lo no Supabase
  * para todos. Builds de produção ignoram.
  */
-const DEV_FEATURES = __DEV__
-  ? (process.env.EXPO_PUBLIC_DEV_FEATURES ?? '')
-      .split(',')
-      .map((k) => k.trim())
+const DEV_FEATURES_RAW: string = process.env.EXPO_PUBLIC_DEV_FEATURES ?? '';
+const DEV_FEATURES: string[] = __DEV__
+  ? DEV_FEATURES_RAW.split(',')
+      .map((k: string) => k.trim())
       .filter(Boolean)
   : [];
 
+/** Guarda as flags também para o código fora do React (lib/featureSnapshot). */
 function snapshot(features: Set<string>): Set<string> {
   for (const k of DEV_FEATURES) features.add(k);
   setFeatureSnapshot(features);
