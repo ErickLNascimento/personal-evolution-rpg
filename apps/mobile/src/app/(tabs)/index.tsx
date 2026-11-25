@@ -192,6 +192,7 @@ function RealToday() {
                 progress={day.progress}
                 scrollY={scrollY}
                 cheer={day.cheer}
+                bossId={day.hasHabits && challengesOn ? boss.id : null}
               />
               <HeroCheerPop hero={hero} cheer={day.cheer} scrollY={scrollY} />
             </>
