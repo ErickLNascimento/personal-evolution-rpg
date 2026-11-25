@@ -2,8 +2,9 @@ import {
   BRANCH_TIER,
   heroLook,
   PATH_CHANGE_COOLDOWN_DAYS,
-  PATH_INFO,
+  branchLabel,
   pathChangeAvailableAt,
+  pathLabel,
   stageName,
   type Branch,
   type PathId,
@@ -20,13 +21,13 @@ import { StackScreen } from '@/components/Screen';
 import { useHero } from '@/features/hero/useHero';
 import { choosePath } from '@/features/hero/pathApi';
 import { useProfile } from '@/features/profile/ProfileProvider';
+import { useT } from '@/i18n';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
-
-const DATE = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long' });
 
 /** Escolher o caminho pela primeira vez, ou trocar de caminho ou de ramo (com espera de 14 dias). */
 export default function PathScreen() {
   const { profile, refresh } = useProfile();
+  const { t, locale } = useT();
   const { level } = useHero();
   const current = profile?.heroPath;
   const [path, setPath] = useState<PathId | null>(current?.path ?? null);
@@ -70,35 +71,36 @@ export default function PathScreen() {
     <StackScreen>
       {current.path ? (
         <View style={styles.card}>
-          <Text style={typography.label}>CAMINHO ATUAL</Text>
+          <Text style={typography.label}>{t('pathScreen.current')}</Text>
           <Text style={typography.heading}>
-            {PATH_INFO[current.path].label} ·{' '}
-            {stageName(current.path, current.branch, current.stage, look.form)}
+            {pathLabel(current.path, locale)} ·{' '}
+            {stageName(current.path, current.branch, current.stage, look.form, locale)}
           </Text>
           <PathTree state={{ ...current, path: current.path }} form={look.form} />
         </View>
       ) : (
-        <Text style={typography.body}>
-          Seu caminho define como o herói evolui. Cada caminho cuida de uma área da sua vida: as
-          missões dessa área contam para as promoções.
-        </Text>
+        <Text style={typography.body}>{t('pathScreen.intro')}</Text>
       )}
 
       {availableAt && !first ? (
         <View style={styles.notice}>
           <Text style={typography.body}>
-            Você trocou há pouco. A próxima troca fica liberada em {DATE.format(availableAt)}.
+            {t('pathScreen.cooldown', {
+              date: new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long' }).format(
+                availableAt,
+              ),
+            })}
           </Text>
         </View>
       ) : null}
 
       {branchChoice && current.path && (
         <View style={styles.section}>
-          <Text style={typography.label}>RAMO</Text>
+          <Text style={typography.label}>{t('pathScreen.branch')}</Text>
           <Chips
             options={(['A', 'B'] as Branch[]).map((b) => ({
               value: b,
-              label: `${PATH_INFO[current.path!].branches[b].label}: ${stageName(current.path!, b, current.stage, look.form)}`,
+              label: `${branchLabel(current.path!, b, locale)}: ${stageName(current.path!, b, current.stage, look.form, locale)}`,
             }))}
             selected={branch ? [branch] : []}
             onToggle={setBranch}
@@ -107,11 +109,10 @@ export default function PathScreen() {
       )}
 
       <View style={styles.section}>
-        <Text style={typography.label}>{first ? 'ESCOLHA SEU CAMINHO' : 'OUTROS CAMINHOS'}</Text>
+        <Text style={typography.label}>{first ? t('pathScreen.choose') : t('pathScreen.others')}</Text>
         {!first && (
           <Text style={typography.caption}>
-            Ao trocar, o nível continua o mesmo e o estágio é recalculado pelas missões que você já
-            fez nas áreas do novo caminho. Trocas têm {PATH_CHANGE_COOLDOWN_DAYS} dias de espera.
+            {t('pathScreen.changeHint', { days: PATH_CHANGE_COOLDOWN_DAYS })}
           </Text>
         )}
         <PathPicker look={look} value={path} onChoose={setPath} />
@@ -119,7 +120,13 @@ export default function PathScreen() {
 
       <FormMessage text={error} />
       <Button
-        title={first ? 'Seguir este caminho' : changed ? 'Confirmar troca' : 'Nada para trocar'}
+        title={
+          first
+            ? t('pathScreen.follow')
+            : changed
+              ? t('pathScreen.confirm')
+              : t('pathScreen.nothing')
+        }
         onPress={confirm}
         loading={saving}
         disabled={!path || (!first && (!changed || Boolean(availableAt)))}

@@ -1,13 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  HERO_FORM_LABEL,
+  formLabel,
   HERO_FORMS,
   HERO_SLOTS,
   isUnlocked,
-  PATH_INFO,
+  itemLabel,
+  pathLabel,
+  pathMotto,
   RACES,
-  RACE_INFO,
+  raceDescription,
+  raceLabel,
+  rarityLabel,
+  slotLabel,
   stageName,
+  titleDescription,
+  titleHint,
   type HeroForm,
   type Race,
   type HeroItem,
@@ -16,7 +23,6 @@ import {
   displayedTitle,
   hasTitle,
   RARITY_COLOR,
-  RARITY_LABEL,
   RARITY_ORDER,
   TITLE_IDS,
   titleInfo,
@@ -37,6 +43,7 @@ import { StackScreen } from '@/components/Screen';
 import { useCelebration } from '@/features/celebration/CelebrationProvider';
 import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/ProfileProvider';
+import { useT } from '@/i18n';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 
 const SLOT_KEY: Record<HeroSlot, keyof Omit<HeroLook, 'heroClass' | 'form' | 'kit' | 'tier' | 'race'>> = {
@@ -64,6 +71,7 @@ export default function HeroScreen() {
 
 function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
   const { save } = useHero();
+  const { t, locale } = useT();
   const { profile, update } = useProfile();
   const heroPath = profile?.heroPath;
   const initialRace: Race = profile?.race ?? 'humano';
@@ -110,18 +118,18 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
         </View>
         <View style={styles.stageInfo}>
           <Text style={[styles.title, { color: RARITY_COLOR[titleInfo(title).rarity] }]}>
-            {titleName(title, look.form).toUpperCase()}
+            {titleName(title, look.form, locale).toUpperCase()}
           </Text>
           <Text style={typography.heading}>
             {heroPath?.path
-              ? stageName(heroPath.path, heroPath.branch, heroPath.stage, look.form)
-              : 'Sem caminho'}
+              ? stageName(heroPath.path, heroPath.branch, heroPath.stage, look.form, locale)
+              : t('heroScreen.noPath')}
           </Text>
           <Text style={typography.caption}>
-            {RACE_INFO[race].label[look.form]} · Nível {level}
+            {t('heroScreen.raceLevel', { race: raceLabel(race, look.form, locale), level })}
           </Text>
           {heroPath?.path && (
-            <Text style={typography.caption}>{PATH_INFO[heroPath.path].motto}</Text>
+            <Text style={typography.caption}>{pathMotto(heroPath.path, locale)}</Text>
           )}
         </View>
       </View>
@@ -143,7 +151,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
           }}
         />
 
-        <Text style={typography.label}>PERSONAGEM</Text>
+        <Text style={typography.label}>{t('heroScreen.character')}</Text>
         <View style={styles.forms}>
           {HERO_FORMS.map((f: HeroForm) => {
             const active = look.form === f;
@@ -153,7 +161,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
                 onPress={() => choose({ form: f })}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={HERO_FORM_LABEL[f]}
+                accessibilityLabel={formLabel(f, locale)}
                 style={({ pressed }) => [
                   styles.formCard,
                   active && { borderColor: colors.primary },
@@ -161,16 +169,16 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
                 ]}
               >
                 <HeroAvatar hero={{ ...look, form: f, aura: 'nenhuma' }} size={52} />
-                <Text style={typography.body}>{HERO_FORM_LABEL[f]}</Text>
+                <Text style={typography.body}>{formLabel(f, locale)}</Text>
               </Pressable>
             );
           })}
         </View>
 
         <View style={styles.slot}>
-          <Text style={typography.label}>RAÇA</Text>
+          <Text style={typography.label}>{t('heroScreen.race')}</Text>
           <Chips
-            options={RACES.map((r) => ({ value: r, label: RACE_INFO[r].label[look.form] }))}
+            options={RACES.map((r) => ({ value: r, label: raceLabel(r, look.form, locale) }))}
             selected={[race]}
             onToggle={(r) => {
               void Haptics.selectionAsync();
@@ -178,22 +186,22 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
             }}
           />
           <Text style={typography.caption}>
-            {RACE_INFO[race].description} A raça muda só a aparência.
+            {raceDescription(race, locale)} {t('heroScreen.raceHint')}
           </Text>
         </View>
 
         <View style={styles.slot}>
-          <Text style={typography.label}>CAMINHO</Text>
+          <Text style={typography.label}>{t('heroScreen.path')}</Text>
           {heroPath?.path ? (
             <>
-              <Text style={typography.heading}>{PATH_INFO[heroPath.path].label}</Text>
+              <Text style={typography.heading}>{pathLabel(heroPath.path, locale)}</Text>
               <PathTree state={{ ...heroPath, path: heroPath.path }} form={look.form} />
             </>
           ) : (
-            <Text style={typography.body}>Você ainda não escolheu um caminho.</Text>
+            <Text style={typography.body}>{t('heroScreen.noPathYet')}</Text>
           )}
           <Button
-            title={heroPath?.path ? 'Trocar caminho ou ramo' : 'Escolher caminho'}
+            title={heroPath?.path ? t('heroScreen.changePath') : t('heroScreen.choosePath')}
             onPress={() => router.push('/path')}
             variant="secondary"
           />
@@ -211,7 +219,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
         ))}
 
         <Button
-          title={`Prévia: cena do nível ${level + 1}`}
+          title={t('heroScreen.preview', { level: level + 1 })}
           onPress={() => celebrateLevelUp(level, level + 1)}
           variant="secondary"
         />
@@ -221,7 +229,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <FormMessage text={error} />
         <Button
-          title={dirty ? 'Salvar herói' : 'Pronto'}
+          title={dirty ? t('heroScreen.save') : t('heroScreen.done')}
           onPress={dirty ? submit : () => router.back()}
           loading={saving}
         />
@@ -244,6 +252,7 @@ function TitlePicker({
   form: HeroLook['form'];
   onChoose: (id: TitleId) => void;
 }) {
+  const { t, locale } = useT();
   const [showLocked, setShowLocked] = useState(false);
   const mine = TITLE_IDS.filter((id) => hasTitle(id, level, earned)).sort(
     (a, b) => RARITY_ORDER[titleInfo(b).rarity] - RARITY_ORDER[titleInfo(a).rarity],
@@ -252,7 +261,7 @@ function TitlePicker({
 
   return (
     <View style={styles.slot}>
-      <Text style={typography.label}>TÍTULO EXIBIDO</Text>
+      <Text style={typography.label}>{t('heroScreen.shownTitle')}</Text>
       <View style={styles.options}>
         {mine.map((id) => {
           const info = titleInfo(id);
@@ -264,7 +273,7 @@ function TitlePicker({
               onPress={() => onChoose(id)}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={`${titleName(id, form)}, ${RARITY_LABEL[info.rarity]}. ${info.description}`}
+              accessibilityLabel={`${titleName(id, form, locale)}, ${rarityLabel(info.rarity, locale)}. ${titleDescription(id, locale)}`}
               style={({ pressed }) => [
                 styles.chip,
                 { borderColor: active ? color : colors.border },
@@ -275,14 +284,14 @@ function TitlePicker({
               <View style={styles.chipRow}>
                 <View style={[styles.dot, { backgroundColor: color }]} />
                 <Text style={[styles.chipText, active && { color: colors.text }]}>
-                  {titleName(id, form)}
+                  {titleName(id, form, locale)}
                 </Text>
               </View>
             </Pressable>
           );
         })}
       </View>
-      <Text style={typography.caption}>{titleInfo(value).description}</Text>
+      <Text style={typography.caption}>{titleDescription(value, locale)}</Text>
 
       <Pressable
         onPress={() => setShowLocked((v) => !v)}
@@ -295,7 +304,7 @@ function TitlePicker({
           color={colors.textSecondary}
         />
         <Text style={typography.caption}>
-          {showLocked ? 'Esconder' : 'Ver'} títulos a conquistar ({locked.length})
+          {t(showLocked ? 'heroScreen.hideLocked' : 'heroScreen.showLocked', { count: locked.length })}
         </Text>
       </Pressable>
       {showLocked &&
@@ -309,8 +318,8 @@ function TitlePicker({
               accessible
               accessibilityLabel={
                 secret
-                  ? `Título secreto. Pista: ${info.hint}`
-                  : `${titleName(id, form)}: ${info.description}`
+                  ? t('heroScreen.secretA11y', { hint: titleHint(id, locale) ?? '' })
+                  : `${titleName(id, form, locale)}: ${titleDescription(id, locale)}`
               }
             >
               <Ionicons
@@ -319,13 +328,15 @@ function TitlePicker({
                 color={RARITY_COLOR[info.rarity]}
               />
               <View style={styles.flex}>
-                <Text style={typography.body}>{secret ? '???' : titleName(id, form)}</Text>
+                <Text style={typography.body}>{secret ? '???' : titleName(id, form, locale)}</Text>
                 <Text style={typography.caption}>
-                  {secret ? `Pista: ${info.hint}` : info.description}
+                  {secret
+                    ? t('heroScreen.hint', { hint: titleHint(id, locale) ?? '' })
+                    : titleDescription(id, locale)}
                 </Text>
               </View>
               <Text style={[styles.rarityTag, { color: RARITY_COLOR[info.rarity] }]}>
-                {RARITY_LABEL[info.rarity]}
+                {rarityLabel(info.rarity, locale)}
               </Text>
             </View>
           );
@@ -348,21 +359,23 @@ function SlotPicker({
   owned: ReadonlySet<string>;
   onChoose: (id: string) => void;
 }) {
-  const { label, items } = HERO_SLOTS[slot];
+  const { t, locale } = useT();
+  const { items } = HERO_SLOTS[slot];
   const isColor = items.every((i) => i.color) && slot !== 'aura';
   return (
     <View style={styles.slot}>
-      <Text style={typography.label}>{label.toUpperCase()}</Text>
+      <Text style={typography.label}>{slotLabel(slot, locale).toUpperCase()}</Text>
       <View style={styles.options}>
         {items.map((item: HeroItem) => {
           const unlocked = isUnlocked(item, level, owned);
           const fromShop = item.price !== undefined;
           const active = item.id === value;
+          const name = itemLabel(slot, item, locale);
           const a11y = unlocked
-            ? item.label
+            ? name
             : fromShop
-              ? `${item.label}, na Loja por ${item.price} Cristais`
-              : `${item.label}, bloqueado até o nível ${item.level}`;
+              ? t('heroScreen.itemInShop', { name, price: item.price ?? 0 })
+              : t('heroScreen.itemLocked', { name, level: item.level });
           return (
             <Pressable
               key={item.id}
@@ -388,7 +401,7 @@ function SlotPicker({
                 <View style={styles.chipRow}>
                   {item.color && <View style={[styles.dot, { backgroundColor: item.color }]} />}
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {item.label}
+                    {name}
                   </Text>
                 </View>
               )}

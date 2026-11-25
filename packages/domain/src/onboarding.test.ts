@@ -64,3 +64,15 @@ describe('modelos de hábito', () => {
     expect(onboardingHabits(['health'], ['knowledge-0'])).toEqual([]);
   });
 });
+
+describe('onboarding em inglês', () => {
+  it('modelos e objetivos no idioma escolhido', () => {
+    expect(templatesFor(['health'], 'en').map((t) => t.title)).toEqual([
+      'Drink 2 L of water',
+      'Walk for 20 minutes',
+    ]);
+    expect(onboardingHabits(['wellbeing'], ['wellbeing-0'], 'en')).toEqual([
+      expect.objectContaining({ title: 'Meditate for 5 minutes', objective_title: 'Well-being' }),
+    ]);
+  });
+});

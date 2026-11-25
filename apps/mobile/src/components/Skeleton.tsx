@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /** Bloco cinza que pulsa no lugar do conteúdo enquanto carrega. */
 export function Skeleton({
@@ -48,8 +49,9 @@ export function Skeleton({
 
 /** Esqueleto da tela Hoje: card do herói, seletor Ontem | Hoje e três missões. */
 export function TodaySkeleton() {
+  const { t } = useT();
   return (
-    <View style={styles.wrap} accessible accessibilityLabel="Carregando suas missões">
+    <View style={styles.wrap} accessible accessibilityLabel={t('screens.loadingMissions')}>
       <View style={styles.card}>
         <Skeleton width={96} height={110} />
         <View style={styles.lines}>

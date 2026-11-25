@@ -1,8 +1,9 @@
-import { isPathId, type Branch, type PathId, type Tier, FEATURES } from '@per/domain';
+import { isPathId, PATH_CHANGE_COOLDOWN_DAYS, type Branch, type PathId, type Tier, FEATURES } from '@per/domain';
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { Result } from '@/features/habits/api';
 import { isFeatureOn } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n';
 
 /** Estado do caminho como o banco calcula (`my_hero_path`). */
 export interface HeroPathInfo {
@@ -44,25 +45,25 @@ function failure(error: PostgrestError, fallback: string): { data: null; error: 
     case 'PR011':
       return {
         data: null,
-        error: 'Você trocou há pouco tempo. Espere 14 dias entre trocas de caminho ou ramo.',
+        error: t('apiErrors.pathCooldown', { days: PATH_CHANGE_COOLDOWN_DAYS }),
       };
     case 'PR013':
-      return { data: null, error: 'Seu herói já está no estágio máximo.' };
+      return { data: null, error: t('promotion.maxed') };
     case 'PR014':
-      return { data: null, error: 'Ainda faltam nível ou missões para esta promoção.' };
+      return { data: null, error: t('apiErrors.promotionMissing') };
     case 'PR015':
-      return { data: null, error: 'Escolha um dos dois ramos para continuar.' };
+      return { data: null, error: t('apiErrors.chooseBranch') };
     case 'PR016':
-      return { data: null, error: 'Escolha um caminho primeiro.' };
+      return { data: null, error: t('promotion.noPath') };
   }
   if (/network|fetch/i.test(error.message))
-    return { data: null, error: 'Sem conexão. Verifique a internet e tente de novo.' };
+    return { data: null, error: t('common.noConnection') };
   return { data: null, error: fallback };
 }
 
 export async function fetchHeroPath(): Promise<Result<HeroPathInfo>> {
   const { data, error } = await client().rpc('my_hero_path');
-  if (error) return failure(error, 'Não foi possível carregar o caminho do herói.');
+  if (error) return failure(error, t('apiErrors.loadPath'));
   const r = data as HeroPathRow;
   return {
     data: {
@@ -92,7 +93,7 @@ export async function choosePath(
   branch: Branch | null = null,
 ): Promise<Result<{ stage: Tier; changed: boolean }>> {
   const { data, error } = await client().rpc('choose_path', { p_path: path, p_branch: branch });
-  if (error) return failure(error, 'Não foi possível escolher o caminho. Tente de novo.');
+  if (error) return failure(error, t('apiErrors.choosePath'));
   const r = data as { stage: number; changed: boolean };
   return { data: { stage: r.stage as Tier, changed: r.changed }, error: null };
 }
@@ -102,7 +103,7 @@ export async function promoteHero(
   branch: Branch | null = null,
 ): Promise<Result<{ stage: Tier; branch: Branch | null }>> {
   const { data, error } = await client().rpc('promote_hero', { p_branch: branch });
-  if (error) return failure(error, 'Não foi possível concluir a promoção. Tente de novo.');
+  if (error) return failure(error, t('apiErrors.promote'));
   const r = data as { stage: number; branch: string | null };
   return { data: { stage: r.stage as Tier, branch: asBranch(r.branch) }, error: null };
 }
@@ -119,7 +120,7 @@ export interface FlashMission {
 export async function fetchFlashMission(): Promise<Result<FlashMission | null>> {
   if (!isFeatureOn(FEATURES.flashMission)) return { data: null, error: null };
   const { data, error } = await client().rpc('my_flash_mission');
-  if (error) return failure(error, 'Não foi possível carregar a missão relâmpago.');
+  if (error) return failure(error, t('apiErrors.loadFlash'));
   if (!data) return { data: null, error: null };
   const r = data as { habit_id: string; deadline: string; done: boolean; awarded: boolean };
   return {

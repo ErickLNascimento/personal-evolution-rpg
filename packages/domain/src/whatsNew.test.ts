@@ -1,6 +1,7 @@
 import {
   LATEST_RELEASE_NOTE_VERSION,
   RELEASE_NOTES,
+  releaseItemText,
   unseenReleaseItems,
   type ReleaseNote,
 } from './whatsNew';
@@ -44,5 +45,17 @@ describe('novidades', () => {
       expect(n.items.length).toBeGreaterThan(0);
       for (const i of n.items) expect(i.title && i.text && i.icon).toBeTruthy();
     }
+  });
+});
+
+describe('novidades em inglês', () => {
+  it('toda nota tem versão em inglês', () => {
+    for (const note of RELEASE_NOTES) for (const item of note.items) expect(item.en).toBeDefined();
+  });
+  it('escolhe o texto pelo idioma', () => {
+    const item = { icon: 'x', title: 'Loja', text: 'pt', en: { title: 'Shop', text: 'en' } };
+    expect(releaseItemText(item, 'en')).toEqual({ title: 'Shop', text: 'en' });
+    expect(releaseItemText(item)).toEqual({ title: 'Loja', text: 'pt' });
+    expect(releaseItemText({ icon: 'x', title: 'Loja', text: 'pt' }, 'en').title).toBe('Loja');
   });
 });

@@ -16,6 +16,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { useAuth } from '@/features/auth/AuthProvider';
 import { setFeatureSnapshot } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
+import { t } from '@/i18n/translate';
 
 export interface Profile {
   id: string;
@@ -133,7 +134,7 @@ function snapshot(features: Set<string>): Set<string> {
 async function fetchProfile(
   userId: string,
 ): Promise<{ profile: Profile | null; error: string | null }> {
-  if (!supabase) return { profile: null, error: 'Supabase não configurado.' };
+  if (!supabase) return { profile: null, error: t('apiErrors.noSupabase') };
   const [profile, titles, tour, cosmetics] = await Promise.all([
     supabase.from('profiles').select(COLUMNS).eq('id', userId).single<ProfileRow>(),
     supabase.from('user_titles').select('title_id').returns<{ title_id: string }[]>(),
@@ -141,7 +142,7 @@ async function fetchProfile(
     supabase.from('app_settings').select('key, value').returns<{ key: string; value: number }[]>(),
     supabase.from('user_cosmetics').select('item_id').returns<{ item_id: string }[]>(),
   ]);
-  if (profile.error) return { profile: null, error: 'Não foi possível carregar o perfil.' };
+  if (profile.error) return { profile: null, error: t('apiErrors.loadProfile') };
   return {
     profile: fromRow(profile.data, {
       earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
@@ -203,7 +204,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const update = useCallback(
     async (changes: ProfileChanges) => {
-      if (!supabase || !userId) return 'Você precisa estar conectado.';
+      if (!supabase || !userId) return t('apiErrors.signedOut');
       // kit, estágio e raça da aparência são calculados (caminho e perfil): não vão para o jsonb.
       const row = changes.hero
         ? {
@@ -218,11 +219,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         .select(COLUMNS)
         .single<ProfileRow>();
       if (error) {
-        if (error.code === '22023') return 'Fuso horário inválido.';
-        if (error.code === '23514') return 'Valor inválido. Confira os campos.';
-        if (error.code === 'PR010') return 'O caminho só muda por promoção ou troca de caminho.';
-        if (error.code === 'PR007') return 'Esse título ainda não foi conquistado.';
-        return 'Não foi possível salvar. Tente de novo.';
+        if (error.code === '22023') return t('apiErrors.timeZone');
+        if (error.code === '23514') return t('apiErrors.invalidValue');
+        if (error.code === 'PR010') return t('apiErrors.pathLocked');
+        if (error.code === 'PR007') return t('apiErrors.titleLocked');
+        return t('apiErrors.save');
       }
       setLoaded((prev) => ({
         userId,
@@ -251,7 +252,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const completeOnboarding = useCallback(
     async (input: OnboardingInput) => {
-      if (!supabase || !userId) return 'Você precisa estar conectado.';
+      if (!supabase || !userId) return t('apiErrors.signedOut');
       const { error } = await supabase.rpc('complete_onboarding', {
         p_display_name: input.displayName,
         p_focus_areas: input.focusAreas,
@@ -265,8 +266,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           reload();
           return null;
         }
-        if (error.code === '22023') return 'Fuso horário inválido.';
-        return 'Não foi possível salvar. Verifique a internet e tente de novo.';
+        if (error.code === '22023') return t('apiErrors.timeZone');
+        return t('apiErrors.saveOnline');
       }
       const r = await fetchProfile(userId);
       setLoaded({ userId, profile: r.profile, error: r.error });

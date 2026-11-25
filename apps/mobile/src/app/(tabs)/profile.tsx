@@ -48,7 +48,7 @@ export default function ProfileScreen() {
 }
 
 function AccountProfile() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { session } = useAuth();
   const { profile, loading, error, reload, update } = useProfile();
   const smartOn = useFeature(FEATURES.smartNotifications);
@@ -132,7 +132,7 @@ function AccountProfile() {
       <AppTour
         visible={newsOpen}
         hero={hero}
-        slides={latestNewsSlides(profile?.features)}
+        slides={latestNewsSlides(profile?.features, locale)}
         heading={t('today.news')}
         finishLabel={t('today.gotIt')}
         onClose={() => setNewsOpen(false)}

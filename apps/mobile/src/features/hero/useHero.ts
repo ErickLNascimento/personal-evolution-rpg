@@ -4,11 +4,12 @@ import type { Result } from '@/features/habits/api';
 import { useProfile } from '@/features/profile/ProfileProvider';
 import { supabase } from '@/lib/supabase';
 import { useFocusLoad } from '@/lib/useFocusLoad';
+import { t } from '@/i18n';
 
 async function fetchTotalXp(): Promise<Result<number>> {
-  if (!supabase) return { data: null, error: 'Supabase não configurado.' };
+  if (!supabase) return { data: null, error: t('apiErrors.noSupabase') };
   const { data, error } = await supabase.rpc('my_total_xp');
-  if (error) return { data: null, error: 'Não foi possível carregar o seu nível.' };
+  if (error) return { data: null, error: t('apiErrors.loadLevel') };
   return { data: Number(data ?? 0), error: null };
 }
 

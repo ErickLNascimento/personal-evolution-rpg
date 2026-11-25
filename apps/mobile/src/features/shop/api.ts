@@ -56,8 +56,8 @@ export async function fetchShop(): Promise<Result<ShopData>> {
         { id: string; title: string; emoji: string | null; price: number; redeemed_at: string }[]
       >(),
   ]);
-  if (balance.error) return failure(balance.error, 'Não foi possível carregar a Loja.');
-  if (rewards.error) return failure(rewards.error, 'Não foi possível carregar as recompensas.');
+  if (balance.error) return failure(balance.error, t('apiErrors.loadShop'));
+  if (rewards.error) return failure(rewards.error, t('apiErrors.loadRewards'));
   return {
     data: {
       crystals: Number(balance.data ?? 0),

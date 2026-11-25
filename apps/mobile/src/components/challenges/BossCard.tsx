@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BOSS_REWARD, type WeeklyBoss } from '@per/domain';
+import { BOSS_REWARD, bossText, type WeeklyBoss } from '@per/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Form';
 import { BossSprite, useBossAnim } from './BossSprite';
@@ -52,10 +52,10 @@ export function BossCard({
   claimed,
   busy,
   onClaim,
-  label = 'CHEFE DA SEMANA',
+  label,
   reward = BOSS_REWARD,
 }: Props) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { boss, maxHp, hp, damage, defeated } = state;
   const pct = maxHp === 0 ? 0 : (hp / maxHp) * 100;
   // Provoca ao abrir com a vida cheia; enfraquece abaixo de 30%; derrotado, dissolve em estrela.
@@ -63,14 +63,16 @@ export function BossCard({
 
   return (
     <View style={styles.card}>
-      <Text style={typography.label}>{label}</Text>
+      <Text style={typography.label}>{label ?? t('boss.weekly')}</Text>
       <View style={styles.header}>
         <View style={[styles.stage, { borderColor: BOSS_COLOR[boss.id] ?? colors.border }]}>
           {maxHp > 0 && <BossSprite id={boss.id} size={96} {...sprite} />}
         </View>
         <View style={styles.flex}>
-          <Text style={[typography.heading, defeated && styles.defeated]}>{boss.name}</Text>
-          <Text style={styles.taunt}>{defeated ? t('boss.defeated') : `“${boss.taunt}”`}</Text>
+          <Text style={[typography.heading, defeated && styles.defeated]}>{bossText(boss, locale).name}</Text>
+          <Text style={styles.taunt}>
+            {defeated ? t('boss.defeated') : `“${bossText(boss, locale).taunt}”`}
+          </Text>
         </View>
       </View>
 

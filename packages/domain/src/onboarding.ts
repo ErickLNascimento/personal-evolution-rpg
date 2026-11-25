@@ -2,7 +2,7 @@
  * Onboarding: primeiro acesso guiado. O usuário escolhe áreas de foco,
  * dificuldade preferida e, se quiser, hábitos a partir de modelos prontos.
  */
-import { OBJECTIVE_CATEGORY_LABEL, type ObjectiveCategory } from './habits';
+import { OBJECTIVE_CATEGORY_LABELS, type ObjectiveCategory } from './habits';
 import type { Difficulty } from './xp';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 
@@ -56,10 +56,30 @@ const TEMPLATES: Record<ObjectiveCategory, Omit<HabitTemplate, 'id' | 'category'
   ],
 };
 
+/** Títulos dos modelos em inglês, na mesma ordem. */
+const TEMPLATE_TITLES_EN: Record<ObjectiveCategory, readonly string[]> = {
+  health: ['Drink 2 L of water', 'Walk for 20 minutes'],
+  career: ["Organize the day's tasks", 'Study something in my field for 20 min'],
+  finance: ["Write down the day's spending", "Review the week's budget"],
+  knowledge: ['Read 10 pages', 'Study a language for 15 min'],
+  productivity: ['Plan the day in 5 minutes', '1 hour of focus without my phone'],
+  relationships: ['Text someone I care about', 'Call or meet a friend'],
+  wellbeing: ['Meditate for 5 minutes', 'Go to bed before 11 PM'],
+  personal_growth: ['Write 3 lines in my journal', 'Review the week'],
+};
+
 /** Modelos de hábito das áreas escolhidas, na ordem das áreas. */
-export function templatesFor(focusAreas: readonly ObjectiveCategory[]): HabitTemplate[] {
+export function templatesFor(
+  focusAreas: readonly ObjectiveCategory[],
+  locale: Locale = DEFAULT_LOCALE,
+): HabitTemplate[] {
   return focusAreas.flatMap((category) =>
-    TEMPLATES[category].map((t, i) => ({ ...t, id: `${category}-${i}`, category })),
+    TEMPLATES[category].map((t, i) => ({
+      ...t,
+      title: (locale === 'en' ? TEMPLATE_TITLES_EN[category][i] : undefined) ?? t.title,
+      id: `${category}-${i}`,
+      category,
+    })),
   );
 }
 
@@ -101,15 +121,16 @@ export interface OnboardingHabit {
 export function onboardingHabits(
   focusAreas: readonly ObjectiveCategory[],
   selectedIds: readonly string[],
+  locale: Locale = DEFAULT_LOCALE,
 ): OnboardingHabit[] {
   const chosen = new Set(selectedIds);
-  return templatesFor(focusAreas)
+  return templatesFor(focusAreas, locale)
     .filter((t) => chosen.has(t.id))
     .map((t) => ({
       title: t.title,
       difficulty: t.difficulty,
       schedule_days: t.scheduleDays,
-      objective_title: OBJECTIVE_CATEGORY_LABEL[t.category],
+      objective_title: OBJECTIVE_CATEGORY_LABELS[locale][t.category],
       objective_category: t.category,
     }));
 }

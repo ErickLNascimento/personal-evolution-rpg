@@ -6,6 +6,7 @@
  */
 import { HERO_CLASSES, sanitizeHero, type HeroClass, type HeroForm, type HeroLook } from './hero';
 import type { ObjectiveCategory } from './habits';
+import { PATH_EN, RACE_EN } from './contentEn';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 // ─────────────────────────────────────────────────────────────
@@ -40,6 +41,14 @@ export const RACE_INFO: Record<Race, { label: Record<HeroForm, string>; descript
     description: 'Escamas e chifres de dragão.',
   },
 };
+
+export function raceLabel(race: Race, form: HeroForm = 'masculino', locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? RACE_EN[race]!.label[form === 'feminino' ? 1 : 0] : RACE_INFO[race].label[form];
+}
+
+export function raceDescription(race: Race, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? RACE_EN[race]!.description : RACE_INFO[race].description;
+}
 
 export function isRace(value: unknown): value is Race {
   return typeof value === 'string' && (RACES as readonly string[]).includes(value);
@@ -331,22 +340,40 @@ export interface HeroPathState {
 /** Herói que ainda não escolheu caminho. */
 export const NO_PATH: HeroPathState = { path: null, branch: null, stage: 0 };
 
+export function pathLabel(path: PathId, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? PATH_EN[path]!.label : PATH_INFO[path].label;
+}
+
+export function pathMotto(path: PathId, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? PATH_EN[path]!.motto : PATH_INFO[path].motto;
+}
+
+export function branchLabel(path: PathId, branch: Branch, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? PATH_EN[path]!.branches[branch].label : PATH_INFO[path].branches[branch].label;
+}
+
 /** Nome da classe no estágio (ex.: "Cavaleira"). Sem ramo a partir do 3, usa o último do tronco. */
 export function stageName(
   path: PathId,
   branch: Branch | null,
   stage: Tier,
   form: HeroForm = 'masculino',
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
-  const info = PATH_INFO[path];
+  const info = locale === 'en' ? PATH_EN[path]! : PATH_INFO[path];
   const i = form === 'feminino' ? 1 : 0;
   if (stage < BRANCH_TIER || !branch) return info.trunk[Math.min(stage, 2)]![i];
   return info.branches[branch].stages[stage - BRANCH_TIER]![i];
 }
 
 /** Linha completa de um ramo, do estágio 0 ao 5 (para a tela da árvore). */
-export function pathLine(path: PathId, branch: Branch, form: HeroForm = 'masculino'): string[] {
-  return ([0, 1, 2, 3, 4, 5] as Tier[]).map((t) => stageName(path, branch, t, form));
+export function pathLine(
+  path: PathId,
+  branch: Branch,
+  form: HeroForm = 'masculino',
+  locale: Locale = DEFAULT_LOCALE,
+): string[] {
+  return ([0, 1, 2, 3, 4, 5] as Tier[]).map((t) => stageName(path, branch, t, form, locale));
 }
 
 export interface PromotionStatus {

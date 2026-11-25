@@ -95,3 +95,24 @@ describe('notificações inteligentes', () => {
     expect(all.length).toBeLessThanOrEqual(SMART_NOTIFICATION_SLOTS);
   });
 });
+
+describe('avisos em inglês', () => {
+  it('traduz título e texto quando locale = en', () => {
+    const out = smartNotifications({
+      today: '2026-11-24',
+      nowMinutes: 600,
+      now: new Date('2026-11-24T10:00:00'),
+      habits: [],
+      completedToday: new Set(),
+      flash: null,
+      promotion: { nextName: 'Knight' },
+      locale: 'en',
+    });
+    expect(out).toEqual([
+      expect.objectContaining({
+        title: '⭐ Promotion available',
+        body: 'Your hero can become Knight. Tap to accept.',
+      }),
+    ]);
+  });
+});

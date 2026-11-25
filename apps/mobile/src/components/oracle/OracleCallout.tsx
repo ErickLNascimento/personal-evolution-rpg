@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, MIN_TOUCH, radius, spacing } from '@/theme/tokens';
 import { Oracle } from './Oracle';
+import { useT } from '@/i18n';
 
 const CYAN = '#5CF2E0';
 
@@ -17,6 +18,7 @@ export function OracleCallout({
   action: string;
   onPress: () => void;
 }) {
+  const { t } = useT();
   return (
     <Pressable
       onPress={() => {
@@ -24,12 +26,12 @@ export function OracleCallout({
         onPress();
       }}
       accessibilityRole="button"
-      accessibilityLabel={`Oráculo: ${says} ${action}`}
+      accessibilityLabel={`${t('oracle.name')}: ${says} ${action}`}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <Oracle size={84} />
       <View style={styles.body}>
-        <Text style={styles.name}>ORÁCULO</Text>
+        <Text style={styles.name}>{t('oracle.name').toUpperCase()}</Text>
         <Text style={styles.says}>{says}</Text>
         <View style={styles.action}>
           <Text style={styles.actionText}>{action}</Text>

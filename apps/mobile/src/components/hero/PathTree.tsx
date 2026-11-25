@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   BRANCH_TIER,
-  PATH_INFO,
+  branchLabel,
   stageName,
   STAGE_RULES,
   type Branch,
@@ -11,6 +11,7 @@ import {
   type Tier,
 } from '@per/domain';
 import { StyleSheet, Text, View } from 'react-native';
+import { useT } from '@/i18n';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 /**
@@ -24,9 +25,9 @@ export function PathTree({
   state: HeroPathState & { path: PathId };
   form: HeroForm;
 }) {
-  const info = PATH_INFO[state.path];
+  const { locale } = useT();
   const trunk = ([0, 1, 2] as Tier[]).map((t) => (
-    <Node key={t} name={stageName(state.path, null, t, form)} tier={t} state={state} />
+    <Node key={t} name={stageName(state.path, null, t, form, locale)} tier={t} state={state} />
   ));
   return (
     <View style={styles.tree}>
@@ -37,11 +38,11 @@ export function PathTree({
             key={b}
             style={[styles.branch, state.branch && state.branch !== b && styles.otherBranch]}
           >
-            <Text style={styles.branchLabel}>{info.branches[b].label.toUpperCase()}</Text>
+            <Text style={styles.branchLabel}>{branchLabel(state.path, b, locale).toUpperCase()}</Text>
             {([3, 4, 5] as Tier[]).map((t) => (
               <Node
                 key={t}
-                name={stageName(state.path, b, t, form)}
+                name={stageName(state.path, b, t, form, locale)}
                 tier={t}
                 state={state}
                 branch={b}
@@ -69,12 +70,14 @@ function Node({
   const reached =
     onBranch && tier <= state.stage && (tier < BRANCH_TIER || state.branch === branch);
   const current = reached && tier === state.stage;
+  const { t } = useT();
   const rule = STAGE_RULES[tier]!;
+  const req = { level: rule.minLevel, missions: rule.minMissions };
   return (
     <View
       style={[styles.node, current && styles.current, reached && !current && styles.reached]}
       accessible
-      accessibilityLabel={`${name}${current ? ', estágio atual' : reached ? ', alcançado' : `, requer nível ${rule.minLevel} e ${rule.minMissions} missões`}`}
+      accessibilityLabel={`${name}, ${current ? t('pathTree.current') : reached ? t('pathTree.reached') : t('pathTree.requires', req)}`}
     >
       <Ionicons
         name={current ? 'star' : reached ? 'checkmark-circle' : 'lock-closed'}
@@ -87,7 +90,7 @@ function Node({
         </Text>
         {!reached && tier > 0 && (
           <Text style={typography.caption}>
-            Nv {rule.minLevel} · {rule.minMissions} missões
+            {t('pathTree.short', req)}
           </Text>
         )}
       </View>

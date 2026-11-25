@@ -4,6 +4,8 @@
  */
 import type { ObjectiveCategory } from './habits';
 import type { HeroForm } from './hero';
+import { RARITY_EN, TITLE_EN } from './contentEn';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 export type TitleRarity = 'comum' | 'raro' | 'epico' | 'lendario';
 export type TitleKind = 'level' | 'achievement' | 'secret' | 'objective';
@@ -120,8 +122,24 @@ export function titleInfo(id: TitleId): TitleInfo {
   return TITLE_CATALOG[id];
 }
 
-export function titleName(id: TitleId, form: HeroForm = 'masculino'): string {
-  return TITLE_CATALOG[id].name[form];
+export function titleName(id: TitleId, form: HeroForm = 'masculino', locale: Locale = DEFAULT_LOCALE): string {
+  const en = locale === 'en' ? TITLE_EN[id] : undefined;
+  return en ? en.name[form === 'feminino' ? 1 : 0] : TITLE_CATALOG[id].name[form];
+}
+
+/** Como se conquista o título, no idioma. */
+export function titleDescription(id: TitleId, locale: Locale = DEFAULT_LOCALE): string {
+  return (locale === 'en' ? TITLE_EN[id]?.description : undefined) ?? TITLE_CATALOG[id].description;
+}
+
+/** Pista dos títulos secretos, no idioma. */
+export function titleHint(id: TitleId, locale: Locale = DEFAULT_LOCALE): string | undefined {
+  const info: TitleInfo = TITLE_CATALOG[id];
+  return (locale === 'en' ? TITLE_EN[id]?.hint : undefined) ?? info.hint;
+}
+
+export function rarityLabel(rarity: TitleRarity, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? RARITY_EN[rarity]! : RARITY_LABEL[rarity];
 }
 
 /** Título de nível correspondente ao nível atual (o automático). */

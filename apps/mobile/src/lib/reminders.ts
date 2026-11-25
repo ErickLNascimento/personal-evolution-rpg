@@ -3,6 +3,7 @@ import { AndroidImportance } from 'expo-notifications';
 import { MAX_SCHEDULED_REMINDERS, reminderSchedule, SMART_NOTIFICATION_SLOTS } from '@per/domain';
 import { Platform } from 'react-native';
 import { listHabits } from '@/features/habits/api';
+import { t } from '@/i18n';
 import { buildSmartNotifications, triggerDate } from '@/lib/smartNotifications';
 
 const CHANNEL_ID = 'reminders';
@@ -23,11 +24,11 @@ async function ensureChannel() {
   // Android 8+ exige um canal; no Android 13 o pedido de permissão só aparece depois dele.
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: 'Lembretes de hábitos',
+      name: t('notifications.channelHabits'),
       importance: AndroidImportance.DEFAULT,
     });
     await Notifications.setNotificationChannelAsync(SMART_CHANNEL_ID, {
-      name: 'Streak, missão relâmpago e promoções',
+      name: t('notifications.channelSmart'),
       importance: AndroidImportance.DEFAULT,
     });
   }
@@ -83,7 +84,7 @@ async function runSync(): Promise<SyncResult> {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: r.title,
-        body: 'Hora da sua missão. Conclua no app para ganhar XP.',
+        body: t('notifications.reminderBody'),
         data: { habitId: r.habitId },
       },
       trigger:

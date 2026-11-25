@@ -63,7 +63,7 @@ export default function ProgressScreen() {
 }
 
 function RealProgress() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { today, ready } = useToday();
   const { profile } = useProfile();
   const moodOn = useFeature(FEATURES.moodJournal);
@@ -143,7 +143,7 @@ function RealProgress() {
       </Card>
 
       <Card title={t('progress.attributes')}>
-        <AttributeSheet attributes={heroAttributes(data.attributeXp, OBJECTIVE_CATEGORIES)} />
+        <AttributeSheet attributes={heroAttributes(data.attributeXp, OBJECTIVE_CATEGORIES, locale)} />
       </Card>
 
       <Card title={t('progress.streak')}>

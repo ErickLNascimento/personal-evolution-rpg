@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
+  bossText,
   formatSocialCode,
   groupBossState,
   MAX_GROUP_MEMBERS,
@@ -385,7 +386,7 @@ function AddFriend({
 }
 
 function GroupRow({ group }: { group: GroupInfo }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const boss = groupBossState(group.weekStart, group.boss.maxHp, group.boss.damage);
   const lastWon =
     group.lastBoss.maxHp > 0 &&
@@ -399,7 +400,7 @@ function GroupRow({ group }: { group: GroupInfo }) {
       accessibilityLabel={t('social.groupA11y', {
         name: group.name,
         count: group.memberCount,
-        boss: boss.boss.name,
+        boss: bossText(boss.boss, locale).name,
         hp: boss.hp,
         max: boss.maxHp,
       })}

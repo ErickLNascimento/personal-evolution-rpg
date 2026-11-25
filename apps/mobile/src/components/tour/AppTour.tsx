@@ -9,6 +9,7 @@ import { router, type Href } from 'expo-router';
 import { Button } from '@/components/Form';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
 import { Oracle } from '@/components/oracle/Oracle';
+import { useT, type TKey } from '@/i18n';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -22,49 +23,25 @@ export interface TourSlide {
   route?: string;
 }
 
-const SLIDES: TourSlide[] = [
-  {
-    icon: 'hero',
-    color: colors.primary,
-    title: 'Sua jornada começa aqui',
-    text: 'Cada hábito vira uma missão diária. Concluir missões dá XP, sobe o nível e faz o seu herói evoluir.',
-  },
-  {
-    icon: 'checkmark-circle',
-    color: colors.accent,
-    title: 'Missões do dia',
-    text: 'Na tela Hoje, toque numa missão para concluí-la. Esqueceu de marcar ontem? Use o seletor Ontem | Hoje — dá para registrar até o fim do dia.',
-  },
-  {
-    icon: 'flash',
-    color: '#FFB020',
-    title: 'Missão relâmpago',
-    text: 'Todo dia uma missão ganha um prazo de 4 horas. Concluída a tempo, rende +50% de XP e Cristais extras.',
-  },
-  {
-    icon: 'star',
-    color: colors.xp,
-    title: 'Promoções do herói',
-    text: 'Seu caminho cuida de uma área da vida. Com nível e missões nessa área, você é promovido: de Aventureiro a Cavaleiro, de Aprendiz a Arquimago…',
-  },
-  {
-    icon: 'stats-chart',
-    color: colors.primary,
-    title: 'Seu progresso',
-    text: 'Em Progresso você acompanha nível, streak, XP de cada dia e os atributos do herói em cada área da vida.',
-  },
-  {
-    icon: 'oracle',
-    color: '#5CF2E0',
-    title: 'Conheça o Oráculo',
-    text: 'O Oráculo é a inteligência artificial do app. Conte um objetivo e ele monta um plano de missões sob medida, revisa a sua semana e sugere ajustes. Ele só propõe: nada muda sem a sua aprovação. Consulte em Progresso ou ao criar um hábito.',
-  },
-  {
-    icon: 'chatbubble-ellipses',
-    color: colors.accent,
-    title: 'Sua opinião importa',
-    text: 'Encontrou um problema ou teve uma ideia? Envie em Perfil → Enviar feedback. Este tour também fica lá, se quiser rever.',
-  },
+/** Tour padrão: textos vêm do dicionário (tour.s1Title, tour.s1Text, …). */
+const SLIDE_ART: { icon: TourSlide['icon']; color: string }[] = [
+  { icon: 'hero', color: colors.primary },
+  { icon: 'checkmark-circle', color: colors.accent },
+  { icon: 'flash', color: '#FFB020' },
+  { icon: 'star', color: colors.xp },
+  { icon: 'stats-chart', color: colors.primary },
+  { icon: 'oracle', color: '#5CF2E0' },
+  { icon: 'chatbubble-ellipses', color: colors.accent },
+];
+
+const SLIDE_KEYS: [TKey, TKey][] = [
+  ['tour.s1Title', 'tour.s1Text'],
+  ['tour.s2Title', 'tour.s2Text'],
+  ['tour.s3Title', 'tour.s3Text'],
+  ['tour.s4Title', 'tour.s4Text'],
+  ['tour.s5Title', 'tour.s5Text'],
+  ['tour.s6Title', 'tour.s6Text'],
+  ['tour.s7Title', 'tour.s7Text'],
 ];
 
 /**
@@ -75,9 +52,9 @@ export function AppTour({
   visible,
   hero,
   onClose,
-  slides = SLIDES,
+  slides: customSlides,
   heading,
-  finishLabel = 'Começar',
+  finishLabel,
 }: {
   visible: boolean;
   hero: HeroLook;
@@ -88,6 +65,10 @@ export function AppTour({
   heading?: string;
   finishLabel?: string;
 }) {
+  const { t } = useT();
+  const slides: readonly TourSlide[] =
+    customSlides ??
+    SLIDE_ART.map((art, i) => ({ ...art, title: t(SLIDE_KEYS[i]![0]), text: t(SLIDE_KEYS[i]![1]) }));
   const [index, setIndex] = useState(0);
   // Sem slides (ex.: nenhuma novidade pendente) não há o que mostrar.
   const slide = slides[Math.min(index, slides.length - 1)];
@@ -119,7 +100,7 @@ export function AppTour({
           <View style={styles.top}>
             <Text style={typography.caption}>
               {heading ? `${heading} · ` : ''}
-              {index + 1} de {slides.length}
+              {t('tour.position', { n: index + 1, total: slides.length })}
             </Text>
             {!last && (
               <Pressable
@@ -128,7 +109,7 @@ export function AppTour({
                 hitSlop={12}
                 style={styles.skip}
               >
-                <Text style={styles.skipText}>Pular</Text>
+                <Text style={styles.skipText}>{t('tour.skip')}</Text>
               </Pressable>
             )}
           </View>
@@ -152,7 +133,7 @@ export function AppTour({
           <View
             style={styles.dots}
             accessible
-            accessibilityLabel={`Passo ${index + 1} de ${slides.length}`}
+            accessibilityLabel={t('onboarding.step', { step: index + 1, total: slides.length })}
           >
             {slides.map((_, i) => (
               <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
@@ -160,10 +141,10 @@ export function AppTour({
           </View>
 
           <View style={styles.actions}>
-            <Button title={last ? finishLabel : 'Próximo'} onPress={next} />
+            <Button title={last ? (finishLabel ?? t('tour.start')) : t('tour.next')} onPress={next} />
             {slide.route && (
               <Button
-                title="Ver agora"
+                title={t('tour.seeNow')}
                 variant="secondary"
                 onPress={() => {
                   const route = slide.route!;

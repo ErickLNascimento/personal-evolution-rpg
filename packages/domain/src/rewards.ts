@@ -2,6 +2,9 @@
  * Recompensas personalizadas: o usuário cria os próprios prêmios da vida real
  * ("ver um episódio = 50 Cristais") e os resgata com Cristais. Espelha `custom_rewards`.
  */
+import { REWARD_SUGGESTIONS_EN } from './contentEn';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+
 export const REWARD_TITLE_MAX = 60;
 export const REWARD_PRICE_MIN = 5;
 export const REWARD_PRICE_MAX = 5000;
@@ -40,4 +43,12 @@ export function validateReward(input: RewardInput): string | null {
 /** Quantas vezes dá para resgatar com o saldo atual (0 = ainda não dá). */
 export function affordable(price: number, balance: number): number {
   return price > 0 ? Math.max(0, Math.floor(balance / price)) : 0;
+}
+
+/** Sugestões de recompensa no idioma. */
+export function rewardSuggestions(
+  locale: Locale = DEFAULT_LOCALE,
+): readonly { emoji: string; title: string; price: number }[] {
+  if (locale !== 'en') return REWARD_SUGGESTIONS;
+  return REWARD_SUGGESTIONS.map((s, i) => ({ ...s, title: REWARD_SUGGESTIONS_EN[i] ?? s.title }));
 }

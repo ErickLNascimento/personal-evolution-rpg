@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { PIXEL_HERO_ASPECT, PixelHero, type PixelHeroAnim } from './PixelHero';
+import { useT } from '@/i18n';
 
 /** Proporção da caixa do herói (largura × 1,2), a mesma do desenho antigo: as telas não mudam de layout. */
 const BOX_ASPECT = 1.2;
@@ -27,6 +28,7 @@ export function HeroAvatar({
   cheer?: number;
   entrance?: Exclude<PixelHeroAnim, 'idle'>;
 }) {
+  const { t } = useT();
   const [anim, setAnim] = useState<PixelHeroAnim>(entrance ?? 'idle');
   const [seenCheer, setSeenCheer] = useState(cheer);
   if (cheer !== seenCheer) {
@@ -43,7 +45,7 @@ export function HeroAvatar({
       style={{ width: size, height, alignItems: 'center', justifyContent: 'flex-end' }}
       accessible
       accessibilityRole="image"
-      accessibilityLabel="Seu herói"
+      accessibilityLabel={t('screens.hero')}
     >
       <PixelHero
         hero={hero}

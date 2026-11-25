@@ -55,8 +55,14 @@ update public.app_settings set value = 0 where key = 'feature_data_export';
 ### App em inglês: `feature_english`
 
 Seletor de idioma em Perfil e o app em inglês para quem tem o celular em outro idioma que não
-português. Desligada, o app fica todo em português. A tradução é feita aos poucos: telas ainda
-não traduzidas aparecem em português. **Começa desligada.**
+português. Desligada, o app fica todo em português. **Começa desligada.**
+
+Traduzido (fases 1 a 3): todas as telas, o conteúdo do jogo (raças, caminhos, estágios, peças do
+herói, títulos, chefes, sugestões de recompensa e modelos de hábito do onboarding), notificações,
+Novidades e o tour. O Oráculo responde em inglês quando o app manda `locale: "en"`; para isso a
+Edge Function precisa estar publicada na versão com esse suporte:
+`npx supabase functions deploy ai-plan`. Hábitos e objetivos que o usuário já criou ficam no
+idioma em que foram escritos.
 
 ```sql
 -- ligar

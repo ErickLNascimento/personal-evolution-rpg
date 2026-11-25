@@ -7,7 +7,7 @@ import { UpdateBanner } from '@/components/UpdateBanner';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { CelebrationProvider } from '@/features/celebration/CelebrationProvider';
 import { ProfileProvider, useProfile } from '@/features/profile/ProfileProvider';
-import { LocaleProvider } from '@/i18n';
+import { LocaleProvider, useT } from '@/i18n';
 import { useReminderSync, useReminderTapOpensToday } from '@/features/reminders/useReminderSync';
 import { navigationIntegration, sentryEnabled, setSentryUser, withSentry } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
@@ -31,6 +31,7 @@ function Loading() {
 }
 
 function RootNavigator() {
+  const { t } = useT();
   const { session, isLoading, isDemo } = useAuth();
   const { profile, loading: profileLoading, error: profileError, reload } = useProfile();
   useReminderSync(
@@ -55,11 +56,11 @@ function RootNavigator() {
       return (
         <View style={styles.center}>
           <Text style={typography.body}>
-            {profileError ?? 'Não foi possível carregar o seu perfil.'}
+            {profileError ?? t('apiErrors.loadProfile')}
           </Text>
-          <Button title="Tentar de novo" onPress={reload} />
+          <Button title={t('common.retry')} onPress={reload} />
           <Button
-            title="Sair"
+            title={t('screens.signOut')}
             onPress={() => void supabase?.auth.signOut({ scope: 'local' })}
             variant="secondary"
           />
@@ -76,26 +77,26 @@ function RootNavigator() {
     >
       <Stack.Protected guard={signedIn && onboarded}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="habit/new" options={{ ...formHeader, title: 'Nova missão' }} />
-        <Stack.Screen name="habit/[id]" options={{ ...formHeader, title: 'Hábito' }} />
-        <Stack.Screen name="ai-plan" options={{ ...formHeader, title: 'Oráculo' }} />
+        <Stack.Screen name="habit/new" options={{ ...formHeader, title: t('screens.newHabit') }} />
+        <Stack.Screen name="habit/[id]" options={{ ...formHeader, title: t('screens.habit') }} />
+        <Stack.Screen name="ai-plan" options={{ ...formHeader, title: t('screens.oracle') }} />
         <Stack.Screen
           name="delete-account"
-          options={{ ...formHeader, title: 'Excluir conta', presentation: 'modal' }}
+          options={{ ...formHeader, title: t('screens.deleteAccount'), presentation: 'modal' }}
         />
         <Stack.Screen
           name="hero"
-          options={{ ...formHeader, title: 'Seu herói', presentation: 'modal' }}
+          options={{ ...formHeader, title: t('screens.hero'), presentation: 'modal' }}
         />
-        <Stack.Screen name="path" options={{ ...formHeader, title: 'Caminho' }} />
+        <Stack.Screen name="path" options={{ ...formHeader, title: t('screens.path') }} />
         <Stack.Screen
           name="promotion"
-          options={{ ...formHeader, title: 'Promoção', presentation: 'modal' }}
+          options={{ ...formHeader, title: t('screens.promotion'), presentation: 'modal' }}
         />
-        <Stack.Screen name="feedback" options={{ ...formHeader, title: 'Enviar feedback' }} />
-        <Stack.Screen name="shop" options={{ ...formHeader, title: 'Loja' }} />
-        <Stack.Screen name="challenges" options={{ ...formHeader, title: 'Desafios' }} />
-        <Stack.Screen name="group/[id]" options={{ ...formHeader, title: 'Grupo' }} />
+        <Stack.Screen name="feedback" options={{ ...formHeader, title: t('screens.feedback') }} />
+        <Stack.Screen name="shop" options={{ ...formHeader, title: t('screens.shop') }} />
+        <Stack.Screen name="challenges" options={{ ...formHeader, title: t('screens.challenges') }} />
+        <Stack.Screen name="group/[id]" options={{ ...formHeader, title: t('screens.group') }} />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !onboarded}>
         <Stack.Screen name="onboarding" />

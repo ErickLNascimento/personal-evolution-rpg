@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   BRANCH_TIER,
   heroLook,
-  PATH_INFO,
+  branchLabel,
+  PATH_CHANGE_COOLDOWN_DAYS,
+  pathLabel,
   pathLine,
   stageName,
   lookAtStage,
@@ -22,6 +24,7 @@ import { StackScreen } from '@/components/Screen';
 import { useHero } from '@/features/hero/useHero';
 import { fetchHeroPath, promoteHero, type HeroPathInfo } from '@/features/hero/pathApi';
 import { useProfile } from '@/features/profile/ProfileProvider';
+import { useT } from '@/i18n';
 import { syncReminders } from '@/lib/reminders';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -50,6 +53,7 @@ export default function PromotionScreen() {
 
 function Ceremony({ info, look }: { info: HeroPathInfo; look: HeroLook }) {
   const { refresh } = useProfile();
+  const { t, locale } = useT();
   const [branch, setBranch] = useState<Branch | null>(info.branch);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,9 +64,9 @@ function Ceremony({ info, look }: { info: HeroPathInfo; look: HeroLook }) {
     return (
       <StackScreen>
         <Text style={typography.body}>
-          {path ? 'Seu herói já está no estágio máximo.' : 'Escolha um caminho primeiro.'}
+          {path ? t('promotion.maxed') : t('promotion.noPath')}
         </Text>
-        <Button title="Voltar" onPress={() => router.back()} variant="secondary" />
+        <Button title={t('promotion.back')} onPress={() => router.back()} variant="secondary" />
       </StackScreen>
     );
   }
@@ -95,20 +99,20 @@ function Ceremony({ info, look }: { info: HeroPathInfo; look: HeroLook }) {
             <HeroAvatar hero={newLook} size={170} animated entrance="levelup" />
           </Animated.View>
           <Animated.Text entering={FadeIn.delay(500)} style={styles.kicker}>
-            PROMOÇÃO
+            {t('promotion.kicker')}
           </Animated.Text>
           <Animated.Text
             entering={FadeIn.delay(700)}
             style={styles.newName}
             accessibilityRole="header"
           >
-            {stageName(path, done.branch, done.stage, look.form)}
+            {stageName(path, done.branch, done.stage, look.form, locale)}
           </Animated.Text>
           <Text style={[typography.body, styles.centerText]}>
-            Seu herói subiu para o estágio {done.stage} do caminho {PATH_INFO[path].label}.
+            {t('promotion.done', { stage: done.stage, path: pathLabel(path, locale) })}
           </Text>
         </View>
-        <Button title="Continuar" onPress={() => router.back()} />
+        <Button title={t('promotion.continue')} onPress={() => router.back()} />
       </StackScreen>
     );
   }
@@ -116,13 +120,17 @@ function Ceremony({ info, look }: { info: HeroPathInfo; look: HeroLook }) {
   if (!info.canPromote) {
     return (
       <StackScreen>
-        <Text style={typography.heading}>Ainda não é hora</Text>
+        <Text style={typography.heading}>{t('promotion.notYet')}</Text>
         <Text style={typography.body}>
-          Para virar {stageName(path, info.branch ?? 'A', nextTier, look.form)}: nível{' '}
-          {info.next.minLevel} e {info.next.minMissions} missões nas áreas do caminho. Você tem
-          nível {info.level} e {info.areaMissions} missões.
+          {t('promotion.requirements', {
+            name: stageName(path, info.branch ?? 'A', nextTier, look.form, locale),
+            minLevel: info.next.minLevel,
+            minMissions: info.next.minMissions,
+            level: info.level,
+            missions: info.areaMissions,
+          })}
         </Text>
-        <Button title="Voltar" onPress={() => router.back()} variant="secondary" />
+        <Button title={t('promotion.back')} onPress={() => router.back()} variant="secondary" />
       </StackScreen>
     );
   }
@@ -131,18 +139,20 @@ function Ceremony({ info, look }: { info: HeroPathInfo; look: HeroLook }) {
     <StackScreen>
       <View style={styles.center}>
         <HeroAvatar hero={look} size={120} animated />
-        <Text style={styles.kicker}>PROMOÇÃO DISPONÍVEL</Text>
+        <Text style={styles.kicker}>{t('promotion.available')}</Text>
         <Text style={[typography.body, styles.centerText]}>
-          {stageName(path, info.branch, info.stage, look.form)} → próximo estágio do caminho{' '}
-          {PATH_INFO[path].label}
+          {t('promotion.nextStage', {
+            name: stageName(path, info.branch, info.stage, look.form, locale),
+            path: pathLabel(path, locale),
+          })}
         </Text>
       </View>
 
       {choosingBranch ? (
         <View style={styles.branches}>
-          <Text style={typography.label}>ESCOLHA SEU RAMO</Text>
+          <Text style={typography.label}>{t('promotion.chooseBranch')}</Text>
           <Text style={typography.caption}>
-            Dá para trocar de ramo depois, com 14 dias de espera entre trocas.
+            {t('promotion.branchHint', { days: PATH_CHANGE_COOLDOWN_DAYS })}
           </Text>
           {(['A', 'B'] as Branch[]).map((b) => (
             <BranchCard
@@ -159,14 +169,14 @@ function Ceremony({ info, look }: { info: HeroPathInfo; look: HeroLook }) {
         <View style={styles.next}>
           <Ionicons name="arrow-up-circle" size={22} color={colors.xp} />
           <Text style={typography.heading}>
-            {stageName(path, info.branch, nextTier, look.form)}
+            {stageName(path, info.branch, nextTier, look.form, locale)}
           </Text>
         </View>
       )}
 
       <FormMessage text={error} />
       <Button
-        title="Aceitar promoção"
+        title={t('promotion.accept')}
         onPress={promote}
         loading={saving}
         disabled={choosingBranch && !branch}
@@ -188,7 +198,9 @@ function BranchCard({
   active: boolean;
   onPress: () => void;
 }) {
-  const line = pathLine(path, branch, look.form).slice(BRANCH_TIER);
+  const { locale } = useT();
+  const line = pathLine(path, branch, look.form, locale).slice(BRANCH_TIER);
+  const label = branchLabel(path, branch, locale);
   return (
     <Pressable
       onPress={() => {
@@ -197,7 +209,7 @@ function BranchCard({
       }}
       accessibilityRole="radio"
       accessibilityState={{ selected: active }}
-      accessibilityLabel={`${PATH_INFO[path].branches[branch].label}: ${line.join(', ')}`}
+      accessibilityLabel={`${label}: ${line.join(', ')}`}
       style={({ pressed }) => [
         styles.branchCard,
         active && styles.active,
@@ -210,7 +222,7 @@ function BranchCard({
       />
       <View style={styles.flex}>
         <Text style={styles.branchName}>
-          {PATH_INFO[path].branches[branch].label.toUpperCase()}
+          {label.toUpperCase()}
         </Text>
         <Text style={typography.heading}>{line[0]}</Text>
         <Text style={typography.caption}>{line.join(' → ')}</Text>

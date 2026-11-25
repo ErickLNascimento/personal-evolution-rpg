@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  OBJECTIVE_CATEGORY_LABEL,
+  OBJECTIVE_CATEGORY_LABELS,
   PATHS,
   PATH_INFO,
+  pathLabel,
+  pathMotto,
   stageName,
   lookAtStage,
   type HeroLook,
@@ -10,6 +12,7 @@ import {
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useT } from '@/i18n';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { HeroAvatar } from './HeroAvatar';
 
@@ -27,13 +30,24 @@ export function PathPicker({
   /** Caminho sugerido pelas áreas escolhidas. */
   suggested?: PathId;
 }) {
+  const { t, locale } = useT();
+  const sn = (p: PathId, b: 'A' | 'B' | null, tier: 0 | 2 | 3) =>
+    stageName(p, b, tier, look.form, locale);
   return (
     <View style={styles.list} accessibilityRole="radiogroup">
       {PATHS.map((p) => {
-        const info = PATH_INFO[p];
+        const label = pathLabel(p, locale);
+        const motto = pathMotto(p, locale);
         const active = value === p;
-        const areas = info.areas.map((a) => OBJECTIVE_CATEGORY_LABEL[a]).join(' e ');
-        const line = `${stageName(p, null, 0, look.form)} → ${stageName(p, null, 2, look.form)} → ${stageName(p, 'A', 3, look.form)} ou ${stageName(p, 'B', 3, look.form)}`;
+        const areas = PATH_INFO[p].areas
+          .map((a) => OBJECTIVE_CATEGORY_LABELS[locale][a])
+          .join(t('pathPicker.and'));
+        const line = t('pathPicker.line', {
+          first: sn(p, null, 0),
+          mid: sn(p, null, 2),
+          a: sn(p, 'A', 3),
+          b: sn(p, 'B', 3),
+        });
         return (
           <Pressable
             key={p}
@@ -43,7 +57,7 @@ export function PathPicker({
             }}
             accessibilityRole="radio"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={`${info.label}, ${areas}. ${info.motto} ${line}`}
+            accessibilityLabel={`${label}, ${areas}. ${motto} ${line}`}
             style={({ pressed }) => [
               styles.card,
               active && styles.active,
@@ -53,11 +67,11 @@ export function PathPicker({
             <HeroAvatar hero={{ ...lookAtStage(look, p, null, 0), aura: 'nenhuma' }} size={52} />
             <View style={styles.body}>
               <View style={styles.titleRow}>
-                <Text style={typography.heading}>{info.label}</Text>
-                {suggested === p && <Text style={styles.badge}>SUGERIDO</Text>}
+                <Text style={typography.heading}>{label}</Text>
+                {suggested === p && <Text style={styles.badge}>{t('pathPicker.suggested')}</Text>}
               </View>
               <Text style={styles.areas}>{areas}</Text>
-              <Text style={typography.caption}>{info.motto}</Text>
+              <Text style={typography.caption}>{motto}</Text>
               <Text style={styles.line}>{line}</Text>
             </View>
             <Ionicons

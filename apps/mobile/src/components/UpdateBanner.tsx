@@ -6,6 +6,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
+import { useT } from '@/i18n';
 
 /**
  * Aviso de versão nova (EAS Update). Ao abrir, o app procura e baixa a versão nova sozinho
@@ -19,6 +20,7 @@ export function UpdateBanner() {
 }
 
 function UpdateBannerInner() {
+  const { t, locale } = useT();
   const updates = Updates.useUpdates();
   const insets = useSafeAreaInsets();
   const [dismissed, setDismissed] = useState<string | null>(null);
@@ -53,6 +55,7 @@ function UpdateBannerInner() {
       updateId,
     },
     dismissed,
+    locale,
   );
   if (!banner) return null;
 
@@ -82,14 +85,14 @@ function UpdateBannerInner() {
               accessibilityRole="button"
               hitSlop={8}
             >
-              <Text style={styles.action}>{applying ? 'Aplicando…' : 'Aplicar agora'}</Text>
+              <Text style={styles.action}>{applying ? t('update.applying') : t('update.apply')}</Text>
             </Pressable>
           )}
         </View>
         <Pressable
           onPress={() => setDismissed(updateId ?? 'sem-id')}
           accessibilityRole="button"
-          accessibilityLabel="Fechar aviso"
+          accessibilityLabel={t('update.dismiss')}
           hitSlop={10}
           style={styles.close}
         >

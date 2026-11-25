@@ -2,15 +2,17 @@ import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { Oracle } from './Oracle';
+import { useT } from '@/i18n';
 
 /** O Oráculo com um balão de fala: dá voz à IA no topo da tela dele. */
 export function OracleHeader({ says }: { says: string }) {
+  const { t } = useT();
   return (
     <View style={styles.row}>
       <Oracle size={104} />
       <Animated.View key={says} entering={FadeIn.duration(300)} style={styles.bubble}>
         <View style={styles.tail} />
-        <Text style={styles.name}>ORÁCULO</Text>
+        <Text style={styles.name}>{t('oracle.name').toUpperCase()}</Text>
         <Text style={styles.text} accessibilityLiveRegion="polite">
           {says}
         </Text>

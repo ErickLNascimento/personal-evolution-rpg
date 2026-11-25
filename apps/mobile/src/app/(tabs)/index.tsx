@@ -1,5 +1,6 @@
 import {
   bossForWeek,
+  bossText,
   DEFAULT_HERO,
   displayedTitle,
   isHeroUnset,
@@ -89,7 +90,7 @@ function DemoToday() {
 }
 
 function RealToday() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [choice, setChoice] = useState<DayChoice>('today');
   const day = useDay(choice);
   const { profile, update } = useProfile();
@@ -166,7 +167,7 @@ function RealToday() {
         <AppTour
           visible={showNews}
           hero={hero}
-          slides={newsSlides(news)}
+          slides={newsSlides(news, locale)}
           heading={t('today.news')}
           finishLabel={t('today.gotIt')}
           onClose={() => {
@@ -230,6 +231,7 @@ function RealToday() {
                           heroPath.branch,
                           pathInfo.data.next.tier,
                           hero.form,
+                          locale,
                         ),
                       })
                 }
@@ -305,7 +307,7 @@ function RealToday() {
             {day.hasHabits && challengesOn && (
               <BossBanner
                 id={boss.id}
-                name={boss.name}
+                name={bossText(boss, locale).name}
                 hits={day.cheer}
                 onPress={() => router.push('/challenges')}
               />

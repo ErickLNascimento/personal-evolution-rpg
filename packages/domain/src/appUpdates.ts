@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, type Locale } from './i18n';
+
 /**
  * Avisos de atualização do app (EAS Update). O app procura e baixa a versão nova sozinho ao
  * abrir; ela é aplicada na próxima abertura. Aqui fica o que mostrar e quando conferir de novo.
@@ -23,23 +25,31 @@ export const UPDATE_RECHECK_MINUTES = 30;
 export function updateBanner(
   status: UpdateStatus,
   dismissedId: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): UpdateBanner | null {
+  const en = locale === 'en';
   if (status.updateId && status.updateId === dismissedId) return null;
   if (status.isUpdatePending)
     return {
       kind: 'ready',
-      title: 'Nova versão pronta!',
-      text: 'Ela será aplicada na próxima vez que você abrir o app.',
+      title: en ? 'New version ready!' : 'Nova versão pronta!',
+      text: en
+        ? "It'll be applied the next time you open the app."
+        : 'Ela será aplicada na próxima vez que você abrir o app.',
     };
   if (status.isUpdateAvailable || status.isDownloading) {
     const pct = status.downloadProgress;
     return {
       kind: 'downloading',
-      title: 'Nova versão disponível',
+      title: en ? 'New version available' : 'Nova versão disponível',
       text:
         pct !== undefined && pct > 0 && pct < 1
-          ? `Baixando em segundo plano… ${Math.round(pct * 100)}%`
-          : 'Baixando em segundo plano. Pode continuar usando o app.',
+          ? en
+            ? `Downloading in the background… ${Math.round(pct * 100)}%`
+            : `Baixando em segundo plano… ${Math.round(pct * 100)}%`
+          : en
+            ? 'Downloading in the background. You can keep using the app.'
+            : 'Baixando em segundo plano. Pode continuar usando o app.',
     };
   }
   return null;

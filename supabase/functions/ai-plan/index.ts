@@ -2,7 +2,8 @@
 // e grava a proposta em ai_plans. A IA só propõe: hábitos nascem quando o usuário
 // aceita (decide_ai_plan), e XP só existe por log_habit. Nada aqui toca em XP.
 //
-// POST { "kind": "initial" | "weekly" }  (Authorization: Bearer <jwt do usuário>)
+// POST { "kind": "initial" | "weekly", "locale"?: "en" }  (Authorization: Bearer <jwt do usuário>)
+// Com locale "en", o plano e as mensagens de erro vêm em inglês.
 import Anthropic from "npm:@anthropic-ai/sdk@1.12.0";
 import { createClient } from "npm:@supabase/supabase-js@2.119.2";
 
@@ -26,6 +27,48 @@ const CORS = {
 function reply(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
+
+// Mensagens de erro em inglês, para quem usa o app em inglês (o app manda { locale: "en" }).
+const ERRORS_EN: Record<string, string> = {
+  "A IA ainda não foi configurada no servidor.": "The AI isn't set up on the server yet.",
+  "A IA está demorando demais agora. Tente de novo em alguns minutos.": "The AI is taking too long right now. Try again in a few minutes.",
+  "A IA não respondeu. Tente de novo.": "The AI didn't respond. Try again.",
+  "A IA está ocupada agora. Tente de novo em alguns minutos.": "The AI is busy right now. Try again in a few minutes.",
+  "A IA está ocupada. Tente em alguns minutos.": "The AI is busy. Try again in a few minutes.",
+  "A chave da IA no servidor é inválida.": "The AI key on the server is invalid.",
+  "A resposta da IA veio incompleta. Tente de novo.": "The AI's answer came back incomplete. Try again.",
+  "A IA não conseguiu montar um plano. Tente de novo.": "The AI couldn't put a plan together. Try again.",
+  "A IA respondeu vazio. Tente de novo.": "The AI sent an empty answer. Try again.",
+  "A IA não conseguiu montar um plano com esses dados.": "The AI couldn't put a plan together with this information.",
+  "Sessão inválida. Entre de novo.": "Invalid session. Sign in again.",
+  "O Oráculo está desativado no momento. Tente mais tarde.": "The Oracle is turned off right now. Try again later.",
+  "Plano não encontrado.": "Plan not found.",
+  "Este plano já foi decidido.": "This plan has already been decided.",
+  "Você já trocou 3 sugestões deste plano.": "You've already swapped 3 suggestions in this plan.",
+  "Sugestão não encontrada.": "Suggestion not found.",
+  "Ative a permissão da IA no Perfil.": "Turn on AI permission in Profile.",
+  "Não foi possível verificar o limite de uso.": "Couldn't check the usage limit.",
+  "Não foi possível ler os seus dados.": "Couldn't read your data.",
+  "A IA respondeu num formato inesperado. Tente de novo.": "The AI answered in an unexpected format. Try again.",
+  "A IA não trouxe uma alternativa. Tente de novo.": "The AI didn't come up with an alternative. Try again.",
+  "O plano mudou enquanto a IA pensava. Atualize a tela.": "The plan changed while the AI was thinking. Refresh the screen.",
+  "Não foi possível salvar o plano.": "Couldn't save the plan.",
+  // Motivos de ai_plan_block_reason (banco)
+  "Perfil não encontrado.": "Profile not found.",
+  "Você já pediu 3 planos hoje. Tente de novo amanhã.": "You've already asked for 3 plans today. Try again tomorrow.",
+  "Você já pediu 2 revisões nesta semana. Tente de novo na segunda.": "You've already asked for 2 reviews this week. Try again on Monday.",
+  "Tipo de plano inválido.": "Invalid plan type.",
+};
+
+/** Resposta de erro no idioma pedido (as mensagens nascem em português). */
+function replyIn(english: boolean, status: number, body: { error: string } | { plan: unknown }) {
+  if (english && "error" in body) return reply(status, { error: ERRORS_EN[body.error] ?? body.error });
+  return reply(status, body);
+}
+
+/** Instrução de idioma acrescentada à tarefa (o SYSTEM fica fixo para o cache). */
+const ENGLISH_RULE =
+  "\n\nIDIOMA: esta pessoa usa o app em inglês. Escreva title, objective_title, rationale e summary em inglês (en-US), mesmo que as regras acima digam português. Objetivos existentes continuam com o título exato.";
 
 // Schema da resposta. Limites de tamanho não são aceitos no schema; são aplicados em sanitize().
 const PLAN_SCHEMA = {
@@ -428,8 +471,10 @@ Deno.serve(async (req) => {
   let kind: Kind;
   let request: PlanRequest | null = null;
   let swap: { planId: string; index: number } | null = null;
+  let english = false;
   try {
     const body = await req.json();
+    english = body?.locale === "en";
     if (body?.kind === "swap") {
       const index = Number(body.index);
       if (typeof body.plan_id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.plan_id) || !Number.isInteger(index) || index < 0) {
@@ -447,26 +492,28 @@ Deno.serve(async (req) => {
     return reply(400, { error: 'Envie { "kind": "initial" | "weekly" } ou { "kind": "swap", "plan_id", "index" }.' });
   }
 
+  const send = (status: number, body: { error: string } | { plan: unknown }) => replyIn(english, status, body);
+
   // Cliente com o JWT do usuário: as leituras passam pelo RLS.
   const asUser = createClient(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth: { persistSession: false },
   });
   const { data: userData, error: userError } = await asUser.auth.getUser(jwt);
-  if (userError || !userData.user) return reply(401, { error: "Sessão inválida. Entre de novo." });
+  if (userError || !userData.user) return send(401, { error: "Sessão inválida. Entre de novo." });
   const userId = userData.user.id;
 
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   const groqKey = Deno.env.get("GROQ_API_KEY");
-  if (!geminiKey && !anthropicKey && !groqKey) return reply(503, { error: "A IA ainda não foi configurada no servidor." });
+  if (!geminiKey && !anthropicKey && !groqKey) return send(503, { error: "A IA ainda não foi configurada no servidor." });
 
   // Service role só para o limite de uso, a feature flag e para gravar o plano.
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
   // Feature flag do Oráculo (app_settings.feature_oracle; ausente = ligado). Vale também para trocas.
   const { data: oracleOn } = await admin.rpc("feature_on", { p_key: "feature_oracle", p_default: 1 });
-  if (oracleOn === false) return reply(403, { error: "O Oráculo está desativado no momento. Tente mais tarde." });
+  if (oracleOn === false) return send(403, { error: "O Oráculo está desativado no momento. Tente mais tarde." });
 
   type SwapPlan = { id: string; kind: Kind; payload: { summary?: string; habits?: Record<string, unknown>[] }; swaps: number };
   let swapPlan: SwapPlan | null = null;
@@ -477,14 +524,14 @@ Deno.serve(async (req) => {
       .select("id, kind, payload, status, swaps")
       .eq("id", swap.planId)
       .maybeSingle();
-    if (error || !data) return reply(404, { error: "Plano não encontrado." });
-    if (data.status !== "proposed") return reply(409, { error: "Este plano já foi decidido." });
-    if (data.swaps >= 3) return reply(429, { error: "Você já trocou 3 sugestões deste plano." });
+    if (error || !data) return send(404, { error: "Plano não encontrado." });
+    if (data.status !== "proposed") return send(409, { error: "Este plano já foi decidido." });
+    if (data.swaps >= 3) return send(429, { error: "Você já trocou 3 sugestões deste plano." });
     if (!Array.isArray(data.payload?.habits) || !data.payload.habits[swap.index]) {
-      return reply(400, { error: "Sugestão não encontrada." });
+      return send(400, { error: "Sugestão não encontrada." });
     }
     const consent = await asUser.from("profiles").select("ai_consent_at").eq("id", userId).single();
-    if (consent.error || !consent.data.ai_consent_at) return reply(403, { error: "Ative a permissão da IA no Perfil." });
+    if (consent.error || !consent.data.ai_consent_at) return send(403, { error: "Ative a permissão da IA no Perfil." });
     swapPlan = data as unknown as SwapPlan;
     kind = data.kind as Kind;
   } else {
@@ -492,8 +539,8 @@ Deno.serve(async (req) => {
       p_user_id: userId,
       p_kind: kind,
     });
-    if (quotaError) return reply(500, { error: "Não foi possível verificar o limite de uso." });
-    if (blockReason) return reply(429, { error: blockReason });
+    if (quotaError) return send(500, { error: "Não foi possível verificar o limite de uso." });
+    if (blockReason) return send(429, { error: blockReason });
   }
 
   const since = new Date(Date.now() - 15 * 86_400_000).toISOString().slice(0, 10);
@@ -504,7 +551,7 @@ Deno.serve(async (req) => {
     asUser.from("habit_logs").select("habit_id, local_date").gte("local_date", since),
   ]);
   if (profile.error || objectives.error || habits.error || logs.error) {
-    return reply(500, { error: "Não foi possível ler os seus dados." });
+    return send(500, { error: "Não foi possível ler os seus dados." });
   }
 
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: profile.data.timezone }).format(new Date());
@@ -539,9 +586,10 @@ Deno.serve(async (req) => {
       `Proponha EXATAMENTE 1 hábito, diferente dela e destas outras sugestões: ${JSON.stringify(others)}. ` +
       `Mantenha a mesma área quando fizer sentido. O summary pode ser uma frase curta.`;
   }
+  if (english) task += ENGLISH_RULE;
   const userText = `${task}\n\n<dados_do_usuario>\n${JSON.stringify(context)}\n</dados_do_usuario>`;
   const result = await callAI(userText, { geminiKey, anthropicKey, groqKey });
-  if (!result.ok) return reply(result.status, { error: result.error });
+  if (!result.ok) return send(result.status, { error: result.error });
 
   let payload;
   try {
@@ -549,12 +597,12 @@ Deno.serve(async (req) => {
     const clean = result.text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
     payload = sanitize(JSON.parse(clean), kind);
   } catch {
-    return reply(502, { error: "A IA respondeu num formato inesperado. Tente de novo." });
+    return send(502, { error: "A IA respondeu num formato inesperado. Tente de novo." });
   }
 
   if (swapPlan && swap) {
     const fresh = payload.habits[0];
-    if (!fresh) return reply(502, { error: "A IA não trouxe uma alternativa. Tente de novo." });
+    if (!fresh) return send(502, { error: "A IA não trouxe uma alternativa. Tente de novo." });
     const habitsNow = [...(swapPlan.payload.habits ?? [])];
     habitsNow[swap.index] = fresh;
     // Só troca se ninguém mexeu no plano nesse meio-tempo (mesmo número de trocas e ainda proposto).
@@ -566,8 +614,8 @@ Deno.serve(async (req) => {
       .eq("status", "proposed")
       .select("id, kind, payload, status, created_at, swaps")
       .maybeSingle();
-    if (updateError || !updated) return reply(409, { error: "O plano mudou enquanto a IA pensava. Atualize a tela." });
-    return reply(200, { plan: updated });
+    if (updateError || !updated) return send(409, { error: "O plano mudou enquanto a IA pensava. Atualize a tela." });
+    return send(200, { plan: updated });
   }
 
   const { data: plan, error: insertError } = await admin
@@ -581,7 +629,7 @@ Deno.serve(async (req) => {
     })
     .select("id, kind, payload, status, created_at, swaps")
     .single();
-  if (insertError) return reply(500, { error: "Não foi possível salvar o plano." });
+  if (insertError) return send(500, { error: "Não foi possível salvar o plano." });
 
-  return reply(200, { plan });
+  return send(200, { plan });
 });

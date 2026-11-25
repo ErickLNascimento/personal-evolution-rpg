@@ -1,5 +1,6 @@
 import { FEATURES, smartNotifications, stageName, type SmartNotification } from '@per/domain';
 import { listHabits } from '@/features/habits/api';
+import { currentLocale } from '@/i18n';
 import { fetchFlashMission, fetchHeroPath } from '@/features/hero/pathApi';
 import { isFeatureOn } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
@@ -53,7 +54,11 @@ export async function buildSmartNotifications(): Promise<SmartNotification[]> {
   const p = path.data;
   const promotion =
     p && p.canPromote && p.path && p.next
-      ? { nextName: p.needsBranch ? null : stageName(p.path, p.branch, p.next.tier) }
+      ? {
+          nextName: p.needsBranch
+            ? null
+            : stageName(p.path, p.branch, p.next.tier, 'masculino', currentLocale()),
+        }
       : null;
 
   return smartNotifications({
@@ -67,6 +72,7 @@ export async function buildSmartNotifications(): Promise<SmartNotification[]> {
         ? { title: flashHabit.title, deadline: flash.data.deadline, done: flash.data.done }
         : null,
     promotion,
+    locale: currentLocale(),
   });
 }
 

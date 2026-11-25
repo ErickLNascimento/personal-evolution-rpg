@@ -12,6 +12,7 @@
  */
 import { addDays, compareLocalDates, startOfWeek, type LocalDate } from './dates';
 import { isHabitScheduledOn, LOGGABLE_DAYS_BACK, type Habit } from './schedule';
+import { BOSS_EN } from './contentEn';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 export const JOURNEY_LENGTHS = [21, 66] as const;
@@ -132,6 +133,11 @@ export const BOSSES: readonly Boss[] = [
   { id: 'sombra', name: 'Sombra da Dúvida', taunt: 'Para que tentar? Não vai dar certo.' },
   { id: 'basilisco', name: 'Basilisco da Tela', taunt: 'Olhe para mim. Só mais uma rolagem.' },
 ];
+
+/** Nome e provocação do chefe no idioma. */
+export function bossText(boss: Boss, locale: Locale = DEFAULT_LOCALE): { name: string; taunt: string } {
+  return (locale === 'en' ? BOSS_EN[boss.id] : undefined) ?? { name: boss.name, taunt: boss.taunt };
+}
 
 /** Chefe da semana: gira pela lista, igual para todo mundo na mesma semana. */
 export function bossForWeek(weekStart: LocalDate): Boss {

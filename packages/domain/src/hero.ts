@@ -4,6 +4,8 @@
  */
 import type { ObjectiveCategory } from './habits';
 import type { Race, VisualKit } from './paths';
+import { ATTRIBUTE_EN, FORM_EN, ITEM_EN, SLOT_EN, TITLE_EN } from './contentEn';
+import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 // ─────────────────────────────────────────────────────────────
 // Classes
@@ -15,6 +17,10 @@ export type HeroClass = (typeof HERO_CLASSES)[number];
 export const HERO_FORMS = ['masculino', 'feminino'] as const;
 export type HeroForm = (typeof HERO_FORMS)[number];
 export const HERO_FORM_LABEL: Record<HeroForm, string> = { masculino: 'Masculino', feminino: 'Feminino' };
+
+export function formLabel(form: HeroForm, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? FORM_EN[form]! : HERO_FORM_LABEL[form];
+}
 
 export const HERO_CLASS_INFO: Record<HeroClass, { label: Record<HeroForm, string>; motto: string }> = {
   guerreiro: { label: { masculino: 'Guerreiro', feminino: 'Guerreira' }, motto: 'Disciplina forjada todo dia.' },
@@ -236,6 +242,15 @@ export const DEFAULT_HERO: HeroLook = {
   accessory: 'nenhum',
 };
 
+export function slotLabel(slot: HeroSlot, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? SLOT_EN[slot]! : HERO_SLOTS[slot].label;
+}
+
+/** Nome da peça no idioma (o português fica em `item.label`). */
+export function itemLabel(slot: HeroSlot, item: HeroItem, locale: Locale = DEFAULT_LOCALE): string {
+  return (locale === 'en' ? ITEM_EN[slot]?.[item.id] : undefined) ?? item.label;
+}
+
 export function findItem(slot: HeroSlot, id: string): HeroItem | undefined {
   return HERO_SLOTS[slot].items.find((i) => i.id === id);
 }
@@ -295,9 +310,14 @@ export const HERO_TITLES: readonly { level: number; title: Record<HeroForm, stri
   { level: 30, title: { masculino: 'Lenda', feminino: 'Lenda' } },
 ];
 
-export function heroTitle(level: number, form: HeroForm = 'masculino'): string {
-  let title = HERO_TITLES[0]!.title[form];
-  for (const t of HERO_TITLES) if (level >= t.level) title = t.title[form];
+function levelTitle(t: (typeof HERO_TITLES)[number], form: HeroForm, locale: Locale): string {
+  const en = locale === 'en' ? TITLE_EN[`nivel-${t.level}`] : undefined;
+  return en ? en.name[form === 'feminino' ? 1 : 0] : t.title[form];
+}
+
+export function heroTitle(level: number, form: HeroForm = 'masculino', locale: Locale = DEFAULT_LOCALE): string {
+  let title = levelTitle(HERO_TITLES[0]!, form, locale);
+  for (const t of HERO_TITLES) if (level >= t.level) title = levelTitle(t, form, locale);
   return title;
 }
 
@@ -317,15 +337,22 @@ export interface Unlock {
 }
 
 /** Tudo o que é liberado ao passar de `fromLevel` para `toLevel` (exclusivo → inclusivo). */
-export function unlocksBetween(fromLevel: number, toLevel: number, form: HeroForm = 'masculino'): Unlock[] {
+export function unlocksBetween(
+  fromLevel: number,
+  toLevel: number,
+  form: HeroForm = 'masculino',
+  locale: Locale = DEFAULT_LOCALE,
+): Unlock[] {
   const out: Unlock[] = [];
+  const titleWord = locale === 'en' ? 'Title' : 'Título';
   for (const t of HERO_TITLES) {
-    if (t.level > fromLevel && t.level <= toLevel) out.push({ level: t.level, kind: 'title', label: `Título: ${t.title[form]}` });
+    if (t.level > fromLevel && t.level <= toLevel)
+      out.push({ level: t.level, kind: 'title', label: `${titleWord}: ${levelTitle(t, form, locale)}` });
   }
   for (const slot of Object.keys(HERO_SLOTS) as HeroSlot[]) {
     for (const item of HERO_SLOTS[slot].items) {
       if (item.level > fromLevel && item.level <= toLevel) {
-        out.push({ level: item.level, kind: slot, label: `${HERO_SLOTS[slot].label}: ${item.label}` });
+        out.push({ level: item.level, kind: slot, label: `${slotLabel(slot, locale)}: ${itemLabel(slot, item, locale)}` });
       }
     }
   }
@@ -333,9 +360,9 @@ export function unlocksBetween(fromLevel: number, toLevel: number, form: HeroFor
 }
 
 /** Próximo desbloqueio depois do nível atual, para mostrar "No nível N: …". */
-export function nextUnlock(level: number, form: HeroForm = 'masculino'): Unlock | null {
+export function nextUnlock(level: number, form: HeroForm = 'masculino', locale: Locale = DEFAULT_LOCALE): Unlock | null {
   for (let target = level + 1; target <= level + 50; target++) {
-    const found = unlocksBetween(target - 1, target, form);
+    const found = unlocksBetween(target - 1, target, form, locale);
     if (found.length > 0) return found[0]!;
   }
   return null;
@@ -354,6 +381,10 @@ export const HERO_ATTRIBUTES: Record<ObjectiveCategory, { key: string; label: st
   relationships: { key: 'carisma', label: 'Carisma' },
   personal_growth: { key: 'determinacao', label: 'Determinação' },
 };
+
+export function attributeLabel(category: ObjectiveCategory, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en' ? ATTRIBUTE_EN[category] : HERO_ATTRIBUTES[category].label;
+}
 
 export interface AttributeProgress {
   category: ObjectiveCategory;
@@ -377,12 +408,13 @@ export function attributeLevel(xp: number): { level: number; progress: number } 
 export function heroAttributes(
   xpByCategory: readonly { category: string; xp: number }[],
   categories: readonly ObjectiveCategory[],
+  locale: Locale = DEFAULT_LOCALE,
 ): AttributeProgress[] {
   const sums = new Map<string, number>();
   for (const r of xpByCategory) sums.set(r.category, (sums.get(r.category) ?? 0) + r.xp);
   return categories.map((category) => {
     const xp = sums.get(category) ?? 0;
-    return { category, label: HERO_ATTRIBUTES[category].label, xp, ...attributeLevel(xp) };
+    return { category, label: attributeLabel(category, locale), xp, ...attributeLevel(xp) };
   });
 }
 

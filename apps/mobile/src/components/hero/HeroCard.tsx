@@ -60,9 +60,9 @@ export function HeroCard({
 }) {
   const shownTitle = titleId ?? levelTitleId(level.level);
   const titleColor = RARITY_COLOR[titleInfo(shownTitle).rarity];
-  const next = nextUnlock(level.level, hero.form);
+  const { t, locale } = useT();
+  const next = nextUnlock(level.level, hero.form, locale);
   const frame = tierColor(level.level);
-  const { t } = useT();
   return (
     <Pressable
       onPress={onPress}
@@ -70,7 +70,7 @@ export function HeroCard({
       accessibilityLabel={
         unset
           ? t('hero.create')
-          : t('hero.a11y', { title: titleName(shownTitle, hero.form), level: level.level })
+          : t('hero.a11y', { title: titleName(shownTitle, hero.form, locale), level: level.level })
       }
       style={({ pressed }) => [styles.card, { borderColor: frame }, pressed && styles.pressed]}
     >
@@ -80,14 +80,14 @@ export function HeroCard({
         </View>
         <View style={styles.info}>
           <Text style={[styles.title, { color: titleColor }]}>
-            {titleName(shownTitle, hero.form).toUpperCase()}
+            {titleName(shownTitle, hero.form, locale).toUpperCase()}
           </Text>
           <Text style={typography.heading} numberOfLines={1}>
             {name ?? t('hero.noName')}
           </Text>
           <Text style={typography.caption}>
             {heroPath?.path
-              ? stageName(heroPath.path, heroPath.branch, heroPath.stage, hero.form)
+              ? stageName(heroPath.path, heroPath.branch, heroPath.stage, hero.form, locale)
               : t('hero.noPath')}
           </Text>
           {unset && <Text style={styles.cta}>{t('hero.tapToCreate')}</Text>}

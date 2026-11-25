@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  HERO_SLOTS,
   REWARD_PRICE_MAX,
   REWARD_PRICE_MIN,
-  REWARD_SUGGESTIONS,
+  rewardSuggestions,
+  itemLabel,
+  slotLabel,
   SHOP_COSMETICS,
   validateReward,
   type HeroItem,
@@ -167,7 +168,7 @@ function Rewards({ data, onChange }: { data: ShopData; onChange: () => void }) {
       {data.rewards.length === 0 && editing === null && (
         <View style={styles.section}>
           <Text style={typography.label}>{t('shop.ideas')}</Text>
-          {REWARD_SUGGESTIONS.map((s) => (
+          {rewardSuggestions(locale).map((s) => (
             <Pressable
               key={s.title}
               onPress={async () => {
@@ -290,7 +291,8 @@ const SLOT_KEY: Record<'aura' | 'outfit' | 'hairColor', 'aura' | 'outfit' | 'hai
 };
 
 function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const name = (slot: HeroSlot, item: HeroItem) => itemLabel(slot, item, locale);
   const { hero, save } = useHero();
   const { profile, refresh } = useProfile();
   const owned = profile?.cosmetics ?? new Set<string>();
@@ -312,7 +314,7 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
 
   function buy(slot: HeroSlot, item: HeroItem) {
     Alert.alert(
-      t('shop.buyTitle', { item: item.label }),
+      t('shop.buyTitle', { item: name(slot, item) }),
       t('shop.buyText', { price: item.price ?? 0 }),
       [
         { text: t('common.cancel'), style: 'cancel' },
@@ -330,7 +332,7 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
             setBusy(null);
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             onChange();
-            Alert.alert(t('shop.yours', { item: item.label }), t('shop.useNow'), [
+            Alert.alert(t('shop.yours', { item: name(slot, item) }), t('shop.useNow'), [
               { text: t('shop.later'), style: 'cancel' },
               { text: t('shop.useNowButton'), onPress: () => void equip(slot, item) },
             ]);
@@ -345,13 +347,13 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
       <View style={styles.preview}>
         <HeroAvatar hero={look} size={120} animated />
         <Text style={typography.caption}>
-          {preview ? t('shop.preview', { item: preview.item.label }) : t('shop.tapToPreview')}
+          {preview ? t('shop.preview', { item: name(preview.slot, preview.item) }) : t('shop.tapToPreview')}
         </Text>
       </View>
       <FormMessage text={error} />
       {(['aura', 'outfit', 'hairColor'] as HeroSlot[]).map((slot) => (
         <View key={slot} style={styles.section}>
-          <Text style={typography.label}>{HERO_SLOTS[slot].label.toUpperCase()}</Text>
+          <Text style={typography.label}>{slotLabel(slot, locale).toUpperCase()}</Text>
           {SHOP_COSMETICS.filter((c) => c.slot === slot).map(({ item }) => {
             const has = owned.has(item.id);
             const equipped = hero[SLOT_KEY[slot as keyof typeof SLOT_KEY]] === item.id;
@@ -362,7 +364,7 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
                 onPress={() => setPreview(previewing ? null : { slot, item })}
                 accessibilityRole="button"
                 accessibilityLabel={t('shop.itemA11y', {
-                  item: item.label,
+                  item: name(slot, item),
                   status: has ? t('shop.owned') : t('common.crystals', { amount: item.price ?? 0 }),
                 })}
                 style={({ pressed }) => [
@@ -372,7 +374,7 @@ function Cosmetics({ crystals, onChange }: { crystals: number; onChange: () => v
                 ]}
               >
                 <View style={[styles.swatch, { backgroundColor: item.color }]} />
-                <Text style={[typography.body, styles.flex]}>{item.label}</Text>
+                <Text style={[typography.body, styles.flex]}>{name(slot, item)}</Text>
                 {has ? (
                   <Button
                     title={equipped ? t('shop.inUse') : t('shop.use')}
