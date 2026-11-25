@@ -2,6 +2,7 @@ import {
   DIFFICULTIES,
   DIFFICULTY_LABELS,
   FOCUS_AREAS_MAX,
+  displayedTitle,
   hasAiConsent,
   isValidTimeZone,
   normalizeDisplayName,
@@ -14,7 +15,7 @@ import {
   type ObjectiveCategory,
 } from '@per/domain';
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, View } from 'react-native';
 import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
@@ -34,6 +35,13 @@ import { setSmartNotificationsEnabled, smartNotificationsEnabled } from '@/lib/s
 import { supabase } from '@/lib/supabase';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { VacationSettings } from '@/components/vacation/VacationSettings';
+import { HeroCard } from '@/components/hero/HeroCard';
+import { Chapter, ChapterLabel } from '@/components/profile/Chapter';
+
+/** Cores dos capítulos sem token próprio no tema. */
+const ORACLE = '#5CF2E0';
+const SETTINGS = '#94A3B8';
+const TAVERN = '#FB923C';
 
 export default function ProfileScreen() {
   const { t } = useT();
@@ -56,7 +64,7 @@ function AccountProfile() {
   const exportOn = useFeature(FEATURES.dataExport);
   const englishOn = useFeature(FEATURES.english);
   const vacationOn = useFeature(FEATURES.vacation);
-  const { hero } = useHero();
+  const { hero, level, unset: heroUnset } = useHero();
   const [tourOpen, setTourOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
 
@@ -78,56 +86,107 @@ function AccountProfile() {
     );
   }
 
+  const focusSummary = profile.focusAreas
+    .map((a) => OBJECTIVE_CATEGORY_LABELS[locale][a])
+    .join(' · ');
+
   return (
     <Screen title={t('profile.title')}>
-      <Section title={t('profile.account')}>
+      <HeroCard
+        hero={hero}
+        level={level}
+        name={profile.displayName}
+        unset={heroUnset}
+        onPress={() => router.push('/hero')}
+        heroPath={profile.heroPath}
+        titleId={displayedTitle(profile.equippedTitle, level.level, profile.earnedTitles)}
+      />
+
+      <Chapter
+        icon="person"
+        color={colors.primary}
+        title={t('profileMenu.hero')}
+        summary={session?.user.email}
+      >
         <Text style={typography.caption}>{t('profile.signedInAs')}</Text>
         <Text style={typography.body}>{session?.user.email}</Text>
         <DisplayNameForm
           initial={profile.displayName}
           onSave={(v) => update({ display_name: v })}
         />
-      </Section>
+      </Chapter>
 
-      <Section title={t('profile.focus')}>
+      <Chapter
+        icon="compass"
+        color={colors.accent}
+        title={t('profileMenu.journey')}
+        summary={focusSummary || t('profileMenu.journeySummary')}
+      >
         <FocusForm
           key={`${profile.focusAreas.join()}|${profile.difficulty}`}
           areas={profile.focusAreas}
           difficulty={profile.difficulty}
           onSave={(focus_areas, difficulty) => update({ focus_areas, difficulty })}
         />
-      </Section>
+      </Chapter>
 
-      <Section title={t('profile.timezone')}>
+      {vacationOn && (
+        <Chapter
+          icon="bonfire"
+          color={colors.xp}
+          title={t('profileMenu.camp')}
+          summary={t('profileMenu.campSummary')}
+        >
+          <VacationSettings />
+        </Chapter>
+      )}
+
+      <Chapter
+        icon="sparkles"
+        color={ORACLE}
+        title={t('profileMenu.oracle')}
+        summary={
+          hasAiConsent(profile) ? t('profileMenu.oracleOn') : t('profileMenu.oracleOff')
+        }
+      >
+        <AiConsent
+          consentAt={profile.aiConsentAt}
+          onChange={(on) => update({ ai_consent_at: on ? new Date().toISOString() : null })}
+        />
+      </Chapter>
+
+      <Chapter
+        icon="settings"
+        color={SETTINGS}
+        title={t('profileMenu.realm')}
+        summary={profile.timezone}
+      >
+        <ChapterLabel>{t('profile.timezone')}</ChapterLabel>
         <TimeZoneForm
           key={profile.timezone}
           current={profile.timezone}
           onSave={(tz) => update({ timezone: tz })}
         />
-      </Section>
+        {englishOn && (
+          <>
+            <ChapterLabel>{t('language.title')}</ChapterLabel>
+            <LanguagePicker />
+          </>
+        )}
+        {smartOn && (
+          <>
+            <ChapterLabel>{t('profile.notifications')}</ChapterLabel>
+            <SmartNotificationsToggle />
+          </>
+        )}
+      </Chapter>
 
-      <Section title={t('profile.oracle')}>
-        <AiConsent
-          consentAt={profile.aiConsentAt}
-          onChange={(on) => update({ ai_consent_at: on ? new Date().toISOString() : null })}
-        />
-      </Section>
-
-      {vacationOn && (
-        <Section title={t('vacation.title')}>
-          <VacationSettings />
-        </Section>
-      )}
-
-      {englishOn && <LanguagePicker />}
-
-      {smartOn && (
-        <Section title={t('profile.notifications')}>
-          <SmartNotificationsToggle />
-        </Section>
-      )}
-
-      <Section title={t('profile.help')}>
+      <Chapter
+        icon="chatbubbles"
+        color={TAVERN}
+        title={t('profileMenu.tavern')}
+        summary={t('profileMenu.tavernSummary')}
+      >
         <Button title={t('profile.sendFeedback')} onPress={() => router.push('/feedback')} />
         <Button
           title={t('profile.seeTour')}
@@ -135,29 +194,42 @@ function AccountProfile() {
           variant="secondary"
         />
         <Button title={t('profile.news')} onPress={() => setNewsOpen(true)} variant="secondary" />
-      </Section>
+      </Chapter>
+
+      <Chapter
+        icon="key"
+        color={colors.danger}
+        title={t('profileMenu.vault')}
+        summary={t('profileMenu.vaultSummary')}
+      >
+        {exportOn && (
+          <>
+            <ChapterLabel>{t('profile.yourData')}</ChapterLabel>
+            <DataExport userId={profile.id} />
+          </>
+        )}
+        <ChapterLabel>{t('profileMenu.account')}</ChapterLabel>
+        <Text style={typography.caption}>{t('profileMenu.deleteHint')}</Text>
+        <Button
+          title={t('profile.deleteAccount')}
+          onPress={() => router.push('/delete-account')}
+          variant="secondary"
+        />
+      </Chapter>
+
       <AppTour visible={tourOpen} hero={hero} onClose={() => setTourOpen(false)} />
       <AppTour
         visible={newsOpen}
         hero={hero}
-        slides={latestNewsSlides(profile?.features, locale)}
+        slides={latestNewsSlides(profile.features, locale)}
         heading={t('today.news')}
         finishLabel={t('today.gotIt')}
         onClose={() => setNewsOpen(false)}
       />
 
-      {exportOn && profile && (
-        <Section title={t('profile.yourData')}>
-          <DataExport userId={profile.id} />
-        </Section>
-      )}
-
-      <SignOutButton />
-      <Button
-        title={t('profile.deleteAccount')}
-        onPress={() => router.push('/delete-account')}
-        variant="secondary"
-      />
+      <View style={styles.footer}>
+        <SignOutButton />
+      </View>
     </Screen>
   );
 }
@@ -171,10 +243,10 @@ function LanguagePicker() {
     { value: 'en' as const, label: t('language.en') },
   ];
   return (
-    <Section title={t('language.title')}>
+    <>
       <Chips options={options} selected={[preference]} onToggle={setPreference} />
       <Text style={typography.caption}>{t('language.hint')}</Text>
-    </Section>
+    </>
   );
 }
 
@@ -253,17 +325,6 @@ function FocusForm({
       <FormMessage text={message?.text ?? null} tone={message?.tone} />
       {dirty && <Button title={t('profile.savePrefs')} onPress={save} loading={saving} />}
     </>
-  );
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <Text style={typography.label} accessibilityRole="header">
-        {title}
-      </Text>
-      {children}
-    </View>
   );
 }
 
@@ -479,14 +540,7 @@ function SignOutButton() {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  footer: { marginTop: spacing.sm },
   notice: {
     gap: spacing.sm,
     padding: spacing.md,

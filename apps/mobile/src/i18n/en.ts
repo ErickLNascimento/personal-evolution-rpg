@@ -870,6 +870,25 @@ const en: Translations = {
     errorLoad: 'Couldn\'t load your vacations.',
     errorSave: 'Couldn\'t save. Try again.',
   },
+  profileMenu: {
+    expand: 'Tap to open',
+    collapse: 'Tap to close',
+    hero: 'Hero sheet',
+    journey: 'Journey',
+    journeySummary: 'Focus areas and pace',
+    camp: 'Campsite',
+    campSummary: 'Vacation mode: pause without losing your streak',
+    oracle: 'Oracle',
+    oracleOn: 'Allowed to read your journey',
+    oracleOff: 'Not allowed to read your journey',
+    realm: 'Realm settings',
+    tavern: 'Tavern',
+    tavernSummary: 'Feedback, tour and what\'s new',
+    vault: 'Vault',
+    vaultSummary: 'Your data and account',
+    account: 'ACCOUNT',
+    deleteHint: 'Deletes your account and all your data forever.',
+  },
 };
 
 export default en;

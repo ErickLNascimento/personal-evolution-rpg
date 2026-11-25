@@ -29,6 +29,22 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 8,
+    date: '2026-12-02',
+    items: [
+      {
+        icon: 'book',
+        title: 'Perfil em capítulos',
+        text: 'O Perfil virou um grimório: seu herói no topo e os ajustes em capítulos que abrem com um toque.',
+        en: {
+          title: 'Profile in chapters',
+          text: 'Your Profile is now a grimoire: your hero up top and settings in chapters that open with a tap.',
+        },
+        route: '/profile',
+      },
+    ],
+  },
+  {
     version: 7,
     date: '2026-12-01',
     items: [

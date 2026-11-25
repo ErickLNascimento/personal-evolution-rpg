@@ -871,6 +871,25 @@ const pt = {
     errorLoad: 'Não foi possível carregar as férias.',
     errorSave: 'Não foi possível salvar. Tente de novo.',
   },
+  profileMenu: {
+    expand: 'Toque para abrir',
+    collapse: 'Toque para fechar',
+    hero: 'Ficha do herói',
+    journey: 'Jornada',
+    journeySummary: 'Áreas de foco e ritmo',
+    camp: 'Acampamento',
+    campSummary: 'Modo férias: pausar sem perder o streak',
+    oracle: 'Oráculo',
+    oracleOn: 'Leitura da jornada permitida',
+    oracleOff: 'Sem permissão para ler a jornada',
+    realm: 'Ajustes do reino',
+    tavern: 'Taverna',
+    tavernSummary: 'Feedback, tour e novidades',
+    vault: 'Cofre',
+    vaultSummary: 'Seus dados e a conta',
+    account: 'CONTA',
+    deleteHint: 'Apaga a conta e todos os dados para sempre.',
+  },
 };
 
 export default pt;
