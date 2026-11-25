@@ -29,6 +29,33 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 9,
+    date: '2026-12-03',
+    items: [
+      {
+        icon: 'stats-chart',
+        title: 'Progresso renovado',
+        text: 'Seu herói, o nível e as gemas de sequência, escudos e XP no topo; o resto em capítulos que abrem com um toque.',
+        en: {
+          title: 'Progress, renewed',
+          text: 'Your hero, level and gems for streak, shields and XP up top; everything else in chapters that open with a tap.',
+        },
+        route: '/progress',
+      },
+      {
+        icon: 'trophy',
+        flag: 'feature_weekly_recap',
+        title: 'Crônica da semana',
+        text: 'De segunda a quarta, um ponto dourado no Progresso avisa: lá está como foi a sua semana, com missões, dias perfeitos, XP, o hábito mais constante e o chefe.',
+        en: {
+          title: 'Weekly chronicle',
+          text: 'Monday to Wednesday, a gold dot on Progress lets you know: your week is there, with missions, perfect days, XP, your most consistent habit and the boss.',
+        },
+        route: '/progress',
+      },
+    ],
+  },
+  {
     version: 8,
     date: '2026-12-02',
     items: [

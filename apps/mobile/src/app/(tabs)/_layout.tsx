@@ -1,8 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FEATURES } from '@per/domain';
+import { FEATURES, shouldShowRecap } from '@per/domain';
+import { useSyncExternalStore } from 'react';
 import { Tabs } from 'expo-router/js-tabs';
-import type { ColorValue } from 'react-native';
+import { StyleSheet, type ColorValue } from 'react-native';
 import { useFeature } from '@/features/profile/useFeature';
+import { useProfile } from '@/features/profile/useProfile';
+import { useToday } from '@/features/profile/useToday';
+import { seenRecapWeek, subscribeRecapSeen } from '@/features/recap/api';
 import { colors } from '@/theme/tokens';
 import { useT } from '@/i18n';
 
@@ -27,7 +31,15 @@ const icon = (name: IconName) => {
 
 export default function TabsLayout() {
   const socialOn = useFeature(FEATURES.social);
+  const recapOn = useFeature(FEATURES.weeklyRecap);
+  const { profile } = useProfile();
+  const { today } = useToday();
   const { t } = useT();
+  // Ponto dourado no Progresso de segunda a quarta, até a crônica da semana ser vista.
+  const seen = useSyncExternalStore(subscribeRecapSeen, () =>
+    profile ? seenRecapWeek(profile.id) : null,
+  );
+  const recapDot = recapOn && profile !== null && shouldShowRecap(today, seen);
   return (
     <Tabs
       screenOptions={{
@@ -48,7 +60,15 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="progress"
-        options={{ title: t('tabs.progress'), tabBarIcon: icon('trophy-outline') }}
+        options={{
+          title: t('tabs.progress'),
+          tabBarIcon: icon('trophy-outline'),
+          tabBarBadge: recapDot ? '' : undefined,
+          tabBarBadgeStyle: styles.dot,
+          tabBarAccessibilityLabel: recapDot
+            ? `${t('tabs.progress')}, ${t('recap.newBadge')}`
+            : undefined,
+        }}
       />
       <Tabs.Screen
         name="social"
@@ -66,3 +86,15 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  // Ponto pequeno, sem número.
+  dot: {
+    minWidth: 10,
+    maxWidth: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.xp,
+    top: 4,
+  },
+});

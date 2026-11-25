@@ -15,6 +15,8 @@ export const FEATURES = {
   vacation: 'feature_vacation',
   /** Pop-up que pede uma nota de 1 a 5 depois de momentos bons. */
   feedbackPrompt: 'feature_feedback_prompt',
+  /** Cartão "Resumo da semana" na tela Hoje, de segunda a quarta. */
+  weeklyRecap: 'feature_weekly_recap',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

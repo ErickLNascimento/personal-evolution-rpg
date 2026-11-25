@@ -68,6 +68,20 @@ update public.app_settings set value = 1 where key = 'feature_data_export';
 update public.app_settings set value = 0 where key = 'feature_data_export';
 ```
 
+### Resumo da semana: `feature_weekly_recap`
+
+"Crônica da semana" no topo da aba Progresso, de segunda a quarta, com o balanço da semana
+anterior: manchete pela taxa de conclusão, missões, dias perfeitos e XP (comparados com a semana de
+antes), o hábito mais constante e se o chefe caiu. Um ponto dourado na aba Progresso avisa até a
+pessoa abrir a aba. Só leitura: sem função no banco. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_weekly_recap';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_weekly_recap';
+```
+
 ### Pedido de feedback: `feature_feedback_prompt`
 
 Pop-up "O Oráculo quer ouvir você", com nota de 1 a 5 em gemas e comentário (com nota 1 ou 2,

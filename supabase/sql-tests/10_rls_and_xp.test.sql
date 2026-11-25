@@ -2026,6 +2026,13 @@ begin
 end $$;
 reset role;
 
+-- ── Resumo da semana ────────────────────────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_weekly_recap') = 0,
+    'resumo da semana começa desligado');
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';
