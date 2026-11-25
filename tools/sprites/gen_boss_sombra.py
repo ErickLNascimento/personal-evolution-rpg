@@ -18,13 +18,14 @@ Plano dos frames:
     2 partículas voam, mordida no corpo · 3 partículas somem, volta 1 px · 4–5 assenta.
   weak (8, 8 fps, loop): 80% do tamanho, pontilhado que cintila, tremor ±1 px, "!" pisca no lugar
     do "?", olhos menores.
-  defeat (12, 10 fps): 0 clarão · 1–2 tremor · 3–8 dissolve de baixo para cima em partículas de
-    luz que sobem · o "?" vira estrela dourada (6) e sobe · 9–11 só a estrela e faíscas.
+  defeat (12, 10 fps): derrubada e fica caída, olhos fechados, estrelinhas de nocaute
+    (knockdown.py; o app para no último frame).
 """
 import math
 import os
 import sys
 
+from knockdown import FRAMES as KO_FRAMES, knockdown
 from sprite_tools import build_sheet, grid_to_rgba, hex_rgb, write_color_sheet
 
 W = H = 64
@@ -335,59 +336,17 @@ def weak(n):
     return g
 
 
-def defeat(n):
-    frames = []
-    if n == 0:
-        g, _ = pose(n, 12, flash=True, mark_kw={"fixed": (40, 4)})
+def defeat_knockdown(n):
+    """Derrota: a Sombra é derrubada e fica caída (ver knockdown.py)."""
+    eyes = {"squint": {"squint": True}, "closed": {"narrow": True}, "normal": {}}
+
+    def p(k, mode):
+        g, _ = pose(k, KO_FRAMES, eyes_kw=eyes[mode], mark_kw=False)
         return g
-    if n in (1, 2):
-        g, _ = pose(n, 12, cx=33 + (1 if n == 1 else -1), eyes_kw={"squint": True}, mark_kw={"fixed": (40, 4)})
-        return g
-    # 3..11: corte que sobe; o que está abaixo vira partícula de luz
-    cut = 64 - (n - 2) * 7  # linha a partir da qual o corpo já virou luz
-    if n <= 8:
-        g, _ = pose(n, 12, eyes_kw={"squint": True}, mark_kw=False)
-        for y in range(H):
-            for x in range(W):
-                if y >= cut and g[y][x] and g[y][x] != SHADOW:
-                    g[y][x] = 0
-        if n <= 4:
-            pass
-    else:
-        g = [[0] * W for _ in range(H)]
-    # partículas subindo da linha de corte
-    pts = []
-    for k in range(14):
-        x = 16 + (k * 37) % 34
-        rise = ((n * 5 + k * 7) % 18)
-        y = min(cut, 58) - rise
-        if 0 < y < 60 and (k + n) % 3 != 0:
-            pts.append((x, y, [EYE_L, EYE, GOLD][k % 3]))
-    if n >= 9:
-        pts = [p for i, p in enumerate(pts) if i % (n - 7) == 0]
-    particles(g, pts)
-    # "?" vira estrela dourada e sobe
-    star = Part()
-    if n < 6:
-        star.glyph(QUESTION, 40, 4, EYE)
-    else:
-        t = (n - 6) / 5
-        sx, sy = round(42 - 10 * t), round(7 + 1 * t)
-        r = 3 if n % 2 == 0 else 2
-        star.set(sx, sy, EYE_L)
-        for k in range(1, r + 1):
-            for ddx, ddy in ((k, 0), (-k, 0), (0, k), (0, -k)):
-                star.set(sx + ddx, sy + ddy, GOLD)
-        star.set(sx + 1, sy + 1, GOLD)
-        star.set(sx - 1, sy - 1, GOLD)
-        star.set(sx + 1, sy - 1, GOLD)
-        star.set(sx - 1, sy + 1, GOLD)
-    sg = compose([star])
-    for y in range(H):
-        for x in range(W):
-            if sg[y][x]:
-                g[y][x] = sg[y][x]
-    return g
+    return knockdown(n, p, {
+        "outline": OUT, "shadow": SHADOW, "eye_l": EYE_L, "gold": GOLD, "dust": [SH_LL, SH_L],
+        "body": {SH_D, SH, SH_L, SH_LL}, "dim": {SH_LL: SH_L, SH_L: SH},
+    })
 
 
 ANIMS = {
@@ -395,7 +354,7 @@ ANIMS = {
     "taunt": (taunt, 8, 10, False),
     "hit": (hit, 6, 12, False),
     "weak": (weak, 8, 8, True),
-    "defeat": (defeat, 12, 10, False),
+    "defeat": (defeat_knockdown, KO_FRAMES, 10, False),
 }
 
 if __name__ == "__main__":

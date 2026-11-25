@@ -8,8 +8,8 @@ Cada chefe desenha o próprio corpo (`draw`) e as animações que mostram a pers
 (`idle` em loop e `taunt`, a provocação). As outras três vêm de `draw` com opções comuns:
   hit (6, 12 fps): clarão branco e recuo, olhos "> <", lascas na cor do chefe voando.
   weak (8, 8 fps, loop): olhos cansados, tremor ±1 px, metade de baixo se desfazendo, "!" piscando.
-  defeat (12, 10 fps): clarão, tremor, dissolve de baixo para cima em luz; uma estrela dourada
-    nasce na marca do chefe e fica.
+  defeat (12, 10 fps): clarão, tremor, cai de lado e fica caído, olhos fechados, estrelinhas de
+    nocaute (knockdown.py; o app para no último frame).
 Frases (packages/domain/src/challenges.ts):
   golem     "Fique mais cinco minutos na cama..."   → boceja, cochila, "Z" sobe
   hidra     "Só mais um vídeo. E outro. E outro."    → 3 cabeças fora de sincronia, telinhas
@@ -21,6 +21,7 @@ import math
 import os
 import sys
 
+from knockdown import FRAMES as KO_FRAMES, knockdown
 from sprite_tools import build_sheet, grid_to_rgba, hex_rgb, write_color_sheet
 
 W = H = 64
@@ -184,18 +185,6 @@ def overlay(g, part):
                 g[y][x] = sg[y][x]
 
 
-def star(x, y, big):
-    s = Part()
-    s.set(x, y, EYE_L)
-    r = 3 if big else 2
-    for k in range(1, r + 1):
-        for dx, dy in ((k, 0), (-k, 0), (0, k), (0, -k)):
-            s.set(x + dx, y + dy, GOLD)
-    for dx, dy in ((1, 1), (-1, -1), (1, -1), (-1, 1)):
-        s.set(x + dx, y + dy, GOLD)
-    return s
-
-
 # ─────────────────────────────────────────────────────────────
 # Animações comuns
 # ─────────────────────────────────────────────────────────────
@@ -236,42 +225,15 @@ def common_weak(boss, n):
     return g
 
 
-def common_defeat(boss, n):
-    mx, my = an_mark = boss.draw(0, 12, {})[1]["mark"]
-    if n <= 2:
-        parts, _ = boss.draw(n, 12, {"dx": [0, 1, -1][n], "eyes": "squint", "calm": True})
-        g = compose(parts)
-        if n == 0:
-            for y in range(H):
-                for x in range(W):
-                    if g[y][x] in BODY:
-                        g[y][x] = EYE_L
-        overlay(g, star(mx + 2, my + 3, False) if False else Part())
-        return g
-    cut = 64 - (n - 2) * 7
-    if n <= 8:
-        parts, _ = boss.draw(n, 12, {"eyes": "squint", "calm": True})
-        g = compose(parts)
-        for y in range(max(cut, 0), H):
-            for x in range(W):
-                if g[y][x] and g[y][x] != SHADOW:
-                    g[y][x] = 0
-    else:
-        g = [[0] * W for _ in range(H)]
-    pts = []
-    for k in range(14):
-        x = 14 + (k * 37) % 36
-        rise = (n * 5 + k * 7) % 18
-        y = min(cut, 58) - rise
-        if 0 < y < 60 and (k + n) % 3 != 0:
-            pts.append((x, y, [EYE_L, EYE, GOLD][k % 3]))
-    if n >= 9:
-        pts = [p for i, p in enumerate(pts) if i % (n - 7) == 0]
-    particles(g, pts)
-    if n >= 5:
-        t = (n - 5) / 6
-        overlay(g, star(round(mx + (32 - mx) * t), round(my + (10 - my) * t), n % 2 == 0))
-    return g
+def common_knockdown(boss, n):
+    """Derrota: o chefe é derrubado e fica caído (ver knockdown.py)."""
+    def pose(k, eyes):
+        parts, _ = boss.draw(k, KO_FRAMES, {"eyes": eyes, "calm": True})
+        return compose(parts)
+    return knockdown(n, pose, {
+        "outline": OUT, "shadow": SHADOW, "eye_l": EYE_L, "gold": GOLD, "dust": [LL, L],
+        "body": BODY, "dim": {LL: L, L: M},
+    }, style=getattr(boss, "KO_STYLE", "fall"))
 
 
 # ─────────────────────────────────────────────────────────────
@@ -279,6 +241,7 @@ def common_defeat(boss, n):
 # ─────────────────────────────────────────────────────────────
 class Golem:
     id = "golem"
+    KO_STYLE = "slump"  # largo demais para deitar de lado
     PAL = palette("#1A1410", "#4A3B2E", "#6E5A45", "#A58B6F", "#C9B08F", "#FFB347", "#FFE2A8",
                   "#4F7A3E", "#7FAE5E", "#2B2119")
 
@@ -576,6 +539,7 @@ class Lich:
 # ─────────────────────────────────────────────────────────────
 class Dragao:
     id = "dragao"
+    KO_STYLE = "slump"  # largo demais para deitar de lado
     PAL = palette("#1F0A10", "#7A1E35", "#C23A57", "#F2617A", "#FF9DB0", "#FFD45A", "#FFF4C2",
                   "#F7C98B", "#9C2A45", "#B8B0B8")
 
@@ -771,7 +735,7 @@ ANIMS = {
     "taunt": ("taunt", 8, 10, False),
     "hit": (common_hit, 6, 12, False),
     "weak": (common_weak, 8, 8, True),
-    "defeat": (common_defeat, 12, 10, False),
+    "defeat": (common_knockdown, KO_FRAMES, 10, False),
 }
 
 if __name__ == "__main__":
