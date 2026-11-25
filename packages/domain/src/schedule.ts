@@ -1,5 +1,6 @@
 import { addDays, compareLocalDates, weekday, type LocalDate } from './dates';
 import type { HabitKind } from './habits';
+import { isOnVacation, type Vacation } from './vacation';
 import type { Difficulty } from './xp';
 
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -19,11 +20,14 @@ export interface Habit {
   /** Meta por dia (no contador, a quantidade que conclui a missão). */
   targetQty?: number | null;
   unit?: string | null;
+  /** Férias do usuário: nesses dias o hábito não fica agendado (ver withVacations). */
+  vacations?: readonly Vacation[];
 }
 
 export function isHabitScheduledOn(habit: Habit, date: LocalDate): boolean {
   if (compareLocalDates(date, habit.startDate) < 0) return false;
   if (habit.archivedOn && compareLocalDates(date, habit.archivedOn) > 0) return false;
+  if (isOnVacation(habit.vacations, date)) return false;
   return habit.scheduleDays.includes(weekday(date));
 }
 

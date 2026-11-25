@@ -1787,6 +1787,174 @@ do $$ begin
     'inglês começa desligado');
 end $$;
 
+-- ── Modo férias ─────────────────────────────────────────────
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('eeeeeeee-1111-1111-1111-111111111111', 'vera@teste.dev', '{"timezone":"America/Manaus"}'),
+  ('eeeeeeee-2222-2222-2222-222222222222', 'rui@teste.dev', '{"timezone":"America/Manaus"}');
+insert into public.habits (id, user_id, title, difficulty, start_date) values
+  ('eeeeeeee-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'eeeeeeee-1111-1111-1111-111111111111', 'Caminhar', 'easy',
+   pg_temp.today() - 20);
+
+-- começa desligado: as duas funções recusam com PR050
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_vacation') = 0,
+    'férias começam desligadas');
+  begin
+    perform public.start_vacation(pg_temp.today(), 3);
+    raise exception 'FALHOU: marcou férias com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.end_vacation(gen_random_uuid());
+    raise exception 'FALHOU: encerrou férias com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_vacation';
+
+-- regras de start_vacation
+set local role authenticated;
+do $$
+declare
+  r jsonb;
+  s date;
+  y integer;
+begin
+  begin
+    insert into public.vacations (user_id, start_date, end_date)
+    values ('eeeeeeee-1111-1111-1111-111111111111', pg_temp.today() - 5, pg_temp.today());
+    raise exception 'FALHOU: app gravou férias direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.start_vacation(pg_temp.today(), 3);
+  perform pg_temp.check((r->>'end_date')::date = pg_temp.today() + 2, 'férias de 3 dias terminam 2 dias depois');
+  begin
+    perform public.start_vacation(pg_temp.today() + 2, 2);
+    raise exception 'FALHOU: férias sobrepostas';
+  exception when sqlstate 'PR062' then null;
+  end;
+  begin
+    perform public.start_vacation(pg_temp.today() - 1, 2);
+    raise exception 'FALHOU: férias no passado';
+  exception when sqlstate 'PR060' then null;
+  end;
+  begin
+    perform public.start_vacation(pg_temp.today() + 61, 2);
+    raise exception 'FALHOU: férias longe demais';
+  exception when sqlstate 'PR060' then null;
+  end;
+  begin
+    perform public.start_vacation(pg_temp.today() + 10, 15);
+    raise exception 'FALHOU: férias de 15 dias';
+  exception when sqlstate 'PR061' then null;
+  end;
+  begin
+    perform public.start_vacation(pg_temp.today() + 10, 0);
+    raise exception 'FALHOU: férias de 0 dias';
+  exception when sqlstate 'PR061' then null;
+  end;
+
+  -- encerrar: férias que começam hoje são apagadas
+  perform public.end_vacation((r->>'id')::uuid);
+  perform pg_temp.check(not exists (select 1 from public.vacations), 'férias de hoje encerradas são apagadas');
+  begin
+    perform public.end_vacation((r->>'id')::uuid);
+    raise exception 'FALHOU: encerrou férias inexistentes';
+  exception when sqlstate 'P0002' then null;
+  end;
+end $$;
+
+-- em andamento: encerrar termina ontem
+reset role;
+insert into public.vacations (id, user_id, start_date, end_date) values
+  ('eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'eeeeeeee-1111-1111-1111-111111111111',
+   pg_temp.today() - 2, pg_temp.today() + 2);
+set local role authenticated;
+do $$ begin
+  perform public.end_vacation('eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+  perform pg_temp.check(
+    (select end_date from public.vacations where id = 'eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb') = pg_temp.today() - 1,
+    'férias em andamento terminam ontem');
+end $$;
+
+-- limite de 30 dias no ano: 28 já usados no ano de S, longe de S
+reset role;
+delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+do $$
+declare
+  s date := pg_temp.today() + 40;
+  y integer;
+  b date;
+begin
+  if extract(year from s) <> extract(year from s + 2) then s := s + 3; end if;
+  y := extract(year from s)::integer;
+  -- bloco de 28 dias no começo ou no fim do ano, o que não encostar em [hoje, S]
+  b := make_date(y, 1, 1);
+  if b + 27 >= pg_temp.today() - 1 and b <= s + 3 then b := make_date(y, 12, 1); end if;
+  insert into public.vacations (user_id, start_date, end_date) values
+    ('eeeeeeee-1111-1111-1111-111111111111', b, b + 13),
+    ('eeeeeeee-1111-1111-1111-111111111111', b + 14, b + 27);
+  perform set_config('test.vac_start', s::text, true);
+end $$;
+set local role authenticated;
+do $$
+declare
+  s date := current_setting('test.vac_start')::date;
+begin
+  begin
+    perform public.start_vacation(s, 3);
+    raise exception 'FALHOU: passou de 30 dias no ano';
+  exception when sqlstate 'PR063' then null;
+  end;
+  perform pg_temp.check(
+    (select count(*) from public.vacations where start_date = s) = 0, 'férias recusadas não ficam gravadas');
+  perform public.start_vacation(s, 2);
+  perform pg_temp.check(
+    (select count(*) from public.vacations where start_date = s) = 1, 'até 30 dias no ano é aceito');
+end $$;
+
+-- férias valem no streak do banco e no chefe da semana
+reset role;
+delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'eeeeeeee-1111-1111-1111-111111111111', 'eeeeeeee-aaaa-aaaa-aaaa-aaaaaaaaaaaa', d::date
+from unnest(array[pg_temp.today() - 7, pg_temp.today() - 6, pg_temp.today() - 5, pg_temp.today()]) d;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  hp_before integer;
+begin
+  perform pg_temp.check(public.user_streak('eeeeeeee-1111-1111-1111-111111111111') < 4,
+    'sem férias, três faltas seguidas quebram o streak');
+  select max_hp into hp_before from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday);
+  perform pg_temp.check(hp_before > 0, 'chefe tem vida sem férias');
+
+  insert into public.vacations (user_id, start_date, end_date) values
+    ('eeeeeeee-1111-1111-1111-111111111111', pg_temp.today() - 4, pg_temp.today() - 1);
+  perform pg_temp.check(public.user_streak('eeeeeeee-1111-1111-1111-111111111111') = 4,
+    'dias de férias não contam nem quebram o streak');
+
+  delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+  insert into public.vacations (user_id, start_date, end_date) values
+    ('eeeeeeee-1111-1111-1111-111111111111', monday, monday + 6);
+  perform pg_temp.check(
+    (select max_hp from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 0,
+    'semana inteira de férias: o chefe não aparece');
+end $$;
+
+-- férias são privadas
+select set_config('request.jwt.claim.sub', 'eeeeeeee-2222-2222-2222-222222222222', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select count(*) from public.vacations) = 0, 'férias de outra pessoa não aparecem');
+end $$;
+reset role;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

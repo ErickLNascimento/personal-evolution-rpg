@@ -65,6 +65,21 @@ update public.app_settings set value = 1 where key = 'feature_data_export';
 update public.app_settings set value = 0 where key = 'feature_data_export';
 ```
 
+### Modo férias: `feature_vacation`
+
+Seção "Modo férias" no Perfil e o aviso de férias na tela Hoje. Nos dias de férias nenhum hábito
+fica agendado: as missões somem, o streak não conta nem quebra, e chefe da semana, jornadas e
+chefe do grupo ignoram o dia. Até 14 dias por período e 30 por ano. Desligada, o app esconde o
+recurso e `start_vacation`/`end_vacation` recusam com `PR050`; férias já marcadas continuam
+valendo, para não quebrar o streak de quem está viajando. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_vacation';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_vacation';
+```
+
 ### App em inglês: `feature_english`
 
 Seletor de idioma em Perfil e o app em inglês para quem tem o celular em outro idioma que não

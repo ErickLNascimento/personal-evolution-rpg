@@ -33,6 +33,7 @@ import { ensureReminderPermission, syncReminders } from '@/lib/reminders';
 import { setSmartNotificationsEnabled, smartNotificationsEnabled } from '@/lib/smartNotifications';
 import { supabase } from '@/lib/supabase';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
+import { VacationSettings } from '@/components/vacation/VacationSettings';
 
 export default function ProfileScreen() {
   const { t } = useT();
@@ -54,13 +55,14 @@ function AccountProfile() {
   const smartOn = useFeature(FEATURES.smartNotifications);
   const exportOn = useFeature(FEATURES.dataExport);
   const englishOn = useFeature(FEATURES.english);
+  const vacationOn = useFeature(FEATURES.vacation);
   const { hero } = useHero();
   const [tourOpen, setTourOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
 
   if (loading && !profile) {
     return (
-      <Screen title="Perfil">
+      <Screen title={t('profile.title')}>
         <ActivityIndicator color={colors.primary} />
       </Screen>
     );
@@ -110,6 +112,12 @@ function AccountProfile() {
           onChange={(on) => update({ ai_consent_at: on ? new Date().toISOString() : null })}
         />
       </Section>
+
+      {vacationOn && (
+        <Section title={t('vacation.title')}>
+          <VacationSettings />
+        </Section>
+      )}
 
       {englishOn && <LanguagePicker />}
 

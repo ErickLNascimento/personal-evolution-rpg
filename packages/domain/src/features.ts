@@ -11,6 +11,8 @@ export const FEATURES = {
   dataExport: 'feature_data_export',
   /** App em inglês (seletor de idioma no Perfil); desligado, tudo em português. */
   english: 'feature_english',
+  /** Modo férias: pausar dias sem perder o streak (Perfil e tela Hoje). */
+  vacation: 'feature_vacation',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

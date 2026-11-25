@@ -29,6 +29,23 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 7,
+    date: '2026-12-01',
+    items: [
+      {
+        icon: 'airplane',
+        flag: 'feature_vacation',
+        title: 'Modo férias',
+        text: 'Vai viajar ou precisa de uma pausa? Em Perfil → Modo férias, marque até 14 dias: as missões somem e o seu streak fica guardado.',
+        en: {
+          title: 'Vacation mode',
+          text: 'Traveling or need a break? In Profile → Vacation mode, schedule up to 14 days: your missions disappear and your streak is kept safe.',
+        },
+        route: '/profile',
+      },
+    ],
+  },
+  {
     version: 6,
     date: '2026-11-30',
     items: [

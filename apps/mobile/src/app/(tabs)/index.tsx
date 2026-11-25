@@ -54,6 +54,7 @@ import { useDemoDay } from '@/features/today/useDemoDay';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
+import { VacationNotice } from '@/components/vacation/VacationNotice';
 
 export default function TodayScreen() {
   const { isDemo } = useAuth();
@@ -107,6 +108,7 @@ function RealToday() {
   const moodOn = useFeature(FEATURES.moodJournal);
   const shopOn = useFeature(FEATURES.shop);
   const challengesOn = useFeature(FEATURES.challenges);
+  const vacationOn = useFeature(FEATURES.vacation);
   const showNews =
     Boolean(profile) && !showTour && news.length > 0 && (profile?.tourSeenVersion ?? 0) > 0;
   const hero = heroLook(
@@ -284,7 +286,15 @@ function RealToday() {
               countOf={day.countOf}
               onCount={day.changeCount}
               empty={
-                day.hasHabits ? (
+                day.vacation ? (
+                  <VacationNotice
+                    vacation={day.vacation}
+                    date={day.date}
+                    today={today}
+                    canEnd={vacationOn}
+                    onChanged={day.refresh}
+                  />
+                ) : day.hasHabits ? (
                   <Placeholder
                     text={
                       choice === 'today'

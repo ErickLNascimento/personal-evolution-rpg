@@ -8,8 +8,8 @@ import { addDays, type LocalDate } from './dates';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { dayProgress, missionsForDay, type Habit } from './schedule';
 
-/** Vagas reservadas para estes avisos, dentro do limite de 64 do iOS (7 + 1 + 1). */
-export const SMART_NOTIFICATION_SLOTS = 9;
+/** Vagas reservadas para estes avisos, dentro do limite de 64 do iOS (7 + 1 + 1 + 1). */
+export const SMART_NOTIFICATION_SLOTS = 10;
 export const STREAK_RISK_TIME = { hour: 20, minute: 30 } as const;
 export const PROMOTION_TIME = { hour: 9, minute: 0 } as const;
 export const FLASH_WARNING_MINUTES = 60;
@@ -18,7 +18,7 @@ const STREAK_DAYS_AHEAD = 7;
 export type SmartNotification =
   | {
       id: string;
-      kind: 'streak' | 'promotion';
+      kind: 'streak' | 'promotion' | 'return';
       title: string;
       body: string;
       /** Dia e hora locais do aparelho. */
@@ -39,6 +39,8 @@ export interface SmartNotificationInput {
   flash: { title: string; deadline: Date; done: boolean } | null;
   /** Promoção liberada e ainda não aceita (nome do próximo estágio, se já definido). */
   promotion: { nextName: string | null } | null;
+  /** Primeiro dia depois das férias marcadas (aviso de volta às 9h), se houver. */
+  vacationReturn?: LocalDate | null;
   /** Idioma dos textos (padrão português). */
   locale?: Locale;
 }
@@ -99,6 +101,18 @@ export function smartNotifications(input: SmartNotificationInput): SmartNotifica
           ? `Seu herói pode virar ${input.promotion.nextName}. Toque para aceitar.`
           : 'Seu herói está pronto para o próximo estágio. Toque para escolher o ramo.',
       date: addDays(input.today, 1),
+      ...PROMOTION_TIME,
+    });
+  }
+  if (input.vacationReturn) {
+    out.push({
+      id: `return:${input.vacationReturn}`,
+      kind: 'return',
+      title: en ? '🏕 Welcome back' : '🏕 Bem-vindo de volta',
+      body: en
+        ? 'Your vacation is over and your missions are back today.'
+        : 'As férias acabaram e suas missões voltam hoje.',
+      date: input.vacationReturn,
       ...PROMOTION_TIME,
     });
   }

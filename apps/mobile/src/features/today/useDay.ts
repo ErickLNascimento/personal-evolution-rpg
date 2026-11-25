@@ -195,6 +195,9 @@ export function useDay(choice: DayChoice) {
       flash.refresh();
     },
     hasHabits: (data?.habits.length ?? 0) > 0,
+    /** Férias que cobrem a data escolhida (as missões somem nesses dias), ou null. */
+    vacation:
+      data?.habits[0]?.vacations?.find((v) => v.startDate <= date && date <= v.endDate) ?? null,
     missions,
     progress,
     /** Ontem e hoje, com o progresso de cada um (para o seletor de dia). */

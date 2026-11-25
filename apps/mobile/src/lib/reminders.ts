@@ -1,10 +1,15 @@
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
-import { MAX_SCHEDULED_REMINDERS, reminderSchedule, SMART_NOTIFICATION_SLOTS } from '@per/domain';
+import {
+  isOnVacation,
+  MAX_SCHEDULED_REMINDERS,
+  reminderSchedule,
+  SMART_NOTIFICATION_SLOTS,
+} from '@per/domain';
 import { Platform } from 'react-native';
 import { listHabits } from '@/features/habits/api';
 import { t } from '@/i18n';
-import { buildSmartNotifications, triggerDate } from '@/lib/smartNotifications';
+import { buildSmartNotifications, deviceNow, triggerDate } from '@/lib/smartNotifications';
 
 const CHANNEL_ID = 'reminders';
 /** Canal dos avisos de streak, missão relâmpago e promoção (desligável à parte no Android). */
@@ -75,11 +80,14 @@ async function runSync(): Promise<SyncResult> {
   if (!permission.granted) return { scheduled: 0, truncated: false };
 
   await ensureChannel();
+  // De férias hoje: sem lembretes de hábito (eles se repetem toda semana e não sabem das datas).
+  // Voltam na próxima sincronização depois das férias; o aviso de volta abre o app nesse dia.
+  const { today } = deviceNow(new Date());
+  const onVacation = isOnVacation(habits.data[0]?.vacations, today);
   // Vagas reservadas para os avisos inteligentes, dentro do limite do iOS.
-  const { reminders, truncated } = reminderSchedule(
-    habits.data,
-    MAX_SCHEDULED_REMINDERS - SMART_NOTIFICATION_SLOTS,
-  );
+  const { reminders, truncated } = onVacation
+    ? { reminders: [], truncated: false }
+    : reminderSchedule(habits.data, MAX_SCHEDULED_REMINDERS - SMART_NOTIFICATION_SLOTS);
   for (const r of reminders) {
     await Notifications.scheduleNotificationAsync({
       content: {
