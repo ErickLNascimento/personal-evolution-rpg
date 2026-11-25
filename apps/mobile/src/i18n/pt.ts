@@ -56,8 +56,6 @@ const pt = {
     count: '{done} de {total}',
   },
   mission: {
-    bossWeak: '×2 no chefe',
-    bossWeakA11y: 'Missão da fraqueza do chefe: tira 2 de vida',
     tapCount: 'Toque para somar um',
     tapUndo: 'Toque para desfazer',
     tapResisted: 'Toque se você resistiu',

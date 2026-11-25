@@ -37,7 +37,6 @@ export function MissionCard({
   flash,
   count,
   onCount,
-  bossWeak = false,
 }: {
   mission: Mission;
   onToggle: () => void;
@@ -52,8 +51,6 @@ export function MissionCard({
   count?: number;
   /** Soma ao contador (+1 / −1). */
   onCount?: (delta: number) => void;
-  /** A missão é da área fraca do chefe da semana: tira 2 de vida dele. */
-  bossWeak?: boolean;
 }) {
   const { habit, done } = mission;
   const { t, locale } = useT();
@@ -173,12 +170,6 @@ export function MissionCard({
               </View>
             </View>
           ) : null}
-          {bossWeak && (
-            <View style={styles.weak} accessible accessibilityLabel={t('mission.bossWeakA11y')}>
-              <Ionicons name="flash" size={11} color={colors.danger} />
-              <Text style={styles.weakText}>{t('mission.bossWeak')}</Text>
-            </View>
-          )}
           {flash && (
             <FlashBadge
               deadline={flash.deadline}
@@ -245,19 +236,6 @@ function StepButton({
 }
 
 const styles = StyleSheet.create({
-  weak: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: `${colors.danger}88`,
-  },
-  weakText: { fontSize: 11, fontWeight: '800', color: colors.danger },
   card: {
     minHeight: MIN_TOUCH + spacing.md,
     flexDirection: 'row',

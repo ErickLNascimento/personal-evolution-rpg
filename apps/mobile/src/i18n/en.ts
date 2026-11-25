@@ -56,8 +56,6 @@ const en: Translations = {
     count: '{done} of {total}',
   },
   mission: {
-    bossWeak: '×2 on boss',
-    bossWeakA11y: 'Boss weakness mission: deals 2 damage',
     tapCount: 'Tap to add one',
     tapUndo: 'Tap to undo',
     tapResisted: 'Tap if you resisted',

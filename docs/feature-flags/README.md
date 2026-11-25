@@ -88,8 +88,8 @@ update public.boss_ranks set hp_pct = 90, reward = 120 where rank = 3;
 
 Cada chefe leva golpe dobrado das missões de uma área da vida (a área do objetivo do hábito):
 Golem → Saúde, Hidra → Produtividade, Lich → Carreira, Dragão → Bem-estar, Sombra → Crescimento
-pessoal, Basilisco → Relacionamentos. A vida não muda; hábito sem objetivo conta 1. Na tela Hoje, a
-missão da área fraca ganha o selo "×2 no chefe". Desligada, toda missão conta 1. **Começa desligada.**
+pessoal, Basilisco → Relacionamentos. A vida não muda; hábito sem objetivo conta 1. A fraqueza
+aparece só na tela do chefe (Desafios). Desligada, toda missão conta 1. **Começa desligada.**
 
 ```sql
 -- ligar

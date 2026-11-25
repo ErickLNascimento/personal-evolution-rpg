@@ -252,7 +252,6 @@ export function BossBanner({
   onPress,
   hits = 0,
   rank = 0,
-  weakness = null,
 }: {
   id: string;
   name: string;
@@ -261,10 +260,8 @@ export function BossBanner({
   hits?: number;
   /** Patente do chefe (muda a cor). */
   rank?: BossRank;
-  /** Fraqueza ativa: aparece embaixo do nome. */
-  weakness?: ObjectiveCategory | null;
 }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const sprite = useBossAnim({ maxHp: 1, hp: 1, defeated: false }, { hits });
   return (
     <Pressable
@@ -279,11 +276,6 @@ export function BossBanner({
       <View style={styles.flex}>
         <Text style={typography.label}>{t('boss.weekly')}</Text>
         <Text style={typography.body}>{name}</Text>
-        {weakness && (
-          <Text style={styles.weakness}>
-            {t('boss.weakness', { area: OBJECTIVE_CATEGORY_LABELS[locale][weakness] })}
-          </Text>
-        )}
       </View>
       <Text style={bannerStyles.link}>{t('boss.challenges')}</Text>
       <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
