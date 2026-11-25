@@ -275,6 +275,16 @@ function RealToday() {
                   />
                 </Animated.View>
               }
+              beforeMissions={
+                day.hasHabits && challengesOn ? (
+                  <BossBanner
+                    id={boss.id}
+                    name={bossText(boss, locale).name}
+                    hits={day.cheer}
+                    onPress={() => router.push('/challenges')}
+                  />
+                ) : null
+              }
               missions={day.missions}
               progress={day.progress}
               level={day.level}
@@ -314,14 +324,6 @@ function RealToday() {
               }
             />
             {moodOn && <MoodCheckIn date={day.date} isToday={choice === 'today'} />}
-            {day.hasHabits && challengesOn && (
-              <BossBanner
-                id={boss.id}
-                name={bossText(boss, locale).name}
-                hits={day.cheer}
-                onPress={() => router.push('/challenges')}
-              />
-            )}
           </>
         )}
       </Screen>
@@ -342,6 +344,7 @@ function DayView({
   onCount,
   empty,
   top,
+  beforeMissions,
 }: {
   missions: Mission[];
   progress: DayProgress;
@@ -357,6 +360,8 @@ function DayView({
   empty?: ReactNode;
   /** Cabeçalho no lugar da barra de XP simples (ex.: o cartão do herói). */
   top?: ReactNode;
+  /** Entre o cabeçalho e a lista de missões (ex.: o chefe da semana). */
+  beforeMissions?: ReactNode;
 }) {
   const { t } = useT();
   const bonus = xpTable?.perfectDayBonus ?? 20;
@@ -367,6 +372,8 @@ function DayView({
           <XpBar progress={level} />
         </View>
       )}
+
+      {beforeMissions}
 
       <View style={styles.sectionHeader}>
         <Text style={typography.label}>{t('today.missions')}</Text>
