@@ -98,6 +98,25 @@ update public.app_settings set value = 1 where key = 'feature_boss_weakness';
 update public.app_settings set value = 0 where key = 'feature_boss_weakness';
 ```
 
+### Emboscadas: `feature_ambush`
+
+De vez em quando (sorteio por pessoa: em média 1 a cada 3 semanas, numa quarta ou num sábado) um
+minichefe aparece por 2 dias com um desafio curto: Goblin do Atraso (4 missões), Slime da Bagunça (3
+de Produtividade), Morcego da Madrugada (os 2 dias perfeitos), Diabrete do Celular (3 de Bem-estar) e
+Esqueleto do "Depois" (2 difíceis). Cartão na tela Hoje, aviso às 9h do primeiro dia, resgate até o
+dia seguinte ao fim e uma seção no Bestiário. Nunca nas 2 primeiras semanas de uso nem nas férias.
+Desligada, nada aparece e `claim_ambush` recusa com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_ambush';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_ambush';
+```
+
+No build de desenvolvimento, `dev_ambush_preview` em `EXPO_PUBLIC_DEV_FEATURES` mostra uma emboscada
+de mentira quando não há uma sorteada (só para ver o cartão; o resgate falha).
+
 ### Bestiário: `feature_bestiary`
 
 Capítulo "Bestiário" no Progresso, com os chefes vencidos (caídos, na cor da maior patente) e

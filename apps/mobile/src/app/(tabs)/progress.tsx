@@ -4,8 +4,10 @@ import {
   displayedTitle,
   heroAttributes,
   OBJECTIVE_CATEGORIES,
+  AMBUSHERS,
   bestiary,
   bestiaryProgress,
+  pick,
   BOSS_WEAKNESS,
   bossForWeek,
   heroLook,
@@ -31,7 +33,7 @@ import { Button, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
 import { AttributeSheet } from '@/components/hero/AttributeSheet';
 import { ObjectivesCard } from '@/components/ObjectivesCard';
-import { Chapter } from '@/components/profile/Chapter';
+import { Chapter, ChapterLabel } from '@/components/profile/Chapter';
 import { StatusPanel, type StatGem } from '@/components/progress/StatusPanel';
 import { RECAP_TIER, WeeklyRecapBody } from '@/components/recap/WeeklyRecap';
 import { fetchWeeklyRecap, markRecapSeen } from '@/features/recap/api';
@@ -109,6 +111,7 @@ function RealProgress() {
   const bossRanks = useBossProgress();
   const recapHpPct = rankFor(bossRanks.progress, recapWeekStart(today), bossRanks.enabled).rule.hpPct;
   const bestiaryOn = useFeature(FEATURES.bestiary);
+  const ambushOn = useFeature(FEATURES.ambush);
   const weaknessOn = useFeature(FEATURES.bossWeakness);
   const recapWeakness = weaknessOn
     ? (BOSS_WEAKNESS[bossForWeek(recapWeekStart(today)).id] ?? null)
@@ -223,6 +226,22 @@ function RealProgress() {
         >
           <Text style={typography.caption}>{t('bestiary.intro')}</Text>
           <Bestiary entries={bestiary(bossRanks.progress.victories)} />
+          {ambushOn && (
+            <>
+              <ChapterLabel>{t('bestiary.ambushes')}</ChapterLabel>
+              <Bestiary
+                ranked={false}
+                entries={bestiary(
+                  bossRanks.progress.ambushVictories,
+                  AMBUSHERS.map((a) => ({
+                    id: a.id,
+                    name: pick(a.name, locale),
+                    taunt: pick(a.taunt, locale),
+                  })),
+                )}
+              />
+            </>
+          )}
         </Chapter>
       )}
 

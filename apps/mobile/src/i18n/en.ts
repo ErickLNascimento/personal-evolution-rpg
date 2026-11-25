@@ -969,6 +969,7 @@ const en: Translations = {
     inviteSummary: 'Your code: {code}',
   },
   bestiary: {
+    ambushes: 'AMBUSHES',
     title: 'Bestiary',
     summary: '{done} of {total} victories',
     intro: 'Each boss comes back one rank higher after you beat it: Soldier, Captain, General and Lord.',
@@ -978,6 +979,18 @@ const en: Translations = {
     winsMany: '{count} victories',
     first: '1st on {date}',
     notYet: 'Not defeated yet',
+  },
+  ambush: {
+    kicker: 'AMBUSH!',
+    goal: '2-day challenge: {goal} · {reward} Crystals',
+    progressA11y: 'Ambush progress: {done} of {target}',
+    progress: '{done} of {target} · {left} left',
+    done: 'Challenge complete! The mini-boss fell.',
+    claim: 'Claim {reward} Crystals',
+    claimed: 'Reward claimed: +{reward} Crystals',
+    errorNotDone: 'The challenge isn\'t complete yet.',
+    errorLate: 'This ambush has already ended.',
+    errorClaim: 'Couldn\'t claim. Try again.',
   },
 };
 

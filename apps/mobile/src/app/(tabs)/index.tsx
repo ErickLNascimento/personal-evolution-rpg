@@ -1,6 +1,7 @@
 import {
   bossForWeek,
   bossTitle,
+  type Ambush,
   BOSS_WEAKNESS,
   type ObjectiveCategory,
   DEFAULT_HERO,
@@ -58,6 +59,8 @@ import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
 import { VacationNotice } from '@/components/vacation/VacationNotice';
 import { rankFor, useBossProgress } from '@/features/bosses/api';
+import { AmbushCard } from '@/components/ambush/AmbushCard';
+import { fetchAmbush } from '@/features/ambush/api';
 
 export default function TodayScreen() {
   const { isDemo } = useAuth();
@@ -149,6 +152,9 @@ function RealToday() {
   const bossRanks = useBossProgress();
   const bossRankNow = rankFor(bossRanks.progress, bossWeek, bossRanks.enabled).rank;
   const weaknessOn = useFeature(FEATURES.bossWeakness);
+  const ambushOn = useFeature(FEATURES.ambush);
+  const loadAmbush = useCallback(() => fetchAmbush(), []);
+  const ambush = useFocusLoad<Ambush | null>(loadAmbush, ambushOn);
   const weakness = weaknessOn && challengesOn ? (BOSS_WEAKNESS[boss.id] ?? null) : null;
 
   // O card do herói encolhe e esmaece ao rolar; a barra compacta assume o lugar dele.
@@ -287,6 +293,20 @@ function RealToday() {
               }
               beforeMissions={
                 day.hasHabits && challengesOn ? (
+                  <>
+                  {ambushOn && ambush.data && (
+                    <AmbushCard
+                      ambush={ambush.data}
+                      habits={day.habits}
+                      logged={day.logged}
+                      today={today}
+                      hits={day.cheer}
+                      onClaimed={() => {
+                        ambush.refresh();
+                        day.refresh();
+                      }}
+                    />
+                  )}
                   <BossBanner
                     id={boss.id}
                     name={bossTitle(boss, bossRankNow, locale)}
@@ -295,6 +315,7 @@ function RealToday() {
                     hits={day.cheer}
                     onPress={() => router.push('/challenges')}
                   />
+                  </>
                 ) : null
               }
               missions={day.missions}

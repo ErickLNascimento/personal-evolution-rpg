@@ -14,3 +14,8 @@ export function setFeatureSnapshot(features: ReadonlySet<string>) {
 export function isFeatureOn(key: FeatureKey): boolean {
   return current.has(key);
 }
+
+/** Chave só de teste (EXPO_PUBLIC_DEV_FEATURES, ex.: dev_ambush_preview), no build de desenvolvimento. */
+export function isDevKeyOn(key: `dev_${string}`): boolean {
+  return __DEV__ && current.has(key);
+}

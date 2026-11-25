@@ -1,0 +1,8 @@
+{
+  "image": "morcego_taunt.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 6,
+  "fps": 8,
+  "loop": false
+}

@@ -1,5 +1,8 @@
 import {
   addDays,
+  ambushGoalText,
+  OBJECTIVE_CATEGORY_LABELS,
+  pick,
   currentOrNextVacation,
   FEATURES,
   isHabitScheduledOn,
@@ -9,6 +12,7 @@ import {
 } from '@per/domain';
 import { listHabits } from '@/features/habits/api';
 import { currentLocale } from '@/i18n';
+import { fetchAmbush } from '@/features/ambush/api';
 import { fetchFlashMission, fetchHeroPath } from '@/features/hero/pathApi';
 import { isFeatureOn } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
@@ -46,7 +50,7 @@ export async function buildSmartNotifications(): Promise<SmartNotification[]> {
   const now = new Date();
   const { today, nowMinutes } = deviceNow(now);
 
-  const [habits, logs, flash, path] = await Promise.all([
+  const [habits, logs, flash, path, ambush] = await Promise.all([
     listHabits(),
     supabase
       .from('habit_logs')
@@ -55,6 +59,7 @@ export async function buildSmartNotifications(): Promise<SmartNotification[]> {
       .returns<{ habit_id: string }[]>(),
     fetchFlashMission(),
     fetchHeroPath(),
+    isFeatureOn(FEATURES.ambush) ? fetchAmbush() : Promise.resolve({ data: null }),
   ]);
   if (habits.error !== null) return [];
 
@@ -85,6 +90,17 @@ export async function buildSmartNotifications(): Promise<SmartNotification[]> {
         : null,
     promotion,
     vacationReturn: vacation ? addDays(vacation.endDate, 1) : null,
+    ambush: ambush.data
+      ? {
+          date: ambush.data.startDate,
+          name: pick(ambush.data.ambusher.name, currentLocale()),
+          goal: ambushGoalText(
+            ambush.data.ambusher.goal,
+            (c) => OBJECTIVE_CATEGORY_LABELS[currentLocale()][c],
+            currentLocale(),
+          ),
+        }
+      : null,
     locale: currentLocale(),
   });
 }

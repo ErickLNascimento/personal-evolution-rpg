@@ -2145,6 +2145,81 @@ begin
   update public.app_settings set value = 0 where key = 'feature_boss_weakness';
 end $$;
 
+-- ── Emboscadas ──────────────────────────────────────────────
+-- Vera: hábito diário (fácil) desde hoje − 20 e a semana atual inteira registrada.
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_ambush') = 0,
+    'emboscadas começam desligadas');
+  perform pg_temp.check(public.my_ambush() is null, 'desligada: nenhuma emboscada');
+  begin
+    perform public.claim_ambush(pg_temp.today());
+    raise exception 'FALHOU: resgatou emboscada com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  hits integer := 0;
+  w date;
+  a record;
+  found_week date;
+begin
+  -- sorteio: cerca de 1 em cada 3 semanas, sempre numa quarta ou num sábado
+  for k in 3..62 loop
+    w := monday + 7 * k;
+    for a in select * from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111', w) loop
+      hits := hits + 1;
+      found_week := coalesce(found_week, w);
+      perform pg_temp.check(extract(dow from a.start_date) in (3, 6), 'emboscada começa na quarta ou no sábado');
+      perform pg_temp.check(a.ambusher in ('goblin', 'slime', 'morcego', 'diabrete', 'esqueleto'), 'minichefe do catálogo');
+    end loop;
+  end loop;
+  perform pg_temp.check(hits between 8 and 35, 'frequência perto de 1 em 3 semanas: ' || hits || ' em 60');
+  -- a semana seguinte à do primeiro hábito (hoje − 20) cai nas duas primeiras semanas de uso
+  perform pg_temp.check(not exists (select 1 from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111',
+      date_trunc('week', pg_temp.today() - 20)::date + 7)),
+    'nada nas duas primeiras semanas de uso');
+  -- férias nos dias da emboscada cancelam o sorteio
+  select x.start_date into w from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111', found_week) x;
+  insert into public.vacations (user_id, start_date, end_date) values ('eeeeeeee-1111-1111-1111-111111111111', w, w + 1);
+  perform pg_temp.check(not exists (select 1 from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111', found_week)),
+    'sem emboscada nas férias');
+  delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+  perform pg_temp.check(exists (select 1 from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111', found_week)),
+    'o sorteio é o mesmo sempre');
+
+  -- progresso: uma missão fácil por dia, os dois dias perfeitos
+  perform pg_temp.check((select done from public.ambush_progress('eeeeeeee-1111-1111-1111-111111111111', 'goblin', monday)) = 2,
+    'Goblin: 2 de 4 missões');
+  perform pg_temp.check((select target from public.ambush_progress('eeeeeeee-1111-1111-1111-111111111111', 'goblin', monday)) = 4,
+    'Goblin pede 4');
+  perform pg_temp.check((select done from public.ambush_progress('eeeeeeee-1111-1111-1111-111111111111', 'morcego', monday)) = 2,
+    'Morcego: os 2 dias perfeitos');
+  perform pg_temp.check((select done from public.ambush_progress('eeeeeeee-1111-1111-1111-111111111111', 'esqueleto', monday)) = 0,
+    'Esqueleto: só missões difíceis contam');
+end $$;
+update public.app_settings set value = 1 where key = 'feature_ambush';
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.claim_ambush(date_trunc('week', pg_temp.today())::date); -- segunda: nunca há emboscada
+    raise exception 'FALHOU: resgatou emboscada inexistente';
+  exception when sqlstate 'P0002' then null;
+  end;
+  begin
+    insert into public.ambush_victories (user_id, start_date, ambusher)
+    values ('eeeeeeee-1111-1111-1111-111111111111', pg_temp.today(), 'slime');
+    raise exception 'FALHOU: app gravou emboscada direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_ambush';
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

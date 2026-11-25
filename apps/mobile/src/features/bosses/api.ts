@@ -19,16 +19,18 @@ import { supabase } from '@/lib/supabase';
 export interface BossProgress {
   victories: BossVictory[];
   rules: readonly BossRankRule[];
+  /** Emboscadas vencidas (minichefe e dia em que começou). */
+  ambushVictories: BossVictory[];
 }
 
-const EMPTY: BossProgress = { victories: [], rules: DEFAULT_BOSS_RANK_RULES };
+const EMPTY: BossProgress = { victories: [], rules: DEFAULT_BOSS_RANK_RULES, ambushVictories: [] };
 /** Banco ainda sem a migration das patentes: tabela ausente. */
 const MISSING = new Set(['PGRST205', '42P01']);
 
 /** Vitórias contra chefes (RLS: só as próprias) e a tabela de patentes. */
 export async function fetchBossProgress(): Promise<Result<BossProgress>> {
   if (!supabase) return { data: EMPTY, error: null };
-  const [victories, rules] = await Promise.all([
+  const [victories, rules, ambushes] = await Promise.all([
     supabase
       .from('boss_victories')
       .select('week_start, boss_id, rank')
@@ -38,6 +40,11 @@ export async function fetchBossProgress(): Promise<Result<BossProgress>> {
       .from('boss_ranks')
       .select('rank, hp_pct, reward')
       .returns<{ rank: number; hp_pct: number; reward: number }[]>(),
+    supabase
+      .from('ambush_victories')
+      .select('start_date, ambusher')
+      .order('start_date')
+      .returns<{ start_date: string; ambusher: string }[]>(),
   ]);
   if (victories.error && !MISSING.has(victories.error.code)) return { data: EMPTY, error: null };
   const parsed = rules.data ? parseRankRules(rules.data) : [];
@@ -49,6 +56,11 @@ export async function fetchBossProgress(): Promise<Result<BossProgress>> {
         rank: Math.min(3, Math.max(0, v.rank)) as BossRank,
       })),
       rules: parsed.length ? parsed : DEFAULT_BOSS_RANK_RULES,
+      ambushVictories: (ambushes.data ?? []).map((v) => ({
+        weekStart: v.start_date,
+        bossId: v.ambusher,
+        rank: 0 as BossRank,
+      })),
     },
     error: null,
   };

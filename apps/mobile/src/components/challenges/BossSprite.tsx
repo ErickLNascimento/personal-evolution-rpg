@@ -155,6 +155,117 @@ const SHEETS: Record<string, Record<BossAnim, Sheet>> = {
       require('../../../assets/sprites/bosses/basilisco_defeat.json'),
     ],
   },
+  // Minichefes das emboscadas (tools/sprites/gen_minis.py)
+  goblin: {
+    idle: [
+      require('../../../assets/sprites/bosses/goblin_idle.png'),
+      require('../../../assets/sprites/bosses/goblin_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/goblin_taunt.png'),
+      require('../../../assets/sprites/bosses/goblin_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/goblin_hit.png'),
+      require('../../../assets/sprites/bosses/goblin_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/goblin_weak.png'),
+      require('../../../assets/sprites/bosses/goblin_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/goblin_defeat.png'),
+      require('../../../assets/sprites/bosses/goblin_defeat.json'),
+    ],
+  },
+  slime: {
+    idle: [
+      require('../../../assets/sprites/bosses/slime_idle.png'),
+      require('../../../assets/sprites/bosses/slime_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/slime_taunt.png'),
+      require('../../../assets/sprites/bosses/slime_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/slime_hit.png'),
+      require('../../../assets/sprites/bosses/slime_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/slime_weak.png'),
+      require('../../../assets/sprites/bosses/slime_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/slime_defeat.png'),
+      require('../../../assets/sprites/bosses/slime_defeat.json'),
+    ],
+  },
+  morcego: {
+    idle: [
+      require('../../../assets/sprites/bosses/morcego_idle.png'),
+      require('../../../assets/sprites/bosses/morcego_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/morcego_taunt.png'),
+      require('../../../assets/sprites/bosses/morcego_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/morcego_hit.png'),
+      require('../../../assets/sprites/bosses/morcego_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/morcego_weak.png'),
+      require('../../../assets/sprites/bosses/morcego_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/morcego_defeat.png'),
+      require('../../../assets/sprites/bosses/morcego_defeat.json'),
+    ],
+  },
+  diabrete: {
+    idle: [
+      require('../../../assets/sprites/bosses/diabrete_idle.png'),
+      require('../../../assets/sprites/bosses/diabrete_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/diabrete_taunt.png'),
+      require('../../../assets/sprites/bosses/diabrete_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/diabrete_hit.png'),
+      require('../../../assets/sprites/bosses/diabrete_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/diabrete_weak.png'),
+      require('../../../assets/sprites/bosses/diabrete_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/diabrete_defeat.png'),
+      require('../../../assets/sprites/bosses/diabrete_defeat.json'),
+    ],
+  },
+  esqueleto: {
+    idle: [
+      require('../../../assets/sprites/bosses/esqueleto_idle.png'),
+      require('../../../assets/sprites/bosses/esqueleto_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/esqueleto_taunt.png'),
+      require('../../../assets/sprites/bosses/esqueleto_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/esqueleto_hit.png'),
+      require('../../../assets/sprites/bosses/esqueleto_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/esqueleto_weak.png'),
+      require('../../../assets/sprites/bosses/esqueleto_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/esqueleto_defeat.png'),
+      require('../../../assets/sprites/bosses/esqueleto_defeat.json'),
+    ],
+  },
 };
 
 /**

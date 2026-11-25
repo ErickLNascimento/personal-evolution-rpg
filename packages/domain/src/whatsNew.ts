@@ -55,6 +55,16 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         route: '/challenges',
       },
       {
+        icon: 'warning',
+        flag: 'feature_ambush',
+        title: 'Emboscadas',
+        text: 'De vez em quando um minichefe aparece por 2 dias com um desafio curto. Cumpra a tempo e ganhe Cristais extras.',
+        en: {
+          title: 'Ambushes',
+          text: 'Every now and then a mini-boss shows up for 2 days with a short challenge. Beat it in time for extra Crystals.',
+        },
+      },
+      {
         icon: 'skull',
         flag: 'feature_bestiary',
         title: 'Bestiário',

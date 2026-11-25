@@ -970,6 +970,7 @@ const pt = {
     inviteSummary: 'Seu código: {code}',
   },
   bestiary: {
+    ambushes: 'EMBOSCADAS',
     title: 'Bestiário',
     summary: '{done} de {total} vitórias',
     intro: 'Cada chefe volta uma patente acima depois de vencido: Soldado, Capitão, General e Lorde.',
@@ -979,6 +980,18 @@ const pt = {
     winsMany: '{count} vitórias',
     first: '1ª em {date}',
     notYet: 'Ainda não vencido',
+  },
+  ambush: {
+    kicker: 'EMBOSCADA!',
+    goal: 'Desafio em 2 dias: {goal} · {reward} Cristais',
+    progressA11y: 'Progresso da emboscada: {done} de {target}',
+    progress: '{done} de {target} · faltam {left}',
+    done: 'Desafio cumprido! O minichefe caiu.',
+    claim: 'Resgatar {reward} Cristais',
+    claimed: 'Prêmio resgatado: +{reward} Cristais',
+    errorNotDone: 'O desafio ainda não foi cumprido.',
+    errorLate: 'O prazo desta emboscada já passou.',
+    errorClaim: 'Não foi possível resgatar. Tente de novo.',
   },
 };
 

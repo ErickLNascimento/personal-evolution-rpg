@@ -200,6 +200,9 @@ export function useDay(choice: DayChoice) {
       flash.refresh();
     },
     hasHabits: (data?.habits.length ?? 0) > 0,
+    /** Hábitos e registros de ontem e hoje (para as emboscadas, que duram 2 dias). */
+    habits: data?.habits ?? [],
+    logged: data?.logged ?? new Map<LocalDate, Set<string>>(),
     /** Férias que cobrem a data escolhida (as missões somem nesses dias), ou null. */
     vacation:
       data?.habits[0]?.vacations?.find((v) => v.startDate <= date && date <= v.endDate) ?? null,

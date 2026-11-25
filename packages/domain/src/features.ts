@@ -23,6 +23,8 @@ export const FEATURES = {
   bestiary: 'feature_bestiary',
   /** Fraquezas: cada chefe leva golpe dobrado das missões de uma área da vida. */
   bossWeakness: 'feature_boss_weakness',
+  /** Emboscadas: minichefes surpresa de 2 dias com um desafio curto. */
+  ambush: 'feature_ambush',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

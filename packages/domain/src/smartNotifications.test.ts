@@ -116,3 +116,22 @@ describe('avisos em inglês', () => {
     ]);
   });
 });
+
+describe('aviso de emboscada', () => {
+  const base = {
+    today: '2026-11-24',
+    nowMinutes: 600,
+    now: new Date('2026-11-24T10:00:00'),
+    habits: [],
+    completedToday: new Set<string>(),
+    flash: null,
+    promotion: null,
+  };
+  it('avisa às 9h do dia em que começa; não avisa se já passou das 9h desse dia', () => {
+    const ambush = { date: '2026-11-25', name: 'Goblin do Atraso', goal: '4 missões' };
+    expect(smartNotifications({ ...base, ambush })).toEqual([
+      expect.objectContaining({ kind: 'ambush', date: '2026-11-25', hour: 9, body: 'Goblin do Atraso apareceu. Desafio de 2 dias: 4 missões.' }),
+    ]);
+    expect(smartNotifications({ ...base, ambush: { ...ambush, date: '2026-11-24' } })).toEqual([]);
+  });
+});

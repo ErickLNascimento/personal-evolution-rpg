@@ -23,6 +23,11 @@ export const BOSS_COLOR: Record<string, string> = {
   dragao: '#F2617A',
   sombra: '#6B7280',
   basilisco: '#F5B942',
+  goblin: '#7DB84A',
+  slime: '#A95FD9',
+  morcego: '#6B5A94',
+  diabrete: '#D94545',
+  esqueleto: '#E2DBC6',
 };
 
 /** Patente em 4 gemas (Soldado = 1 … Lorde = 4), com o nome dela. */

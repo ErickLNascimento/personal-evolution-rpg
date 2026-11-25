@@ -1,0 +1,8 @@
+{
+  "image": "slime_hit.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 6,
+  "fps": 12,
+  "loop": false
+}

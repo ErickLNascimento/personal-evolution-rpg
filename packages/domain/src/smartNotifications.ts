@@ -8,8 +8,8 @@ import { addDays, type LocalDate } from './dates';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 import { dayProgress, missionsForDay, type Habit } from './schedule';
 
-/** Vagas reservadas para estes avisos, dentro do limite de 64 do iOS (7 + 1 + 1 + 1). */
-export const SMART_NOTIFICATION_SLOTS = 10;
+/** Vagas reservadas para estes avisos, dentro do limite de 64 do iOS (7 + 1 + 1 + 1 + 1). */
+export const SMART_NOTIFICATION_SLOTS = 11;
 export const STREAK_RISK_TIME = { hour: 20, minute: 30 } as const;
 export const PROMOTION_TIME = { hour: 9, minute: 0 } as const;
 export const FLASH_WARNING_MINUTES = 60;
@@ -18,7 +18,7 @@ const STREAK_DAYS_AHEAD = 7;
 export type SmartNotification =
   | {
       id: string;
-      kind: 'streak' | 'promotion' | 'return';
+      kind: 'streak' | 'promotion' | 'return' | 'ambush';
       title: string;
       body: string;
       /** Dia e hora locais do aparelho. */
@@ -41,6 +41,8 @@ export interface SmartNotificationInput {
   promotion: { nextName: string | null } | null;
   /** Primeiro dia depois das férias marcadas (aviso de volta às 9h), se houver. */
   vacationReturn?: LocalDate | null;
+  /** Emboscada da semana: aviso às 9h do dia em que começa (nome e desafio já no idioma). */
+  ambush?: { date: LocalDate; name: string; goal: string } | null;
   /** Idioma dos textos (padrão português). */
   locale?: Locale;
 }
@@ -104,6 +106,23 @@ export function smartNotifications(input: SmartNotificationInput): SmartNotifica
       ...PROMOTION_TIME,
     });
   }
+  const nineAm = PROMOTION_TIME.hour * 60 + PROMOTION_TIME.minute;
+  if (
+    input.ambush &&
+    (input.ambush.date > input.today || (input.ambush.date === input.today && input.nowMinutes < nineAm))
+  ) {
+    out.push({
+      id: `ambush:${input.ambush.date}`,
+      kind: 'ambush',
+      title: en ? '⚔️ An ambush!' : '⚔️ Uma emboscada!',
+      body: en
+        ? `${input.ambush.name} showed up. 2-day challenge: ${input.ambush.goal}.`
+        : `${input.ambush.name} apareceu. Desafio de 2 dias: ${input.ambush.goal}.`,
+      date: input.ambush.date,
+      ...PROMOTION_TIME,
+    });
+  }
+
   if (input.vacationReturn) {
     out.push({
       id: `return:${input.vacationReturn}`,

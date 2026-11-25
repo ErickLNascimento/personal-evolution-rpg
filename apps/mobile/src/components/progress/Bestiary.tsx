@@ -10,17 +10,24 @@ import { colors, radius, spacing, typography } from '@/theme/tokens';
  * Bestiário: os chefes do Ato I em cartões. Vencido = caído na pose de derrota, na cor da maior
  * patente vencida, com vitórias e a primeira data; nunca vencido = silhueta e "???".
  */
-export function Bestiary({ entries }: { entries: readonly BestiaryEntry[] }) {
+export function Bestiary({
+  entries,
+  ranked = true,
+}: {
+  entries: readonly BestiaryEntry[];
+  /** Mostrar a patente em gemas (os minichefes não têm patente). */
+  ranked?: boolean;
+}) {
   return (
     <View style={styles.grid}>
       {entries.map((e) => (
-        <BestiaryCard key={e.boss.id} entry={e} />
+        <BestiaryCard key={e.boss.id} entry={e} ranked={ranked} />
       ))}
     </View>
   );
 }
 
-function BestiaryCard({ entry }: { entry: BestiaryEntry }) {
+function BestiaryCard({ entry, ranked }: { entry: BestiaryEntry; ranked: boolean }) {
   const { t, locale } = useT();
   const known = entry.bestRank !== null;
   const name = known ? bossTitle(entry.boss, 0, locale) : '???';
@@ -46,7 +53,7 @@ function BestiaryCard({ entry }: { entry: BestiaryEntry }) {
       </Text>
       {known ? (
         <>
-          <RankGems rank={entry.bestRank!} compact />
+          {ranked && <RankGems rank={entry.bestRank!} compact />}
           <Text style={styles.meta}>
             {t(entry.wins === 1 ? 'bestiary.winsOne' : 'bestiary.winsMany', { count: entry.wins })}
           </Text>
