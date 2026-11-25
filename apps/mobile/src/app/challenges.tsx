@@ -14,7 +14,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
-import { BossCard } from '@/components/challenges/BossCard';
+import { BossCard, BossDefeatedRow } from '@/components/challenges/BossCard';
 import { Chips } from '@/components/Chips';
 import { CrystalBadge } from '@/components/crystals/Crystals';
 import { Button, FormMessage } from '@/components/Form';
@@ -142,15 +142,18 @@ function ChallengesScreen() {
       {notice ? <FormMessage tone="info" text={notice} /> : null}
       <FormMessage text={error} />
 
-      {previous.defeated && !data.bossClaimed.has(lastWeek) && (
-        <BossCard
-          label={t('challenges.lastWeekBoss')}
-          state={previous}
-          claimed={false}
-          busy={busy === `boss:${lastWeek}`}
-          onClaim={() => claim(lastWeek)}
-        />
-      )}
+      {previous.defeated &&
+        (data.bossClaimed.has(lastWeek) ? (
+          <BossDefeatedRow label={t('challenges.lastWeekBoss')} state={previous} />
+        ) : (
+          <BossCard
+            label={t('challenges.lastWeekBoss')}
+            state={previous}
+            claimed={false}
+            busy={busy === `boss:${lastWeek}`}
+            onClaim={() => claim(lastWeek)}
+          />
+        ))}
       <BossCard
         state={boss}
         claimed={data.bossClaimed.has(thisWeek)}

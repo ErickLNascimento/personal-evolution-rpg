@@ -83,6 +83,7 @@ const pt = {
     xpToLevel: '{xp} XP para o nível {level}',
   },
   boss: {
+    defeatedClaimed: 'Derrotado · prêmio resgatado',
     weekly: 'CHEFE DA SEMANA',
     defeated: 'Derrotado! Sua rotina venceu.',
     hpLabel: 'Vida do chefe: {hp} de {max}',
@@ -911,6 +912,7 @@ const pt = {
     close: 'Continuar',
   },
   recap: {
+    seeBoss: 'Abre os desafios',
     title: 'Crônica da semana',
     range: 'Semana de {start} a {end}',
     newBadge: 'crônica da semana nova',

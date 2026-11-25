@@ -83,6 +83,7 @@ const en: Translations = {
     xpToLevel: '{xp} XP to level {level}',
   },
   boss: {
+    defeatedClaimed: 'Defeated · reward claimed',
     weekly: 'BOSS OF THE WEEK',
     defeated: 'Defeated! Your routine won.',
     hpLabel: 'Boss health: {hp} of {max}',
@@ -910,6 +911,7 @@ const en: Translations = {
     close: 'Continue',
   },
   recap: {
+    seeBoss: 'Opens challenges',
     title: 'Weekly chronicle',
     range: 'Week of {start} to {end}',
     newBadge: 'new weekly chronicle',

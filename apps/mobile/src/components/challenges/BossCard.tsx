@@ -140,6 +140,7 @@ const styles = StyleSheet.create({
   },
   defeated: { textDecorationLine: 'line-through', color: colors.textSecondary },
   taunt: { ...typography.caption, fontStyle: 'italic' },
+  won: { ...typography.caption, color: colors.accent, fontWeight: '700' },
   track: {
     height: 10,
     borderRadius: 5,
@@ -151,6 +152,33 @@ const styles = StyleSheet.create({
 });
 
 /** Atalho compacto para a tela Desafios (sem consultar o banco). */
+/**
+ * Chefe de uma semana já vencida e com o prêmio resgatado: linha compacta, com o chefe
+ * dissolvido em estrela (fica no último quadro da animação de derrota).
+ */
+export function BossDefeatedRow({ state, label }: { state: WeeklyBoss; label: string }) {
+  const { t, locale } = useT();
+  const sprite = useBossAnim(state);
+  const name = bossText(state.boss, locale).name;
+  return (
+    <View
+      style={bannerStyles.banner}
+      accessible
+      accessibilityLabel={`${label}: ${name}. ${t('boss.defeatedClaimed')}`}
+    >
+      <View style={[styles.mini, { borderColor: BOSS_COLOR[state.boss.id] ?? colors.border }]}>
+        <BossSprite id={state.boss.id} size={56} {...sprite} />
+      </View>
+      <View style={styles.flex}>
+        <Text style={typography.label}>{label}</Text>
+        <Text style={[typography.body, styles.defeated]}>{name}</Text>
+        <Text style={styles.won}>{t('boss.defeatedClaimed')}</Text>
+      </View>
+      <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+    </View>
+  );
+}
+
 export function BossBanner({
   id,
   name,

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { RecapTier, WeeklyRecap } from '@per/domain';
 import type { ComponentProps } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatShortDate } from '@/components/vacation/formatDate';
 import { useT, type TKey } from '@/i18n';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -51,9 +52,17 @@ export function WeeklyRecapBody({ recap: r }: { recap: WeeklyRecap }) {
           ⭐ {t('recap.bestHabit', { title: r.bestHabit.title, done: r.bestHabit.done, total: r.bestHabit.scheduled })}
         </Text>
       )}
-      <Text style={typography.body}>
-        {r.bossDefeated ? `⚔️ ${t('recap.bossDefeated')}` : `🛡 ${t('recap.bossSurvived')}`}
-      </Text>
+      <Pressable
+        onPress={() => router.push('/challenges')}
+        accessibilityRole="button"
+        accessibilityHint={t('recap.seeBoss')}
+        style={({ pressed }) => [styles.bossLine, pressed && styles.pressed]}
+      >
+        <Text style={[typography.body, styles.flex]}>
+          {r.bossDefeated ? `⚔️ ${t('recap.bossDefeated')}` : `🛡 ${t('recap.bossSurvived')}`}
+        </Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+      </Pressable>
     </View>
   );
 }
@@ -86,6 +95,9 @@ function Stat({ value, label, delta }: { value: string; label: string; delta?: n
 
 const styles = StyleSheet.create({
   body: { gap: spacing.sm },
+  bossLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, minHeight: 44 },
+  flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
   stats: { flexDirection: 'row', gap: spacing.sm },
   stat: {
     flex: 1,
