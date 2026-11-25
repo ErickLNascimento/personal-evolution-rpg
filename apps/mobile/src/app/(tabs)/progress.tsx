@@ -4,6 +4,8 @@ import {
   displayedTitle,
   heroAttributes,
   OBJECTIVE_CATEGORIES,
+  ACT_II_BOSSES,
+  ALL_BOSSES,
   AMBUSHERS,
   bestiary,
   bestiaryProgress,
@@ -112,6 +114,7 @@ function RealProgress() {
   const recapHpPct = rankFor(bossRanks.progress, recapWeekStart(today), bossRanks.enabled).rule.hpPct;
   const bestiaryOn = useFeature(FEATURES.bestiary);
   const ambushOn = useFeature(FEATURES.ambush);
+  const act2On = useFeature(FEATURES.act2);
   const weaknessOn = useFeature(FEATURES.bossWeakness);
   const recapWeakness = weaknessOn
     ? (BOSS_WEAKNESS[bossForWeek(recapWeekStart(today)).id] ?? null)
@@ -222,10 +225,21 @@ function RealProgress() {
           icon="skull"
           color={colors.danger}
           title={t('bestiary.title')}
-          summary={t('bestiary.summary', bestiaryProgress(bestiary(bossRanks.progress.victories)))}
+          summary={t(
+            'bestiary.summary',
+            bestiaryProgress(
+              bestiary(bossRanks.progress.victories, act2On ? ALL_BOSSES : undefined),
+            ),
+          )}
         >
           <Text style={typography.caption}>{t('bestiary.intro')}</Text>
           <Bestiary entries={bestiary(bossRanks.progress.victories)} />
+          {act2On && (
+            <>
+              <ChapterLabel>{t('bestiary.act2')}</ChapterLabel>
+              <Bestiary entries={bestiary(bossRanks.progress.victories, ACT_II_BOSSES)} />
+            </>
+          )}
           {ambushOn && (
             <>
               <ChapterLabel>{t('bestiary.ambushes')}</ChapterLabel>

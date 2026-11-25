@@ -135,6 +135,49 @@ export const BOSSES: readonly Boss[] = [
   { id: 'basilisco', name: 'Basilisco da Tela', taunt: 'Olhe para mim. Só mais uma rolagem.' },
 ];
 
+/** Ato II (tools/sprites/gen_bosses_act2.py): entra no rodízio a partir de uma semana marcada. */
+export const ACT_II_BOSSES: readonly Boss[] = [
+  { id: 'kraken', name: 'Kraken do Perfeccionismo', taunt: 'Só começa quando estiver perfeito.' },
+  { id: 'quimera', name: 'Quimera da Comparação', taunt: 'A vida dele está bem melhor, né?' },
+  { id: 'banshee', name: 'Banshee da Culpa', taunt: 'Você devia ter feito ontem.' },
+  { id: 'vampiro', name: 'Vampiro da Insônia', taunt: 'A noite é uma criança.' },
+  { id: 'mimico', name: 'Mímico das Desculpas', taunt: 'Hoje não dá, amanhã eu prometo.' },
+  { id: 'medusa', name: 'Medusa do Gasto', taunt: 'Leva, está em promoção!' },
+];
+
+/** Todos os chefes (para achar pelo id). */
+export const ALL_BOSSES: readonly Boss[] = [...BOSSES, ...ACT_II_BOSSES];
+
+/**
+ * Rodízio de 12 a partir do início do Ato II: um chefe novo e um antigo, alternados, começando
+ * por um novo (mesma ordem de boss_for_week no banco).
+ */
+const ROTATION_ACT_II: readonly string[] = [
+  'kraken', 'golem', 'quimera', 'hidra', 'banshee', 'lich',
+  'vampiro', 'dragao', 'mimico', 'sombra', 'medusa', 'basilisco',
+];
+
+/**
+ * Calendário dos atos: semana (número de semanas desde 1970, a mesma conta de bossForWeek) em que
+ * o Ato II começa; 0 = só o Ato I. O app define a partir de app_settings (flag feature_act_2 e
+ * boss_act2_start_week) assim que lê o perfil.
+ */
+let act2StartWeek = 0;
+
+export function setBossCalendar(calendar: { act2StartWeek: number }): void {
+  act2StartWeek = Number.isInteger(calendar.act2StartWeek) && calendar.act2StartWeek > 0 ? calendar.act2StartWeek : 0;
+}
+
+/** Número da semana (desde 1970) de uma segunda-feira. */
+export function weekNumber(weekStart: LocalDate): number {
+  return Math.floor(Date.parse(`${weekStart}T00:00:00Z`) / (7 * 86_400_000));
+}
+
+/** O Ato II já está no rodízio nesta semana? */
+export function actTwoActive(weekStart: LocalDate, startWeek: number = act2StartWeek): boolean {
+  return startWeek > 0 && weekNumber(weekStart) >= startWeek;
+}
+
 /**
  * Fraqueza de cada chefe: missões dessa área tiram 2 de vida em vez de 1 (com a flag
  * feature_boss_weakness; espelha boss_weakness no banco). O vício perde para a área que o vence.
@@ -146,6 +189,12 @@ export const BOSS_WEAKNESS: Record<string, ObjectiveCategory> = {
   dragao: 'wellbeing',
   sombra: 'personal_growth',
   basilisco: 'relationships',
+  kraken: 'personal_growth',
+  quimera: 'relationships',
+  banshee: 'wellbeing',
+  vampiro: 'health',
+  mimico: 'knowledge',
+  medusa: 'finance',
 };
 
 /** Golpes que uma missão conta contra o chefe: 2 na área fraca, 1 nas outras. */
@@ -158,9 +207,16 @@ export function bossText(boss: Boss, locale: Locale = DEFAULT_LOCALE): { name: s
   return (locale === 'en' ? BOSS_EN[boss.id] : undefined) ?? { name: boss.name, taunt: boss.taunt };
 }
 
-/** Chefe da semana: gira pela lista, igual para todo mundo na mesma semana. */
-export function bossForWeek(weekStart: LocalDate): Boss {
-  const weeks = Math.floor(Date.parse(`${weekStart}T00:00:00Z`) / (7 * 86_400_000));
+/**
+ * Chefe da semana: gira pela lista, igual para todo mundo na mesma semana. Antes do Ato II, os 6
+ * do Ato I; a partir dele, o rodízio de 12. Semanas passadas nunca mudam de chefe.
+ */
+export function bossForWeek(weekStart: LocalDate, startWeek: number = act2StartWeek): Boss {
+  const weeks = weekNumber(weekStart);
+  if (actTwoActive(weekStart, startWeek)) {
+    const id = ROTATION_ACT_II[(weeks - startWeek) % ROTATION_ACT_II.length]!;
+    return ALL_BOSSES.find((b) => b.id === id)!;
+  }
   return BOSSES[((weeks % BOSSES.length) + BOSSES.length) % BOSSES.length]!;
 }
 

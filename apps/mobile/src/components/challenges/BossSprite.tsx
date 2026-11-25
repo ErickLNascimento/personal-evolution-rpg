@@ -155,6 +155,139 @@ const SHEETS: Record<string, Record<BossAnim, Sheet>> = {
       require('../../../assets/sprites/bosses/basilisco_defeat.json'),
     ],
   },
+  // Ato II (tools/sprites/gen_bosses_act2.py)
+  kraken: {
+    idle: [
+      require('../../../assets/sprites/bosses/kraken_idle.png'),
+      require('../../../assets/sprites/bosses/kraken_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/kraken_taunt.png'),
+      require('../../../assets/sprites/bosses/kraken_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/kraken_hit.png'),
+      require('../../../assets/sprites/bosses/kraken_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/kraken_weak.png'),
+      require('../../../assets/sprites/bosses/kraken_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/kraken_defeat.png'),
+      require('../../../assets/sprites/bosses/kraken_defeat.json'),
+    ],
+  },
+  quimera: {
+    idle: [
+      require('../../../assets/sprites/bosses/quimera_idle.png'),
+      require('../../../assets/sprites/bosses/quimera_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/quimera_taunt.png'),
+      require('../../../assets/sprites/bosses/quimera_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/quimera_hit.png'),
+      require('../../../assets/sprites/bosses/quimera_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/quimera_weak.png'),
+      require('../../../assets/sprites/bosses/quimera_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/quimera_defeat.png'),
+      require('../../../assets/sprites/bosses/quimera_defeat.json'),
+    ],
+  },
+  banshee: {
+    idle: [
+      require('../../../assets/sprites/bosses/banshee_idle.png'),
+      require('../../../assets/sprites/bosses/banshee_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/banshee_taunt.png'),
+      require('../../../assets/sprites/bosses/banshee_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/banshee_hit.png'),
+      require('../../../assets/sprites/bosses/banshee_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/banshee_weak.png'),
+      require('../../../assets/sprites/bosses/banshee_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/banshee_defeat.png'),
+      require('../../../assets/sprites/bosses/banshee_defeat.json'),
+    ],
+  },
+  vampiro: {
+    idle: [
+      require('../../../assets/sprites/bosses/vampiro_idle.png'),
+      require('../../../assets/sprites/bosses/vampiro_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/vampiro_taunt.png'),
+      require('../../../assets/sprites/bosses/vampiro_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/vampiro_hit.png'),
+      require('../../../assets/sprites/bosses/vampiro_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/vampiro_weak.png'),
+      require('../../../assets/sprites/bosses/vampiro_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/vampiro_defeat.png'),
+      require('../../../assets/sprites/bosses/vampiro_defeat.json'),
+    ],
+  },
+  mimico: {
+    idle: [
+      require('../../../assets/sprites/bosses/mimico_idle.png'),
+      require('../../../assets/sprites/bosses/mimico_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/mimico_taunt.png'),
+      require('../../../assets/sprites/bosses/mimico_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/mimico_hit.png'),
+      require('../../../assets/sprites/bosses/mimico_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/mimico_weak.png'),
+      require('../../../assets/sprites/bosses/mimico_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/mimico_defeat.png'),
+      require('../../../assets/sprites/bosses/mimico_defeat.json'),
+    ],
+  },
+  medusa: {
+    idle: [
+      require('../../../assets/sprites/bosses/medusa_idle.png'),
+      require('../../../assets/sprites/bosses/medusa_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/medusa_taunt.png'),
+      require('../../../assets/sprites/bosses/medusa_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/medusa_hit.png'),
+      require('../../../assets/sprites/bosses/medusa_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/medusa_weak.png'),
+      require('../../../assets/sprites/bosses/medusa_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/medusa_defeat.png'),
+      require('../../../assets/sprites/bosses/medusa_defeat.json'),
+    ],
+  },
   // Minichefes das emboscadas (tools/sprites/gen_minis.py)
   goblin: {
     idle: [

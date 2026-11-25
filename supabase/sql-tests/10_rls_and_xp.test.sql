@@ -2220,6 +2220,30 @@ end $$;
 reset role;
 update public.app_settings set value = 0 where key = 'feature_ambush';
 
+-- ── Ato II dos chefes ───────────────────────────────────────
+reset role;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  before_now text := public.boss_for_week(date_trunc('week', pg_temp.today())::date);
+  before_past text := public.boss_for_week(date_trunc('week', pg_temp.today())::date - 7);
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_act_2') = 0,
+    'Ato II começa desligado');
+  -- começa nesta semana, mas com a flag desligada nada muda
+  update public.app_settings set value = (monday - date '1970-01-01') / 7 where key = 'boss_act2_start_week';
+  perform pg_temp.check(public.boss_for_week(monday) = before_now, 'flag desligada: chefe de sempre');
+  update public.app_settings set value = 1 where key = 'feature_act_2';
+  perform pg_temp.check(public.boss_for_week(monday) = 'kraken', 'Ato II começa por um chefe novo');
+  perform pg_temp.check(public.boss_for_week(monday + 7) = 'golem', 'depois um antigo');
+  perform pg_temp.check(public.boss_for_week(monday + 84) = 'kraken', 'rodízio de 12 semanas');
+  perform pg_temp.check(public.boss_for_week(monday - 7) = before_past, 'semanas passadas mantêm o chefe');
+  perform pg_temp.check(public.boss_weakness('medusa') = 'finance' and public.boss_weakness('mimico') = 'knowledge',
+    'fraquezas do Ato II');
+  update public.app_settings set value = 0 where key = 'feature_act_2';
+  update public.app_settings set value = 0 where key = 'boss_act2_start_week';
+end $$;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

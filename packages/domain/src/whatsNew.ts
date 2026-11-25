@@ -29,6 +29,23 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 11,
+    date: '2026-12-07',
+    items: [
+      {
+        icon: 'planet',
+        flag: 'feature_act_2',
+        title: 'Ato II: seis chefes novos',
+        text: 'Kraken do Perfeccionismo, Quimera da Comparação, Banshee da Culpa, Vampiro da Insônia, Mímico das Desculpas e Medusa do Gasto entram no rodízio, alternando com os antigos.',
+        en: {
+          title: 'Act II: six new bosses',
+          text: 'The Kraken of Perfectionism, Chimera of Comparison, Banshee of Guilt, Vampire of Insomnia, Mimic of Excuses and Medusa of Spending join the rotation, alternating with the old ones.',
+        },
+        route: '/challenges',
+      },
+    ],
+  },
+  {
     version: 10,
     date: '2026-12-04',
     items: [

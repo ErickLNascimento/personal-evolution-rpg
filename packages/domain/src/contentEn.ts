@@ -299,6 +299,12 @@ export const BOSS_EN: Record<string, { name: string; taunt: string }> = {
   dragao: { name: 'Dragon of Fatigue', taunt: 'You deserve to skip today.' },
   sombra: { name: 'Shadow of Doubt', taunt: "Why even try? It won't work." },
   basilisco: { name: 'Screen Basilisk', taunt: 'Look at me. Just one more scroll.' },
+  kraken: { name: 'Kraken of Perfectionism', taunt: "Only start when it's perfect." },
+  quimera: { name: 'Chimera of Comparison', taunt: "Their life is so much better, right?" },
+  banshee: { name: 'Banshee of Guilt', taunt: 'You should have done it yesterday.' },
+  vampiro: { name: 'Vampire of Insomnia', taunt: 'The night is young.' },
+  mimico: { name: 'Mimic of Excuses', taunt: "Not today, tomorrow I promise." },
+  medusa: { name: 'Medusa of Spending', taunt: "Buy it, it's on sale!" },
 };
 
 /** Sugestões de recompensa, na mesma ordem das em português. */

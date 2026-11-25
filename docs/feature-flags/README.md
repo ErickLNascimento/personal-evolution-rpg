@@ -68,6 +68,22 @@ update public.app_settings set value = 1 where key = 'feature_data_export';
 update public.app_settings set value = 0 where key = 'feature_data_export';
 ```
 
+### Ato II dos chefes: `feature_act_2`
+
+Seis chefes novos (Kraken do Perfeccionismo, Quimera da Comparação, Banshee da Culpa, Vampiro da
+Insônia, Mímico das Desculpas, Medusa do Gasto) entram no rodízio a partir da semana marcada em
+`boss_act2_start_week`. Dali em diante são 12 chefes, alternando novo e antigo, começando por um novo;
+as semanas anteriores mantêm o chefe que tiveram. O Bestiário ganha a página do Ato II. **Começa
+desligada.** Ligue só depois que a versão com os sprites novos chegar aos testers, e não desligue
+depois de começar (as semanas já vividas voltariam aos chefes do Ato I).
+
+```sql
+-- marcar a segunda-feira de início (número da semana desde 1970) e ligar
+update public.app_settings set value = ('2026-12-07'::date - date '1970-01-01') / 7
+  where key = 'boss_act2_start_week';
+update public.app_settings set value = 1 where key = 'feature_act_2';
+```
+
 ### Patentes dos chefes: `feature_boss_ranks`
 
 Cada vitória contra um chefe o faz voltar uma patente acima (Soldado, Capitão, General, Lorde), com

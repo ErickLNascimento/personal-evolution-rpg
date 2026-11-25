@@ -969,6 +969,7 @@ const pt = {
     inviteSummary: 'Seu código: {code}',
   },
   bestiary: {
+    act2: 'ATO II',
     ambushes: 'EMBOSCADAS',
     title: 'Bestiário',
     summary: '{done} de {total} vitórias',

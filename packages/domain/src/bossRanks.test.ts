@@ -9,7 +9,7 @@ import {
   rankRule,
   type BossVictory,
 } from './bossRanks';
-import { BOSSES, BOSS_WEAKNESS, bossForWeek, missionDamage, weeklyBoss } from './challenges';
+import { ALL_BOSSES, BOSSES, BOSS_WEAKNESS, bossForWeek, missionDamage, weeklyBoss } from './challenges';
 import type { Habit } from './schedule';
 
 const golem = BOSSES.find((b) => b.id === 'golem')!;
@@ -80,7 +80,7 @@ describe('bestiário', () => {
 describe('fraquezas', () => {
   it('missão da área fraca tira 2 de vida; sem área ou outra área, 1', () => {
     expect(BOSS_WEAKNESS.golem).toBe('health');
-    expect(Object.keys(BOSS_WEAKNESS).sort()).toEqual(BOSSES.map((b) => b.id).sort());
+    expect(Object.keys(BOSS_WEAKNESS).sort()).toEqual(ALL_BOSSES.map((b) => b.id).sort());
     expect(missionDamage('health', 'health')).toBe(2);
     expect(missionDamage('career', 'health')).toBe(1);
     expect(missionDamage(null, 'health')).toBe(1);

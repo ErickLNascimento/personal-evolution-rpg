@@ -968,6 +968,7 @@ const en: Translations = {
     inviteSummary: 'Your code: {code}',
   },
   bestiary: {
+    act2: 'ACT II',
     ambushes: 'AMBUSHES',
     title: 'Bestiary',
     summary: '{done} of {total} victories',
