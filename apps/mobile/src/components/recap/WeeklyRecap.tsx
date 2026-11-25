@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { RecapTier, WeeklyRecap } from '@per/domain';
+import { bossForWeek, bossText, type RecapTier, type WeeklyRecap } from '@per/domain';
 import type { ComponentProps } from 'react';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -24,6 +24,7 @@ export function WeeklyRecapBody({ recap: r }: { recap: WeeklyRecap }) {
   const { t, locale } = useT();
   const tier = RECAP_TIER[r.tier];
   const pct = Math.round(r.week.rate * 100);
+  const bossName = bossText(bossForWeek(r.week.weekStart), locale).name;
   return (
     <View style={styles.body}>
       <Text style={typography.caption}>
@@ -59,7 +60,9 @@ export function WeeklyRecapBody({ recap: r }: { recap: WeeklyRecap }) {
         style={({ pressed }) => [styles.bossLine, pressed && styles.pressed]}
       >
         <Text style={[typography.body, styles.flex]}>
-          {r.bossDefeated ? `⚔️ ${t('recap.bossDefeated')}` : `🛡 ${t('recap.bossSurvived')}`}
+          {r.bossDefeated
+            ? `⚔️ ${t('recap.bossDefeated', { name: bossName })}`
+            : `🛡 ${t('recap.bossSurvived', { name: bossName })}`}
         </Text>
         <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
       </Pressable>
