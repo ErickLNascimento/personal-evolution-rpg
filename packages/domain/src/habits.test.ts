@@ -55,8 +55,32 @@ describe('formulário de hábito', () => {
         targetQty: null,
         unit: null,
         reminderTime: null,
+        reminderEveryMinutes: null,
+        reminderUntil: null,
       },
     });
+  });
+
+  it('repetição do lembrete: só em missão de contar, com fim depois do início', () => {
+    const base = {
+      title: 'Água',
+      kind: 'count' as const,
+      difficulty: 'easy' as const,
+      scheduleDays: [1],
+      objectiveId: null,
+      targetQty: '8',
+      unit: 'copos',
+      reminderTime: '08:00',
+      reminderEveryMinutes: 120,
+      reminderUntil: '20:00',
+    };
+    const ok = validateHabitDraft(base);
+    expect(ok.ok && ok.value.reminderEveryMinutes).toBe(120);
+    expect(ok.ok && ok.value.reminderUntil).toBe('20:00');
+    const early = validateHabitDraft({ ...base, reminderUntil: '07:00' });
+    expect(early.ok).toBe(false);
+    const doKind = validateHabitDraft({ ...base, kind: 'do', targetQty: '', unit: '' });
+    expect(doKind.ok && doKind.value.reminderEveryMinutes).toBe(null);
   });
 
   it('contador exige meta inteira', () => {

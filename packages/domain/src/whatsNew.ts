@@ -47,6 +47,17 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         },
         route: '/profile',
       },
+      {
+        icon: 'water',
+        flag: 'feature_reminder_repeat',
+        title: 'Lembretes ao longo do dia',
+        text: 'Missões de contar, como beber 8 copos de água, podem lembrar de hora em hora ou a cada 2, 3 ou 4 horas. Quando você bate a meta, os lembretes do dia param.',
+        en: {
+          title: 'Reminders throughout the day',
+          text: 'Count missions, like drinking 8 glasses of water, can remind you every hour or every 2, 3 or 4 hours. Once you hit the goal, the day\'s reminders stop.',
+        },
+        route: '/habits',
+      },
     ],
   },
   {

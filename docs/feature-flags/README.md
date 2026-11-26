@@ -84,6 +84,22 @@ update public.app_settings set value = ('2026-12-07'::date - date '1970-01-01') 
 update public.app_settings set value = 1 where key = 'feature_act_2';
 ```
 
+### Lembretes ao longo do dia: `feature_reminder_repeat`
+
+Nas missões de contar (ex.: 8 copos de água), o lembrete pode se repetir a cada 1h, 1h30, 2h, 3h ou
+4h, do horário do lembrete até o último (padrão 20h), no máximo 12 por dia. São notificações locais
+agendadas com data para os próximos 3 dias e reagendadas a cada registro e ao abrir o app: no dia em
+que a meta é batida, os restantes não tocam. Colunas `habits.reminder_every_minutes` e
+`habits.reminder_until`. Desligada, a opção some do formulário (quem já tem repetição pode
+desligá-la) e gravar ou mudar a repetição recusa com `PR050` (gatilho na tabela). **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_reminder_repeat';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_reminder_repeat';
+```
+
 ### Push de verdade: `feature_push`
 
 Avisos com o app fechado (plano completo em `docs/push/README.md`): Fogueira (convites, missões em

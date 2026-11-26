@@ -133,6 +133,13 @@ const en: Translations = {
     hintActive: 'See stats, edit or archive',
   },
   habitForm: {
+    repeat: 'Remind me throughout the day',
+    repeatHint: 'For missions you do several times a day, like drinking water.',
+    repeatHours: 'every {h}h',
+    repeatHoursHalf: 'every {h}h30',
+    repeatUntil: 'Last reminder',
+    repeatUntilA11y: 'Last reminder at {time}. Tap to change.',
+    repeatSummary: '{count} reminders a day: {times}. They stop once you hit the goal.',
     name: 'Mission name',
     namePlaceholder: 'What do you want to do?',
     oracleA11y: 'Ask the Oracle to set up this mission',
@@ -804,6 +811,7 @@ const en: Translations = {
     planDecide: 'Couldn\'t save your decision. Try again.',
   },
   notifications: {
+    repeatBody: 'Reminder {index} of {total}: log what you\'ve done.',
     channelHabits: 'Habit reminders',
     channelSmart: 'Streak, flash mission and promotions',
     reminderBody: 'Time for your mission. Complete it in the app to earn XP.',

@@ -26,6 +26,9 @@ export interface HabitRecord {
   archivedOn: LocalDate | null;
   /** "HH:MM:SS" como vem do Postgres, ou `null`. */
   reminderTime: string | null;
+  /** Repetir o lembrete ao longo do dia: intervalo (min) e fim ("HH:MM:SS"). */
+  reminderEveryMinutes: number | null;
+  reminderUntil: string | null;
   /** Área do objetivo (null = sem objetivo). */
   category?: ObjectiveCategory | null;
   /** Férias do usuário: nesses dias o hábito não fica agendado (isHabitScheduledOn). */
@@ -60,14 +63,18 @@ interface HabitRow {
   start_date: string;
   archived_on: string | null;
   reminder_time: string | null;
+  /** Ausentes em bancos sem a migration dos lembretes repetidos. */
+  reminder_every_minutes?: number | null;
+  reminder_until?: string | null;
   /** Objetivo embutido (só a área), para as fraquezas dos chefes. */
   objectives?: { category: ObjectiveCategory } | null;
 }
 
-const HABIT_COLUMNS =
+const BASE_COLUMNS =
   'id, title, kind, difficulty, schedule_days, objective_id, target_qty, unit, start_date, archived_on, reminder_time, objectives(category)';
-/** Sem `kind`, para bancos que ainda não receberam a migration dos tipos de hábito. */
-const LEGACY_COLUMNS = HABIT_COLUMNS.replace(' kind,', '');
+const HABIT_COLUMNS = `${BASE_COLUMNS}, reminder_every_minutes, reminder_until`;
+/** Para bancos antigos: sem os lembretes repetidos e, depois, sem `kind` (tipos de hábito). */
+const FALLBACK_COLUMNS = [BASE_COLUMNS, BASE_COLUMNS.replace(' kind,', '')];
 /** Postgres: coluna inexistente. */
 const UNDEFINED_COLUMN = '42703';
 
@@ -85,6 +92,8 @@ function fromRow(row: HabitRow): HabitRecord {
     startDate: row.start_date,
     archivedOn: row.archived_on,
     reminderTime: row.reminder_time,
+    reminderEveryMinutes: row.reminder_every_minutes ?? null,
+    reminderUntil: row.reminder_until ?? null,
     category: row.objectives?.category ?? null,
   };
 }
@@ -99,6 +108,8 @@ function toRow(input: HabitInput) {
     target_qty: input.targetQty,
     unit: input.unit,
     reminder_time: input.reminderTime,
+    reminder_every_minutes: input.reminderEveryMinutes,
+    reminder_until: input.reminderUntil,
   };
 }
 
@@ -125,7 +136,10 @@ export async function listHabits(): Promise<Result<HabitRecord[]>> {
       .returns<HabitRow[]>();
   const vacations = vacationsOrNone();
   let { data, error } = await query(HABIT_COLUMNS);
-  if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(LEGACY_COLUMNS));
+  for (const columns of FALLBACK_COLUMNS) {
+    if (error?.code !== UNDEFINED_COLUMN) break;
+    ({ data, error } = await query(columns));
+  }
   if (error) return failure(error, t('errors.loadHabits'));
   if (!data) return { data: null, error: t('errors.loadHabits') };
   return { data: withVacations(data.map(fromRow), await vacations), error: null };
@@ -136,7 +150,10 @@ export async function getHabit(id: string): Promise<Result<HabitRecord>> {
     client().from('habits').select(columns).eq('id', id).single<HabitRow>();
   const vacations = vacationsOrNone();
   let { data, error } = await query(HABIT_COLUMNS);
-  if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(LEGACY_COLUMNS));
+  for (const columns of FALLBACK_COLUMNS) {
+    if (error?.code !== UNDEFINED_COLUMN) break;
+    ({ data, error } = await query(columns));
+  }
   if (error) return failure(error, t('errors.habitNotFound'));
   if (!data) return { data: null, error: t('errors.habitNotFound') };
   return { data: { ...fromRow(data), vacations: await vacations }, error: null };

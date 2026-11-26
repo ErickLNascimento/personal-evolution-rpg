@@ -134,6 +134,13 @@ const pt = {
     hintActive: 'Ver estatísticas, editar ou arquivar',
   },
   habitForm: {
+    repeat: 'Lembrar ao longo do dia',
+    repeatHint: 'Para missões de várias vezes ao dia, como beber água.',
+    repeatHours: 'a cada {h}h',
+    repeatHoursHalf: 'a cada {h}h30',
+    repeatUntil: 'Último lembrete',
+    repeatUntilA11y: 'Último lembrete às {time}. Toque para mudar.',
+    repeatSummary: '{count} lembretes por dia: {times}. Param quando você bate a meta.',
     name: 'Nome da missão',
     namePlaceholder: 'O que você quer fazer?',
     oracleA11y: 'Consultar o Oráculo para montar esta missão',
@@ -805,6 +812,7 @@ const pt = {
     planDecide: 'Não foi possível salvar a decisão. Tente de novo.',
   },
   notifications: {
+    repeatBody: 'Lembrete {index} de {total}: registre o que já fez.',
     channelHabits: 'Lembretes de hábitos',
     channelSmart: 'Streak, missão relâmpago e promoções',
     reminderBody: 'Hora da sua missão. Conclua no app para ganhar XP.',

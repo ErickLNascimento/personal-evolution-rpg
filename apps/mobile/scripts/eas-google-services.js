@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 const src = process.env.GOOGLE_SERVICES_JSON;
-const dest = path.join(__dirname, '..', 'google-services.json');
+// O EAS roda o hook na pasta do app (apps/mobile).
+const dest = path.resolve(process.cwd(), 'google-services.json');
 if (src && fs.existsSync(src)) {
   fs.copyFileSync(src, dest);
   console.log('google-services.json copiado do EAS');

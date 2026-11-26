@@ -35,6 +35,8 @@ export const FEATURES = {
   duoQuests: 'feature_duo_quests',
   /** Push de verdade: avisos com o app fechado (social, chefes e reengajamento). */
   push: 'feature_push',
+  /** Lembretes ao longo do dia nas missões de contar (ex.: beber água a cada 2 h). */
+  reminderRepeat: 'feature_reminder_repeat',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

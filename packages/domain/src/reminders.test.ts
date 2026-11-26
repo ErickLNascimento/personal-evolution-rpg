@@ -1,4 +1,4 @@
-import { formatReminderTime, parseReminderTime, reminderSchedule, type ReminderHabit } from './reminders';
+import { formatReminderTime, parseReminderTime, reminderSchedule, reminderTimesOfDay, repeatReminderDates, type ReminderHabit } from './reminders';
 
 describe('horário do lembrete', () => {
   it('lê o formato da tela e o do Postgres', () => {
@@ -43,5 +43,52 @@ describe('agenda de lembretes', () => {
     expect(r.reminders).toHaveLength(10);
     expect(r.truncated).toBe(true);
     expect(reminderSchedule(many, 15).truncated).toBe(false);
+  });
+});
+
+describe('lembretes ao longo do dia', () => {
+  const agua = {
+    id: 'agua',
+    title: 'Beber água',
+    scheduleDays: [0, 1, 2, 3, 4, 5, 6],
+    reminderTime: '08:00',
+    reminderEveryMinutes: 120,
+    reminderUntil: '20:00',
+  };
+  const dias = [
+    { date: '2026-11-26', weekday: 4 },
+    { date: '2026-11-27', weekday: 5 },
+  ];
+
+  it('gera os horários do primeiro até o fim', () => {
+    expect(reminderTimesOfDay(agua).map(formatReminderTime)).toEqual([
+      '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00',
+    ]);
+    expect(reminderTimesOfDay({ ...agua, reminderEveryMinutes: null })).toHaveLength(1);
+  });
+
+  it('no máximo 12 por dia', () => {
+    expect(reminderTimesOfDay({ ...agua, reminderTime: '00:00', reminderUntil: '23:59', reminderEveryMinutes: 60 })).toHaveLength(12);
+  });
+
+  it('hoje só os que faltam; amanhã o dia todo', () => {
+    const r = repeatReminderDates([agua], { date: '2026-11-26', hour: 15, minute: 0 }, new Set(), dias);
+    expect(r.filter((x) => x.date === '2026-11-26').map((x) => x.hour)).toEqual([16, 18, 20]);
+    expect(r.filter((x) => x.date === '2026-11-27')).toHaveLength(7);
+    expect(r[0]).toMatchObject({ index: 5, total: 7 });
+  });
+
+  it('meta batida hoje: para os de hoje', () => {
+    const r = repeatReminderDates([agua], { date: '2026-11-26', hour: 9, minute: 0 }, new Set(['agua']), dias);
+    expect(r.every((x) => x.date === '2026-11-27')).toBe(true);
+  });
+
+  it('só nos dias da agenda', () => {
+    const r = repeatReminderDates([{ ...agua, scheduleDays: [5] }], { date: '2026-11-26', hour: 0, minute: 0 }, new Set(), dias);
+    expect(new Set(r.map((x) => x.date))).toEqual(new Set(['2026-11-27']));
+  });
+
+  it('o lembrete semanal comum ignora os repetidos', () => {
+    expect(reminderSchedule([agua]).reminders).toHaveLength(0);
   });
 });

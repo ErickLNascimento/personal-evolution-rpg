@@ -2716,6 +2716,65 @@ do $$ begin
 end $$;
 reset role;
 
+-- ── Lembretes ao longo do dia ───────────────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_reminder_repeat') = 0,
+    'lembretes repetidos começam desligados');
+end $$;
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+do $$ begin
+  begin
+    insert into public.habits (user_id, title, kind, target_qty, start_date, reminder_time, reminder_every_minutes, reminder_until)
+    values ('f1000000-0000-0000-0000-000000000001', 'Água', 'count', 8, pg_temp.today(), '08:00', 60, '20:00');
+    raise exception 'FALHOU: gravou repetição com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_reminder_repeat';
+set local role authenticated;
+do $$
+declare h uuid;
+begin
+  insert into public.habits (user_id, title, kind, target_qty, start_date, reminder_time, reminder_every_minutes, reminder_until)
+  values ('f1000000-0000-0000-0000-000000000001', 'Água', 'count', 8, pg_temp.today(), '08:00', 60, '20:00')
+  returning id into h;
+  perform set_config('test.water', h::text, false);
+  begin
+    update public.habits set reminder_every_minutes = 45 where id = h;
+    raise exception 'FALHOU: aceitou intervalo de 45 min';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.habits set reminder_until = '07:00' where id = h;
+    raise exception 'FALHOU: fim antes do primeiro lembrete';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.habits set reminder_until = null where id = h;
+    raise exception 'FALHOU: intervalo sem fim';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_reminder_repeat';
+set local role authenticated;
+do $$ begin
+  -- desligada: o hábito que já repete continua editável em outros campos
+  update public.habits set title = 'Beber água' where id = current_setting('test.water')::uuid;
+  begin
+    update public.habits set reminder_every_minutes = 120 where id = current_setting('test.water')::uuid;
+    raise exception 'FALHOU: mudou a repetição com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  -- tirar a repetição sempre pode
+  update public.habits set reminder_every_minutes = null, reminder_until = null
+  where id = current_setting('test.water')::uuid;
+end $$;
+reset role;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

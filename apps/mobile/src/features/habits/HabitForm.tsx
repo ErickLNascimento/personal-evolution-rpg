@@ -13,6 +13,9 @@ import {
   formatReminderTime,
   parseReminderTime,
   validateObjectiveTitle,
+  DEFAULT_REMINDER_UNTIL,
+  REMINDER_REPEAT_MINUTES,
+  reminderTimesOfDay,
   WEEKDAY_SHORTS,
   xpForHabit,
   type HabitDraft,
@@ -93,6 +96,8 @@ export function HabitForm({
   const kind = draft.kind ?? 'do';
   // Desligado, some o seletor; hábitos que já são Evitar/Contar seguem editáveis.
   const kindsOn = useFeature(FEATURES.habitKinds) || (initial.kind ?? 'do') !== 'do';
+  // Lembretes ao longo do dia: com a flag, ou se o hábito já repete (para poder desligar).
+  const repeatOn = useFeature(FEATURES.reminderRepeat) || Boolean(initial.reminderEveryMinutes);
 
   async function submit() {
     const result = validateHabitDraft(draft, locale);
@@ -160,6 +165,18 @@ export function HabitForm({
         onChange={(v) => set('reminderTime', v)}
         error={errors.reminderTime}
       />
+
+      {repeatOn && kind === 'count' && draft.reminderTime ? (
+        <RepeatField
+          start={draft.reminderTime}
+          every={draft.reminderEveryMinutes ?? null}
+          until={draft.reminderUntil ?? null}
+          onChange={(every, until) =>
+            setDraft((d) => ({ ...d, reminderEveryMinutes: every, reminderUntil: until }))
+          }
+          error={errors.reminderUntil}
+        />
+      ) : null}
 
       {kind === 'avoid' ? null : kind === 'count' || showTarget ? (
         <View style={styles.group}>
@@ -314,6 +331,102 @@ function ReminderField({
             ? t('habitForm.reminderOn')
             : t('habitForm.reminderOff')}
       </Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
+/** Lembrar ao longo do dia (missões de contar): intervalo e horário do último lembrete. */
+function RepeatField({
+  start,
+  every,
+  until,
+  onChange,
+  error,
+}: {
+  start: string;
+  every: number | null;
+  until: string | null;
+  onChange: (every: number | null, until: string | null) => void;
+  error?: string;
+}) {
+  const { t } = useT();
+  const [androidOpen, setAndroidOpen] = useState(false);
+  const on = every !== null;
+  const end = parseReminderTime(until ?? DEFAULT_REMINDER_UNTIL);
+  const pickerDate = new Date();
+  pickerDate.setHours(end?.hour ?? 20, end?.minute ?? 0, 0, 0);
+  const times = on
+    ? reminderTimesOfDay({ id: '', title: '', scheduleDays: [], reminderTime: start, reminderEveryMinutes: every, reminderUntil: until })
+    : [];
+
+  function pick(date: Date) {
+    setAndroidOpen(false);
+    onChange(every, formatReminderTime({ hour: date.getHours(), minute: date.getMinutes() }));
+  }
+
+  const label = (m: number) =>
+    m % 60 === 0 ? t('habitForm.repeatHours', { h: m / 60 }) : t('habitForm.repeatHoursHalf', { h: Math.floor(m / 60) });
+
+  return (
+    <View style={styles.group}>
+      <View style={styles.switchRow}>
+        <Ionicons name="repeat" size={18} color={on ? colors.primary : colors.textSecondary} />
+        <Text style={[typography.label, styles.flex]}>{t('habitForm.repeat')}</Text>
+        <Switch
+          value={on}
+          onValueChange={(v) => onChange(v ? 120 : null, v ? (until ?? DEFAULT_REMINDER_UNTIL) : null)}
+          accessibilityLabel={t('habitForm.repeat')}
+          trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
+        />
+      </View>
+      {on && (
+        <>
+          <Chips
+            options={REMINDER_REPEAT_MINUTES.map((m) => ({ value: m, label: label(m) }))}
+            selected={[every]}
+            onToggle={(m) => onChange(m, until ?? DEFAULT_REMINDER_UNTIL)}
+          />
+          <View style={styles.switchRow}>
+            <Text style={[typography.body, styles.flex]}>{t('habitForm.repeatUntil')}</Text>
+            {Platform.OS === 'ios' ? (
+              <DateTimePicker
+                value={pickerDate}
+                mode="time"
+                display="compact"
+                locale="pt-BR"
+                themeVariant="dark"
+                onValueChange={(_e, date) => pick(date)}
+              />
+            ) : (
+              <Pressable
+                onPress={() => setAndroidOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t('habitForm.repeatUntilA11y', { time: until ?? DEFAULT_REMINDER_UNTIL })}
+                style={styles.timeButton}
+              >
+                <Text style={typography.body}>{until ?? DEFAULT_REMINDER_UNTIL}</Text>
+              </Pressable>
+            )}
+          </View>
+          {androidOpen && Platform.OS !== 'ios' && (
+            <DateTimePicker
+              value={pickerDate}
+              mode="time"
+              is24Hour
+              onValueChange={(_e, date) => pick(date)}
+              onDismiss={() => setAndroidOpen(false)}
+            />
+          )}
+          <Text style={typography.caption}>
+            {t('habitForm.repeatSummary', {
+              count: times.length,
+              times: times.map(formatReminderTime).join(', '),
+            })}
+          </Text>
+        </>
+      )}
+      {!on && <Text style={typography.caption}>{t('habitForm.repeatHint')}</Text>}
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
