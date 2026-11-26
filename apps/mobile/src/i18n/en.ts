@@ -998,6 +998,17 @@ const en: Translations = {
     errorLate: 'This ambush has already ended.',
     errorClaim: 'Couldn\'t claim. Try again.',
   },
+  invites: {
+    kicker: 'CAMPFIRE INVITE',
+    wants: '{name} wants to join you on your journey.',
+    level: 'Level {level}',
+    later: 'Later',
+    more: '+{count} invites at the Campfire',
+    moreOne: '+1 invite at the Campfire',
+    tabA11y: '{tab}, {count} friend invites',
+    tabA11yOne: '{tab}, 1 friend invite',
+    declined: 'Invite declined.',
+  },
 };
 
 export default en;

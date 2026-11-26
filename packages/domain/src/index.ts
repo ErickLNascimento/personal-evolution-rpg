@@ -26,6 +26,7 @@ export * from './features';
 export * from './vacation';
 export * from './feedbackPrompt';
 export * from './recap';
+export * from './friendAlerts';
 export * from './bossRanks';
 export * from './ambush';
 export * from './monthlyBoss';

@@ -999,6 +999,17 @@ const pt = {
     errorLate: 'O prazo desta emboscada já passou.',
     errorClaim: 'Não foi possível resgatar. Tente de novo.',
   },
+  invites: {
+    kicker: 'CONVITE PARA A FOGUEIRA',
+    wants: '{name} quer ser seu companheiro de jornada.',
+    level: 'Nível {level}',
+    later: 'Depois',
+    more: '+{count} convites na Fogueira',
+    moreOne: '+1 convite na Fogueira',
+    tabA11y: '{tab}, {count} convites de amizade',
+    tabA11yOne: '{tab}, 1 convite de amizade',
+    declined: 'Convite recusado.',
+  },
 };
 
 export default pt;

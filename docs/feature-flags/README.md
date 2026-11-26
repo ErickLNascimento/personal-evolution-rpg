@@ -84,6 +84,22 @@ update public.app_settings set value = ('2026-12-07'::date - date '1970-01-01') 
 update public.app_settings set value = 1 where key = 'feature_act_2';
 ```
 
+### Aviso de convite de amizade: `feature_friend_alerts`
+
+Pedidos de amizade recebidos aparecem sem abrir a Fogueira: um contador na aba Fogueira e um
+cartão na tela Hoje com Aceitar, Recusar e Depois ("Depois" tira o convite de Hoje; o contador
+continua). O app confere ao abrir, ao voltar para ele e ao entrar em Hoje ou na Fogueira; não é
+notificação push. Só leitura (`incoming_friend_requests`); aceitar e recusar continuam em
+`respond_friend_request`. Desligada, nada aparece e `incoming_friend_requests` devolve lista vazia.
+**Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_friend_alerts';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_friend_alerts';
+```
+
 ### Lorde do mês: `feature_monthly_boss`
 
 Em Desafios, um chefe do rodízio na forma lendária (dourado) fica o mês inteiro: vida de 70% das

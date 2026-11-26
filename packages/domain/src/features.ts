@@ -29,6 +29,8 @@ export const FEATURES = {
   act2: 'feature_act_2',
   /** Lorde do mês: um chefe lendário que dura o mês inteiro. */
   monthlyBoss: 'feature_monthly_boss',
+  /** Aviso de convite de amizade: ponto na Fogueira e cartão na tela Hoje. */
+  friendAlerts: 'feature_friend_alerts',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

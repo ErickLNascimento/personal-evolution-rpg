@@ -29,6 +29,23 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 12,
+    date: '2026-11-25',
+    items: [
+      {
+        icon: 'mail-unread',
+        flag: 'feature_friend_alerts',
+        title: 'Convites à vista',
+        text: 'Quando alguém te convida para a Fogueira, um número aparece na aba e o convite surge na tela Hoje: aceite ou recuse ali mesmo.',
+        en: {
+          title: 'Invites in sight',
+          text: 'When someone invites you to the Campfire, a number shows up on the tab and the invite appears on Today: accept or decline right there.',
+        },
+        route: '/social',
+      },
+    ],
+  },
+  {
     version: 11,
     date: '2026-12-07',
     items: [

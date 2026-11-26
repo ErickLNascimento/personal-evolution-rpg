@@ -29,6 +29,7 @@ import { Screen } from '@/components/Screen';
 import { FriendRow } from '@/components/social/FriendRow';
 import { PillButton } from '@/components/social/PillButton';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { refreshInvites } from '@/features/social/invites';
 import {
   createGroup,
   fetchFriends,
@@ -78,6 +79,7 @@ export default function SocialScreen() {
     if (me.error !== null) return me;
     if (friends.error !== null) return friends;
     if (groups.error !== null) return groups;
+    void refreshInvites();
     return { data: { me: me.data, friends: friends.data, groups: groups.data }, error: null };
   }, [userId]);
   const screen = useFocusLoad<SocialData>(load, Boolean(userId));
@@ -103,6 +105,7 @@ export default function SocialScreen() {
     if (message) setNotice(message);
     void Haptics.selectionAsync();
     screen.refresh();
+    void refreshInvites();
     return true;
   }
 

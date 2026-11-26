@@ -60,6 +60,8 @@ import { useT } from '@/i18n';
 import { VacationNotice } from '@/components/vacation/VacationNotice';
 import { rankFor, useBossProgress } from '@/features/bosses/api';
 import { AmbushCard } from '@/components/ambush/AmbushCard';
+import { FriendInviteCard } from '@/components/social/FriendInviteCard';
+import { refreshInvites } from '@/features/social/invites';
 import { fetchAmbush } from '@/features/ambush/api';
 
 export default function TodayScreen() {
@@ -152,6 +154,15 @@ function RealToday() {
   const bossRanks = useBossProgress();
   const bossRankNow = rankFor(bossRanks.progress, bossWeek, bossRanks.enabled).rank;
   const ambushOn = useFeature(FEATURES.ambush);
+  const alertsOn = useFeature(FEATURES.friendAlerts);
+  const socialOn = useFeature(FEATURES.social);
+  const invitesOn = alertsOn && socialOn;
+  // Ao voltar para Hoje, confere se chegou convite de amizade.
+  useFocusEffect(
+    useCallback(() => {
+      if (invitesOn) void refreshInvites();
+    }, [invitesOn]),
+  );
   // Fraqueza do chefe: só o selo ×2 nas missões da área (o cartão do chefe não a revela).
   const weaknessOn = useFeature(FEATURES.bossWeakness);
   const weakness = weaknessOn && challengesOn ? (BOSS_WEAKNESS[boss.id] ?? null) : null;
@@ -257,6 +268,7 @@ function RealToday() {
                 onPress={() => router.push('/promotion')}
               />
             ) : null}
+            {invitesOn && <FriendInviteCard />}
             {shieldSaved > 0 && (
               <FormMessage
                 tone="info"

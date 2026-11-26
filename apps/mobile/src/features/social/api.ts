@@ -168,6 +168,17 @@ export async function fetchFriends(): Promise<Result<FriendsData>> {
   };
 }
 
+/** Pedidos recebidos e pendentes, do mais novo ao mais antigo (aviso de convite). */
+export async function fetchIncomingRequests(): Promise<Result<FriendRequest[]>> {
+  const { data, error } = await client().rpc('incoming_friend_requests');
+  if (error) return failure(error, t('social.errorLoadFriends'));
+  const rows = (data ?? []) as { request_id: string; user: CardRow }[];
+  return {
+    data: rows.map((r) => ({ requestId: r.request_id, user: toCard(r.user) })),
+    error: null,
+  };
+}
+
 export async function sendFriendRequest(
   target: { code: string } | { userId: string },
 ): Promise<Result<{ status: 'pending' | 'accepted'; user: SocialCard }>> {

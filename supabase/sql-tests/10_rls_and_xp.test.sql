@@ -2308,6 +2308,50 @@ end $$;
 reset role;
 update public.app_settings set value = 0 where key = 'feature_monthly_boss';
 
+-- ── Aviso de convite de amizade ─────────────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_friend_alerts') = 0,
+    'aviso de convite começa desligado');
+end $$;
+-- Lia pede Juca de novo (desfizeram a amizade nos testes do Social)
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform public.send_friend_request(p_user => 'bbbbbbbb-1111-1111-1111-111111111111');
+end $$;
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.incoming_friend_requests() = '[]'::jsonb, 'desligado: sem aviso de convite');
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_friend_alerts';
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  r := public.incoming_friend_requests();
+  perform pg_temp.check(jsonb_array_length(r) = 1 and r->0->'user'->>'display_name' = 'Lia'
+    and r->0 ? 'request_id' and not (r::text like '%"streak"%'), 'ligado: Juca vê o convite de Lia, só o cartão curto');
+end $$;
+-- quem pediu não vê o próprio pedido como recebido; outra pessoa também não
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.incoming_friend_requests() = '[]'::jsonb, 'pedido enviado não aparece como recebido');
+end $$;
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.incoming_friend_requests() = '[]'::jsonb, 'convite de outra pessoa não aparece');
+end $$;
+-- aceitar some com o aviso
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform public.respond_friend_request((public.incoming_friend_requests()->0->>'request_id')::uuid, true);
+  perform pg_temp.check(public.incoming_friend_requests() = '[]'::jsonb, 'convite aceito sai do aviso');
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_friend_alerts';
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';
