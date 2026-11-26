@@ -2598,12 +2598,14 @@ do $$ begin
   exception when insufficient_privilege then null;
   end;
 end $$;
--- Bia não vê os aparelhos de Ana e convida Ana para a Fogueira
+-- Bia não vê os aparelhos de Ana e convida Ana para a Fogueira (pelo código, lido antes)
+reset role;
+select set_config('test.ana_code', (select friend_code from public.profiles where id = 'f1000000-0000-0000-0000-000000000001'), false);
 select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000002', true);
+set local role authenticated;
 do $$ begin
   perform pg_temp.check((select count(*) from public.push_tokens) = 0, 'RLS: aparelhos só do dono');
-  perform public.send_friend_request(
-    (select friend_code from public.profiles where id = 'f1000000-0000-0000-0000-000000000001'));
+  perform public.send_friend_request(current_setting('test.ana_code'));
 end $$;
 select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
 do $$ begin
