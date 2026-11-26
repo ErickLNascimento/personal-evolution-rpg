@@ -154,7 +154,7 @@ export function AppTour({
               />
             )}
             {index > 0 && (
-              <Button title="Voltar" variant="secondary" onPress={() => setIndex((i) => i - 1)} />
+              <Button title={t('screens.back')} variant="secondary" onPress={() => setIndex((i) => i - 1)} />
             )}
           </View>
         </SafeAreaView>

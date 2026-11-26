@@ -13,13 +13,11 @@ import { navigationIntegration, sentryEnabled, setSentryUser, withSentry } from 
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography } from '@/theme/tokens';
 
-const formHeader = {
+const baseHeader = {
   headerShown: true,
   headerStyle: { backgroundColor: colors.surface },
   headerTintColor: colors.text,
   headerShadowVisible: false,
-  // Sem isso o iOS mostra o nome da rota anterior, ex.: "(tabs)".
-  headerBackTitle: 'Voltar',
 } as const;
 
 function Loading() {
@@ -32,6 +30,8 @@ function Loading() {
 
 function RootNavigator() {
   const { t } = useT();
+  // Sem o título de voltar, o iOS mostra o nome da rota anterior, ex.: "(tabs)".
+  const formHeader = { ...baseHeader, headerBackTitle: t('screens.back') };
   const { session, isLoading, isDemo } = useAuth();
   const { profile, loading: profileLoading, error: profileError, reload } = useProfile();
   useReminderSync(

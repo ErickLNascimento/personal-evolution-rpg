@@ -24,19 +24,25 @@ export interface RewardInput {
   emoji?: string | null;
 }
 
-/** Mensagem de erro em português, ou null se a recompensa pode ser salva. */
-export function validateReward(input: RewardInput): string | null {
+/** Mensagem de erro no idioma pedido, ou null se a recompensa pode ser salva. */
+export function validateReward(input: RewardInput, locale: Locale = DEFAULT_LOCALE): string | null {
+  const en = locale === 'en';
   const title = input.title.trim();
-  if (title.length === 0) return 'Dê um nome para a recompensa.';
+  if (title.length === 0) return en ? 'Give the reward a name.' : 'Dê um nome para a recompensa.';
   if (title.length > REWARD_TITLE_MAX)
-    return `Use no máximo ${REWARD_TITLE_MAX} caracteres no nome.`;
+    return en
+      ? `Use at most ${REWARD_TITLE_MAX} characters in the name.`
+      : `Use no máximo ${REWARD_TITLE_MAX} caracteres no nome.`;
   if (
     !Number.isInteger(input.price) ||
     input.price < REWARD_PRICE_MIN ||
     input.price > REWARD_PRICE_MAX
   )
-    return `O preço vai de ${REWARD_PRICE_MIN} a ${REWARD_PRICE_MAX} Cristais.`;
-  if (input.emoji && [...input.emoji].length > REWARD_EMOJI_MAX) return 'Use só um emoji.';
+    return en
+      ? `The price goes from ${REWARD_PRICE_MIN} to ${REWARD_PRICE_MAX} Crystals.`
+      : `O preço vai de ${REWARD_PRICE_MIN} a ${REWARD_PRICE_MAX} Cristais.`;
+  if (input.emoji && [...input.emoji].length > REWARD_EMOJI_MAX)
+    return en ? 'Use a single emoji.' : 'Use só um emoji.';
   return null;
 }
 

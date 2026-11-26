@@ -211,7 +211,7 @@ function Rewards({ data, onChange }: { data: ShopData; onChange: () => void }) {
 }
 
 function RewardForm({ initial, onDone }: { initial?: CustomReward; onDone: () => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [emoji, setEmoji] = useState(initial?.emoji ?? '');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [price, setPrice] = useState(initial ? String(initial.price) : '');
@@ -220,7 +220,7 @@ function RewardForm({ initial, onDone }: { initial?: CustomReward; onDone: () =>
 
   async function save() {
     const value = { title, emoji: emoji || null, price: Number(price) };
-    const invalid = validateReward(value);
+    const invalid = validateReward(value, locale);
     if (invalid) return setError(invalid);
     setSaving(true);
     const r = await saveReward(value, initial?.id);

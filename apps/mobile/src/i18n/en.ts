@@ -820,6 +820,7 @@ const en: Translations = {
     seeNow: 'See now',
   },
   screens: {
+    back: 'Back',
     signOut: 'Sign out',
     newHabit: 'New mission',
     habit: 'Habit',

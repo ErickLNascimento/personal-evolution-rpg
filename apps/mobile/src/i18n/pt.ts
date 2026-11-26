@@ -821,6 +821,7 @@ const pt = {
     seeNow: 'Ver agora',
   },
   screens: {
+    back: 'Voltar',
     signOut: 'Sair',
     newHabit: 'Nova missão',
     habit: 'Hábito',
