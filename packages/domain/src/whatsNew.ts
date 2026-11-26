@@ -43,6 +43,15 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         },
         route: '/social',
       },
+      {
+        icon: 'phone-portrait',
+        title: 'Teclado no Android',
+        text: 'Ao digitar no Android, a tela rola até o campo e dá para ver o que está embaixo, como os resultados da busca de amigos.',
+        en: {
+          title: 'Keyboard on Android',
+          text: 'When typing on Android, the screen scrolls to the field and you can see what is below it, like friend search results.',
+        },
+      },
     ],
   },
   {
