@@ -9,6 +9,8 @@ import { CelebrationProvider } from '@/features/celebration/CelebrationProvider'
 import { ProfileProvider, useProfile } from '@/features/profile/ProfileProvider';
 import { LocaleProvider, useT } from '@/i18n';
 import { useReminderSync, useReminderTapOpensToday } from '@/features/reminders/useReminderSync';
+import { usePushRegistration } from '@/features/push/push';
+import { FEATURES } from '@per/domain';
 import { navigationIntegration, sentryEnabled, setSentryUser, withSentry } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography } from '@/theme/tokens';
@@ -42,6 +44,8 @@ function RootNavigator() {
   useReminderTapOpensToday();
   // Erros no Sentry ligados à conta (só o id), para cruzar com o feedback.
   const userId = isDemo ? null : (session?.user.id ?? null);
+  // Push de verdade: reafirma o registro deste aparelho (só com permissão já dada).
+  usePushRegistration(userId, Boolean(profile?.onboardingDone && profile.features.has(FEATURES.push)));
   useEffect(() => setSentryUser(userId), [userId]);
 
   // Espera ler a sessão salva para não piscar a tela de login.

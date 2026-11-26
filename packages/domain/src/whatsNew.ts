@@ -33,6 +33,23 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 14,
+    date: '2026-11-26',
+    items: [
+      {
+        icon: 'notifications',
+        flag: 'feature_push',
+        title: 'Avisos com o app fechado',
+        text: 'Saiba na hora quando um amigo te chamar, um chefe novo chegar ou um prêmio estiver esperando. Escolha o que receber em Perfil → Avisos no celular; nunca entre 22h e 8h.',
+        en: {
+          title: 'Notifications when the app is closed',
+          text: 'Know right away when a friend invites you, a new boss arrives or a reward is waiting. Choose what you get in Profile → Phone notifications; never between 10 PM and 8 AM.',
+        },
+        route: '/profile',
+      },
+    ],
+  },
+  {
     version: 13,
     date: '2026-11-26',
     items: [

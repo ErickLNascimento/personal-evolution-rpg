@@ -62,6 +62,7 @@ import { rankFor, useBossProgress } from '@/features/bosses/api';
 import { AmbushCard } from '@/components/ambush/AmbushCard';
 import { FriendInviteCard } from '@/components/social/FriendInviteCard';
 import { DuoQuestsCard } from '@/components/duo/DuoQuestsCard';
+import { PushPromptCard } from '@/components/push/PushPromptCard';
 import { fetchDuoQuests, type DuoQuest } from '@/features/duo/api';
 import { refreshInvites } from '@/features/social/invites';
 import { fetchAmbush } from '@/features/ambush/api';
@@ -172,6 +173,7 @@ function RealToday() {
   const ambush = useFocusLoad<Ambush | null>(loadAmbush, ambushOn);
   // Missões em equipe: o placar muda a cada missão concluída.
   const duoOn = useFeature(FEATURES.duoQuests) && socialOn;
+  const pushOn = useFeature(FEATURES.push);
   const loadDuos = useCallback(() => fetchDuoQuests(), []);
   const duos = useFocusLoad<DuoQuest[]>(loadDuos, duoOn);
   const refreshDuos = duos.refresh;
@@ -279,6 +281,7 @@ function RealToday() {
               />
             ) : null}
             {invitesOn && <FriendInviteCard />}
+            {pushOn && profile && <PushPromptCard userId={profile.id} />}
             {duoOn && duos.data && (
               <DuoQuestsCard
                 quests={duos.data}

@@ -1068,6 +1068,28 @@ const pt = {
     errorRespond: 'Não foi possível responder. Tente de novo.',
     errorClaim: 'Não foi possível resgatar. Tente de novo.',
   },
+  push: {
+    channelSocial: 'Fogueira (amigos e bandos)',
+    channelBosses: 'Chefes e eventos',
+    channelReengage: 'Lembretes de volta',
+    title: 'AVISOS NO CELULAR',
+    master: 'Avisos com o app fechado',
+    masterHint: 'Convites de amigos, chefe novo, emboscadas e prêmios esperando.',
+    blocked: 'Os avisos estão bloqueados nas configurações do celular. Libere para o app em Ajustes → Notificações.',
+    social: 'Fogueira',
+    socialHint: 'Convites, missões em equipe e vitórias do bando.',
+    bosses: 'Chefes e eventos',
+    bossesHint: 'Chefe novo na segunda, emboscadas, Lorde do mês e prêmios.',
+    reengage: 'Lembrete de volta',
+    reengageHint: 'Depois de 3 dias sem missão, no máximo 1 por semana.',
+    quiet: 'Nunca entre 22h e 8h.',
+    promptTitle: 'Não perca nada da Fogueira',
+    promptText: 'Ative os avisos para saber quando um amigo te chamar, um chefe novo chegar ou um prêmio estiver esperando.',
+    promptYes: 'Ativar avisos',
+    promptNo: 'Agora não',
+    errorLoad: 'Não foi possível carregar as preferências de aviso.',
+    errorSave: 'Não foi possível salvar. Tente de novo.',
+  },
 };
 
 export default pt;

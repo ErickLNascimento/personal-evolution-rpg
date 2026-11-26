@@ -84,6 +84,23 @@ update public.app_settings set value = ('2026-12-07'::date - date '1970-01-01') 
 update public.app_settings set value = 1 where key = 'feature_act_2';
 ```
 
+### Push de verdade: `feature_push`
+
+Avisos com o app fechado (plano completo em `docs/push/README.md`): Fogueira (convites, missões em
+equipe, vitórias do bando), Chefes e eventos (chefe novo, prêmio esperando, emboscada, último dia do
+Lorde) e Reengajamento (3+ dias sem missão, no máximo 1 por semana). Silêncio das 22h às 8h no fuso
+da pessoa e no máximo 3 avisos de chefes + reengajamento por dia. Envio pela Edge Function
+`push-dispatch` (pg_cron a cada 5 min). No Android, exige o APK com Firebase. Desligada, o app não
+pede permissão nem registra o aparelho, nada entra na fila e `register_push_token`,
+`unregister_push_token` e `set_push_settings` recusam com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_push';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_push';
+```
+
 ### Missões em equipe: `feature_duo_quests`
 
 Na Fogueira (e no menu de um amigo), um amigo convida outro para um desafio da semana (segunda a

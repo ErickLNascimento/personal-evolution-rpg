@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { clearReminders, syncReminders } from '@/lib/reminders';
@@ -25,13 +25,24 @@ export function useReminderSync(userId: string | null, enabled: boolean, authLoa
   }, [userId, enabled, authLoading]);
 }
 
-/** Tocar num lembrete abre a aba Hoje (onde a missão é concluída); o de promoção abre a cerimônia. */
+/**
+ * Tocar num aviso abre a tela dele: o push do servidor traz `route` (ex.: /social); lembrete local
+ * abre a aba Hoje, e o de promoção, a cerimônia. Vale também para o toque que abriu o app.
+ */
 export function useReminderTapOpensToday() {
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const kind = response.notification.request.content.data?.kind;
-      router.navigate(kind === 'promotion' ? '/promotion' : '/');
-    });
+    const open = (response: Notifications.NotificationResponse) => {
+      const data = response.notification.request.content.data ?? {};
+      const route = typeof data.route === 'string' && data.route.startsWith('/') ? data.route : null;
+      router.navigate((route ?? (data.kind === 'promotion' ? '/promotion' : '/')) as Href);
+    };
+    const first = Notifications.getLastNotificationResponse();
+    if (first) {
+      // Espera o navegador montar antes de abrir a tela do aviso.
+      setTimeout(() => open(first), 300);
+      Notifications.clearLastNotificationResponse();
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
     return () => sub.remove();
   }, []);
 }

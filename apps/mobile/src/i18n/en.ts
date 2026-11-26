@@ -1067,6 +1067,28 @@ const en: Translations = {
     errorRespond: 'Couldn\'t respond. Try again.',
     errorClaim: 'Couldn\'t claim. Try again.',
   },
+  push: {
+    channelSocial: 'Campfire (friends and parties)',
+    channelBosses: 'Bosses and events',
+    channelReengage: 'Come-back reminders',
+    title: 'PHONE NOTIFICATIONS',
+    master: 'Notifications when the app is closed',
+    masterHint: 'Friend invites, new bosses, ambushes and rewards waiting.',
+    blocked: 'Notifications are blocked in your phone settings. Allow them for the app in Settings → Notifications.',
+    social: 'Campfire',
+    socialHint: 'Invites, team quests and party victories.',
+    bosses: 'Bosses and events',
+    bossesHint: 'New boss on Monday, ambushes, Lord of the month and rewards.',
+    reengage: 'Come-back reminder',
+    reengageHint: 'After 3 days without missions, at most once a week.',
+    quiet: 'Never between 10 PM and 8 AM.',
+    promptTitle: 'Don\'t miss anything at the Campfire',
+    promptText: 'Turn on notifications to know when a friend invites you, a new boss arrives or a reward is waiting.',
+    promptYes: 'Turn on',
+    promptNo: 'Not now',
+    errorLoad: 'Couldn\'t load notification preferences.',
+    errorSave: 'Couldn\'t save. Try again.',
+  },
 };
 
 export default en;

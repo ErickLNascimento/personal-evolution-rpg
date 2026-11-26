@@ -33,6 +33,8 @@ export const FEATURES = {
   friendAlerts: 'feature_friend_alerts',
   /** Missões em equipe: desafio semanal de dupla entre amigos (Fogueira e tela Hoje). */
   duoQuests: 'feature_duo_quests',
+  /** Push de verdade: avisos com o app fechado (social, chefes e reengajamento). */
+  push: 'feature_push',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

@@ -2536,6 +2536,184 @@ do $$ begin
 end $$;
 reset role;
 
+-- ── Push de verdade ─────────────────────────────────────────
+-- Ana e Bia, no fuso UTC (as horas dos testes ficam previsíveis).
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('f1000000-0000-0000-0000-000000000001', 'ana@teste.dev', '{"display_name":"Ana"}'),
+  ('f1000000-0000-0000-0000-000000000002', 'bia@teste.dev', '{"display_name":"Bia"}');
+update public.profiles set timezone = 'UTC', display_name = case id
+    when 'f1000000-0000-0000-0000-000000000001' then 'Ana' else 'Bia' end
+where id in ('f1000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000002');
+select set_config('test.noon', ((date_trunc('day', now() at time zone 'UTC') + interval '12 hours') at time zone 'UTC')::text, false);
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_push') = 0, 'push começa desligado');
+  perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'social', 'teste:desligado', 'a', 'b', 'c', 'd');
+  perform pg_temp.check(not exists (select 1 from public.push_outbox), 'desligado: nada entra na fila');
+  perform pg_temp.check(not exists (select 1 from public.push_claim_batch(100, current_setting('test.noon')::timestamptz)),
+    'desligado: lote vazio');
+end $$;
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.register_push_token('ExponentPushToken[ana-1]', 'android', 'pt-BR');
+    raise exception 'FALHOU: registrou aparelho com o push desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_push';
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.register_push_token('qualquer-coisa', 'android', 'pt-BR');
+    raise exception 'FALHOU: aceitou token inválido';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.register_push_token('ExponentPushToken[ana-1]', 'windows', 'pt-BR');
+    raise exception 'FALHOU: aceitou plataforma inválida';
+  exception when invalid_parameter_value then null;
+  end;
+  perform public.register_push_token('ExponentPushToken[ana-1]', 'android', 'pt-BR');
+  perform public.register_push_token('ExponentPushToken[ana-en]', 'android', 'en');
+  perform public.register_push_token('ExponentPushToken[ana-1]', 'android', 'pt-BR'); -- de novo: sem repetir
+  perform pg_temp.check((select count(*) from public.push_tokens) = 2, 'Ana vê os dois aparelhos dela');
+  perform pg_temp.check((select social and bosses and reengage from public.push_settings), 'preferências nascem ligadas');
+  begin
+    insert into public.push_tokens (token, user_id, platform)
+    values ('ExponentPushToken[x]', 'f1000000-0000-0000-0000-000000000001', 'android');
+    raise exception 'FALHOU: app gravou token direto';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.push_outbox;
+    raise exception 'FALHOU: app leu a fila de avisos';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.push_claim_batch(10);
+    raise exception 'FALHOU: app pegou o lote de envio';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+-- Bia não vê os aparelhos de Ana e convida Ana para a Fogueira
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000002', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.push_tokens) = 0, 'RLS: aparelhos só do dono');
+  perform public.send_friend_request(
+    (select friend_code from public.profiles where id = 'f1000000-0000-0000-0000-000000000001'));
+end $$;
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+do $$ begin
+  perform public.respond_friend_request((public.my_friends()->'incoming'->0->>'request_id')::uuid, true);
+end $$;
+reset role;
+do $$
+declare
+  noon timestamptz := current_setting('test.noon')::timestamptz;
+  n integer;
+begin
+  perform pg_temp.check(exists (select 1 from public.push_outbox
+    where user_id = 'f1000000-0000-0000-0000-000000000001' and dedupe_key like 'friend_req:%'
+      and category = 'social' and body_pt like 'Bia%'), 'convite de amizade entra na fila de Ana');
+  perform pg_temp.check(exists (select 1 from public.push_outbox
+    where user_id = 'f1000000-0000-0000-0000-000000000002' and dedupe_key like 'friend_ok:%'), 'aceite entra na fila de Bia');
+  update public.push_outbox set send_after = noon - interval '1 minute';
+  create temp table lote on commit drop as select * from public.push_claim_batch(100, noon);
+  perform pg_temp.check((select count(*) from lote) = 2, 'um envio por aparelho de Ana');
+  perform pg_temp.check(exists (select 1 from lote where token = 'ExponentPushToken[ana-1]' and title = 'Convite para a Fogueira'),
+    'aparelho em português recebe o texto em português');
+  perform pg_temp.check(exists (select 1 from lote where token = 'ExponentPushToken[ana-en]' and title = 'Campfire invite'),
+    'aparelho em inglês recebe o texto em inglês');
+  perform pg_temp.check((select reason from public.push_outbox where user_id = 'f1000000-0000-0000-0000-000000000002') = 'no_token',
+    'sem aparelho: descartado');
+  perform pg_temp.check(not exists (select 1 from public.push_claim_batch(100, noon)), 'não envia duas vezes');
+  perform public.push_report(
+    p_sent => array(select distinct outbox_id from lote),
+    p_tickets => '[{"ticket_id":"t-1","token":"ExponentPushToken[ana-1]"}]'::jsonb,
+    p_bad_tokens => array['ExponentPushToken[ana-en]']);
+  perform pg_temp.check((select status from public.push_outbox where dedupe_key like 'friend_req:%') = 'sent', 'marcado como enviado');
+  perform pg_temp.check(exists (select 1 from public.push_tickets where ticket_id = 't-1'), 'recibo guardado para conferir');
+  perform pg_temp.check(not exists (select 1 from public.push_tokens where token = 'ExponentPushToken[ana-en]'),
+    'aparelho que saiu é apagado');
+
+  -- silêncio: às 23h espera até as 8h do dia seguinte
+  perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'bosses', 'teste:noite', 't', 'b', 't', 'b',
+    null, noon - interval '1 minute');
+  perform pg_temp.check(not exists (select 1 from public.push_claim_batch(100, noon + interval '11 hours')), 'às 23h não envia');
+  perform pg_temp.check((select send_after from public.push_outbox where dedupe_key = 'teste:noite')
+    = noon + interval '20 hours', 'fica para as 8h do dia seguinte');
+
+  -- limite: no máximo 3 de chefes por dia
+  for n in 1 .. 4 loop
+    perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'bosses', 'teste:chefe' || n, 't', 'b', 't', 'b',
+      null, noon - interval '1 minute');
+  end loop;
+  perform pg_temp.check((select count(*) from public.push_claim_batch(100, noon)) = 3, 'três avisos de chefe no dia');
+  perform pg_temp.check((select reason from public.push_outbox where dedupe_key = 'teste:chefe4') = 'cap', 'o quarto passa do limite');
+
+  -- velho demais
+  perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'social', 'teste:velho', 't', 'b', 't', 'b',
+    null, noon - interval '1 minute');
+  update public.push_outbox set created_at = noon - interval '3 days' where dedupe_key = 'teste:velho';
+  perform public.push_claim_batch(100, noon);
+  perform pg_temp.check((select reason from public.push_outbox where dedupe_key = 'teste:velho') = 'stale', 'velho é descartado');
+end $$;
+-- preferência: Ana desliga os avisos sociais
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+do $$ begin
+  perform public.set_push_settings(false, true, true);
+end $$;
+reset role;
+do $$
+declare noon timestamptz := current_setting('test.noon')::timestamptz;
+begin
+  perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'social', 'teste:pref', 't', 'b', 't', 'b',
+    null, noon - interval '1 minute');
+  perform public.push_claim_batch(100, noon);
+  perform pg_temp.check((select reason from public.push_outbox where dedupe_key = 'teste:pref') = 'prefs',
+    'categoria desligada é descartada');
+end $$;
+-- reengajamento: Ana tem um hábito e a última missão foi há 5 dias
+reset role;
+do $$
+declare
+  v_today date := (now() at time zone 'UTC')::date;
+  h uuid;
+  n integer;
+begin
+  insert into public.habits (user_id, title, start_date)
+  values ('f1000000-0000-0000-0000-000000000001', 'Ler', v_today - 10) returning id into h;
+  insert into public.habit_logs (user_id, habit_id, local_date)
+  values ('f1000000-0000-0000-0000-000000000001', h, v_today - 5);
+  perform pg_temp.check(public.push_enqueue_scheduled((v_today + time '23:00') at time zone 'UTC') = 0, 'à noite a varredura não põe nada');
+  perform public.push_enqueue_scheduled((v_today + time '19:00') at time zone 'UTC');
+  perform pg_temp.check(exists (select 1 from public.push_outbox
+    where user_id = 'f1000000-0000-0000-0000-000000000001' and category = 'reengage'), 'reengajamento depois de 3 dias sem missão');
+  select count(*) into n from public.push_outbox;
+  perform public.push_enqueue_scheduled((v_today + time '19:30') at time zone 'UTC');
+  perform pg_temp.check((select count(*) from public.push_outbox) = n, 'varrer de novo não repete avisos');
+end $$;
+update public.app_settings set value = 0 where key = 'feature_push';
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.set_push_settings(true, true, true);
+    raise exception 'FALHOU: mudou preferências com o push desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.unregister_push_token('ExponentPushToken[ana-1]');
+    raise exception 'FALHOU: removeu aparelho com o push desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

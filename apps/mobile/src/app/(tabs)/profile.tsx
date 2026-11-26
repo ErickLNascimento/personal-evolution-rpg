@@ -29,6 +29,8 @@ import { useFeature } from '@/features/profile/useFeature';
 import { useProfile } from '@/features/profile/useProfile';
 import { useToday } from '@/features/profile/useToday';
 import { useT } from '@/i18n';
+import { PushSettings } from '@/components/push/PushSettings';
+import { unregisterPush } from '@/features/push/push';
 import { deviceTimeZone } from '@/lib/deviceTimeZone';
 import { ensureReminderPermission, syncReminders } from '@/lib/reminders';
 import { setSmartNotificationsEnabled, smartNotificationsEnabled } from '@/lib/smartNotifications';
@@ -61,6 +63,7 @@ function AccountProfile() {
   const { session } = useAuth();
   const { profile, loading, error, reload, update } = useProfile();
   const smartOn = useFeature(FEATURES.smartNotifications);
+  const pushOn = useFeature(FEATURES.push);
   const exportOn = useFeature(FEATURES.dataExport);
   const englishOn = useFeature(FEATURES.english);
   const vacationOn = useFeature(FEATURES.vacation);
@@ -177,6 +180,12 @@ function AccountProfile() {
           <>
             <ChapterLabel>{t('profile.notifications')}</ChapterLabel>
             <SmartNotificationsToggle />
+          </>
+        )}
+        {pushOn && (
+          <>
+            <ChapterLabel>{t('push.title')}</ChapterLabel>
+            <PushSettings />
           </>
         )}
       </Chapter>
@@ -522,6 +531,8 @@ function SignOutButton() {
         onPress: async () => {
           setLoading(true);
           // Sai mesmo sem internet: a sessão local é apagada e o _layout volta para o login.
+          // Este aparelho para de receber os avisos da conta.
+          await unregisterPush().catch(() => undefined);
           await supabase?.auth.signOut({ scope: 'local' });
           setLoading(false);
         },
