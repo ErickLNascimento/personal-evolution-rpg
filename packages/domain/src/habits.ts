@@ -56,6 +56,10 @@ export const OBJECTIVE_CATEGORIES = [
 
 export type ObjectiveCategory = (typeof OBJECTIVE_CATEGORIES)[number];
 
+export function isObjectiveCategory(value: unknown): value is ObjectiveCategory {
+  return typeof value === 'string' && (OBJECTIVE_CATEGORIES as readonly string[]).includes(value);
+}
+
 export const OBJECTIVE_CATEGORY_LABELS: Bilingual<Record<ObjectiveCategory, string>> = {
   'pt-BR': {
     health: 'Saúde',

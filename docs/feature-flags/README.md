@@ -84,6 +84,23 @@ update public.app_settings set value = ('2026-12-07'::date - date '1970-01-01') 
 update public.app_settings set value = 1 where key = 'feature_act_2';
 ```
 
+### Missões em equipe: `feature_duo_quests`
+
+Na Fogueira (e no menu de um amigo), um amigo convida outro para um desafio da semana (segunda a
+domingo de quem convida): cada um faz 3, 5 ou 7 missões numa área da vida, ou em qualquer área. Os
+dois precisam bater a meta; então cada um resgata 30, 50 ou 80 Cristais, até 7 dias depois do fim da
+semana. Até 3 por pessoa por semana, uma por dupla. O parceiro vê só quantas missões você fez, nunca
+os nomes dos hábitos. Aparece também na tela Hoje (convite, placar e resgate). Tabela `duo_quests`.
+Desligada, nada aparece, `my_duo_quests` devolve lista vazia e `create_duo_quest`,
+`respond_duo_quest`, `cancel_duo_quest` e `claim_duo_quest` recusam com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_duo_quests';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_duo_quests';
+```
+
 ### Aviso de convite de amizade: `feature_friend_alerts`
 
 Pedidos de amizade recebidos aparecem sem abrir a Fogueira: um contador na aba Fogueira e um

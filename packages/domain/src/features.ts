@@ -31,6 +31,8 @@ export const FEATURES = {
   monthlyBoss: 'feature_monthly_boss',
   /** Aviso de convite de amizade: ponto na Fogueira e cartão na tela Hoje. */
   friendAlerts: 'feature_friend_alerts',
+  /** Missões em equipe: desafio semanal de dupla entre amigos (Fogueira e tela Hoje). */
+  duoQuests: 'feature_duo_quests',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

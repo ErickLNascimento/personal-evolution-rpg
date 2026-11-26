@@ -89,6 +89,7 @@ function RootNavigator() {
           options={{ ...formHeader, title: t('screens.hero'), presentation: 'modal' }}
         />
         <Stack.Screen name="path" options={{ ...formHeader, title: t('screens.path') }} />
+        <Stack.Screen name="duo-new" options={{ ...formHeader, title: t('screens.duo') }} />
         <Stack.Screen
           name="promotion"
           options={{ ...formHeader, title: t('screens.promotion'), presentation: 'modal' }}

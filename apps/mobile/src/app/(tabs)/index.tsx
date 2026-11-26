@@ -21,7 +21,7 @@ import {
   type XpTable,
 } from '@per/domain';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -61,6 +61,8 @@ import { VacationNotice } from '@/components/vacation/VacationNotice';
 import { rankFor, useBossProgress } from '@/features/bosses/api';
 import { AmbushCard } from '@/components/ambush/AmbushCard';
 import { FriendInviteCard } from '@/components/social/FriendInviteCard';
+import { DuoQuestsCard } from '@/components/duo/DuoQuestsCard';
+import { fetchDuoQuests, type DuoQuest } from '@/features/duo/api';
 import { refreshInvites } from '@/features/social/invites';
 import { fetchAmbush } from '@/features/ambush/api';
 
@@ -168,6 +170,14 @@ function RealToday() {
   const weakness = weaknessOn && challengesOn ? (BOSS_WEAKNESS[boss.id] ?? null) : null;
   const loadAmbush = useCallback(() => fetchAmbush(), []);
   const ambush = useFocusLoad<Ambush | null>(loadAmbush, ambushOn);
+  // Missões em equipe: o placar muda a cada missão concluída.
+  const duoOn = useFeature(FEATURES.duoQuests) && socialOn;
+  const loadDuos = useCallback(() => fetchDuoQuests(), []);
+  const duos = useFocusLoad<DuoQuest[]>(loadDuos, duoOn);
+  const refreshDuos = duos.refresh;
+  useEffect(() => {
+    if (duoOn && day.cheer > 0) refreshDuos();
+  }, [duoOn, day.cheer, refreshDuos]);
 
   // O card do herói encolhe e esmaece ao rolar; a barra compacta assume o lugar dele.
   const heroStyle = useAnimatedStyle(() => ({
@@ -269,6 +279,16 @@ function RealToday() {
               />
             ) : null}
             {invitesOn && <FriendInviteCard />}
+            {duoOn && duos.data && (
+              <DuoQuestsCard
+                quests={duos.data}
+                today={today}
+                onChanged={() => {
+                  duos.refresh();
+                  day.refresh();
+                }}
+              />
+            )}
             {shieldSaved > 0 && (
               <FormMessage
                 tone="info"

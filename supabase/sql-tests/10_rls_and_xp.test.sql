@@ -2352,6 +2352,190 @@ end $$;
 reset role;
 update public.app_settings set value = 0 where key = 'feature_friend_alerts';
 
+-- ── Missões em equipe ───────────────────────────────────────
+-- Lia e Juca são amigos (testes do aviso de convite); Vera não é amiga de Lia.
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_duo_quests') = 0,
+    'missões em equipe começam desligadas');
+  perform pg_temp.check(public.duo_reward(3) = 30 and public.duo_reward(5) = 50 and public.duo_reward(7) = 80,
+    'mesmos prêmios do app');
+end $$;
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check(public.my_duo_quests() = '[]'::jsonb, 'desligado: lista vazia');
+  begin
+    perform public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', 'personal_growth', 3);
+    raise exception 'FALHOU: criou missão em equipe com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_duo_quests';
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  begin
+    perform public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', 'personal_growth', 4);
+    raise exception 'FALHOU: aceitou meta 4';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', 'magia', 3);
+    raise exception 'FALHOU: aceitou área inválida';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.create_duo_quest('eeeeeeee-1111-1111-1111-111111111111', null, 3);
+    raise exception 'FALHOU: convidou quem não é amigo';
+  exception when sqlstate 'PR070' then null;
+  end;
+  r := public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', 'personal_growth', 3);
+  perform set_config('test.duo_id', r->>'id', false);
+  begin
+    perform public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', null, 5);
+    raise exception 'FALHOU: duas missões da mesma dupla na semana';
+  exception when sqlstate 'PR072' then null;
+  end;
+  begin
+    insert into public.duo_quests (week_start, inviter, partner, target)
+    values (date_trunc('week', pg_temp.today())::date, 'cccccccc-1111-1111-1111-111111111111',
+            'bbbbbbbb-1111-1111-1111-111111111111', 3);
+    raise exception 'FALHOU: app criou missão em equipe direto';
+  exception when insufficient_privilege then null;
+  end;
+  r := public.my_duo_quests();
+  perform pg_temp.check(jsonb_array_length(r) = 1 and r->0->>'status' = 'pending'
+    and (r->0->>'i_invited')::boolean and r->0->'partner'->>'display_name' = 'Juca'
+    and (r->0->>'reward')::int = 30 and not (r::text like '%"streak"%'),
+    'Lia vê o convite enviado, só com o cartão curto de Juca');
+  begin
+    perform public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: resgatou convite ainda não aceito';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.respond_duo_quest(current_setting('test.duo_id')::uuid, true);
+    raise exception 'FALHOU: quem convidou aceitou o próprio convite';
+  exception when no_data_found then null;
+  end;
+end $$;
+-- Mel não vê a missão da dupla
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.my_duo_quests() = '[]'::jsonb and (select count(*) from public.duo_quests) = 0,
+    'RLS: missão em equipe só para a dupla');
+end $$;
+-- Juca aceita; ninguém fez nada ainda
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  perform public.respond_duo_quest(current_setting('test.duo_id')::uuid, true);
+  r := public.my_duo_quests();
+  perform pg_temp.check(r->0->>'status' = 'active' and not (r->0->>'i_invited')::boolean
+    and r->0->'partner'->>'display_name' = 'Lia' and (r->0->>'my_done')::int = 0,
+    'Juca aceita e vê Lia como parceira');
+  begin
+    perform public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: resgatou sem cumprir';
+  exception when sqlstate 'PR073' then null;
+  end;
+end $$;
+-- Cada um faz 3 missões de Crescimento pessoal hoje; Juca faz mais 1 (o placar para na meta)
+reset role;
+do $$
+declare
+  u uuid;
+  o uuid;
+  h uuid;
+  k integer;
+begin
+  foreach u in array array['cccccccc-1111-1111-1111-111111111111', 'bbbbbbbb-1111-1111-1111-111111111111']::uuid[] loop
+    insert into public.objectives (user_id, title, category) values (u, 'Crescer junto', 'personal_growth')
+    returning id into o;
+    for k in 1 .. (case when u = 'bbbbbbbb-1111-1111-1111-111111111111' then 4 else 3 end) loop
+      insert into public.habits (user_id, title, start_date, objective_id)
+      values (u, 'Dupla ' || k, pg_temp.today() - 1, o) returning id into h;
+      insert into public.habit_logs (user_id, habit_id, local_date) values (u, h, public.user_today(u));
+    end loop;
+  end loop;
+end $$;
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  r := public.my_duo_quests();
+  perform pg_temp.check((r->0->>'my_done')::int = 3 and (r->0->>'partner_done')::int = 3,
+    'placar dos dois, parado na meta');
+  perform pg_temp.check(not (r::text like '%Dupla%'), 'nomes dos hábitos do parceiro não aparecem');
+  r := public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+  perform pg_temp.check((r->>'coins_awarded')::int = 30, 'Lia resgata 30 Cristais');
+  r := public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+  perform pg_temp.check((r->>'coins_awarded')::int = 0, 'resgatar de novo não paga outra vez');
+  perform pg_temp.check((public.my_duo_quests()->0->>'claimed')::boolean, 'aparece como resgatada');
+end $$;
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  perform pg_temp.check(not (public.my_duo_quests()->0->>'claimed')::boolean, 'o resgate de Lia não conta para Juca');
+  r := public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+  perform pg_temp.check((r->>'coins_awarded')::int = 30, 'Juca resgata o próprio prêmio');
+end $$;
+-- Lia convida Mel: Mel recusa; a recusa não bloqueia um novo convite, que Lia cancela
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.create_duo_quest('dddddddd-1111-1111-1111-111111111111', null, 5);
+  perform set_config('test.duo_mel', r->>'id', false);
+end $$;
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.my_duo_quests()->0->>'status' = 'pending', 'Mel recebe o convite');
+  perform public.respond_duo_quest(current_setting('test.duo_mel')::uuid, false);
+  perform pg_temp.check(public.my_duo_quests() = '[]'::jsonb, 'recusado some da lista');
+end $$;
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.create_duo_quest('dddddddd-1111-1111-1111-111111111111', 'health', 7);
+  begin
+    perform public.cancel_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: cancelou missão já aceita';
+  exception when no_data_found then null;
+  end;
+  perform public.cancel_duo_quest((r->>'id')::uuid);
+  perform pg_temp.check(jsonb_array_length(public.my_duo_quests()) = 1, 'convite cancelado some; fica a missão com Juca');
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_duo_quests';
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: resgatou com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.respond_duo_quest(current_setting('test.duo_id')::uuid, false);
+    raise exception 'FALHOU: respondeu com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.cancel_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: cancelou com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

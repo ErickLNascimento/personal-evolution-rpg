@@ -89,7 +89,7 @@ function failure(error: PostgrestError, fallback: string): { data: null; error: 
   return { data: null, error: fallback };
 }
 
-interface CardRow {
+export interface CardRow {
   user_id: string;
   display_name: string | null;
   hero: unknown;
@@ -104,7 +104,7 @@ interface CardRow {
   today_total?: number;
 }
 
-function toCard(row: CardRow): SocialCard {
+export function toCard(row: CardRow): SocialCard {
   const level = Number(row.level ?? 1);
   return {
     userId: row.user_id,

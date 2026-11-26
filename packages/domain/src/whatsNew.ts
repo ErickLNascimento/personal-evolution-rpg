@@ -33,6 +33,23 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 13,
+    date: '2026-11-26',
+    items: [
+      {
+        icon: 'flag',
+        flag: 'feature_duo_quests',
+        title: 'Missões em equipe',
+        text: 'Chame um amigo na Fogueira para um desafio da semana: cada um faz suas missões numa área da vida, e quando os dois batem a meta, os dois ganham Cristais.',
+        en: {
+          title: 'Team quests',
+          text: 'Invite a friend at the Campfire to a weekly challenge: each of you does your own missions in an area of life, and when both reach the goal, both earn Crystals.',
+        },
+        route: '/social',
+      },
+    ],
+  },
+  {
     version: 12,
     date: '2026-11-25',
     items: [
