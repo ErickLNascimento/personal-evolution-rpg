@@ -53,11 +53,14 @@ const loaded = new Map<PixelHeroAnim, SkImage>();
 function loadAtlas(anim: PixelHeroAnim): Promise<SkImage | null> {
   let p = loading.get(anim);
   if (!p) {
-    p = loadData(ATLASES[anim].image, (d) => Skia.Image.MakeImageFromEncoded(d)).then((img) => {
-      if (img) loaded.set(anim, img);
-      else loading.delete(anim); // tenta de novo na próxima montagem
-      return img;
-    });
+    p = loadData(ATLASES[anim].image, (d) => Skia.Image.MakeImageFromEncoded(d))
+      // Falha de rede (ex.: Metro reiniciando) vira null, para poder tentar de novo.
+      .catch(() => null)
+      .then((img) => {
+        if (img) loaded.set(anim, img);
+        else loading.delete(anim); // tenta de novo na próxima montagem
+        return img;
+      });
     loading.set(anim, p);
   }
   return p;
@@ -77,11 +80,20 @@ function useLoadedAtlases(): ReadonlyMap<PixelHeroAnim, SkImage> {
   useEffect(() => {
     if (!missing) return;
     let alive = true;
-    void preloadAtlases().then(() => {
-      if (alive) setVersion((v) => v + 1);
-    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // Se algum atlas falhar, tenta de novo sozinho (com espera crescente) enquanto montado.
+    const attempt = (n: number) => {
+      void preloadAtlases().then(() => {
+        if (!alive) return;
+        setVersion((v) => v + 1);
+        if (ALL_ANIMS.some((a) => !loaded.has(a)))
+          timer = setTimeout(() => attempt(n + 1), Math.min(10000, 800 * 2 ** n));
+      });
+    };
+    attempt(0);
     return () => {
       alive = false;
+      if (timer) clearTimeout(timer);
     };
   }, [missing]);
   return loaded;

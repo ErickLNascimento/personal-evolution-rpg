@@ -28,18 +28,33 @@ export function loadSkiaImage(source: number): Promise<SkImage | null> {
   return p;
 }
 
-/** Imagem já decodificada (ou null enquanto carrega); re-renderiza quando ficar pronta. */
+/** Esperas entre tentativas quando o carregamento falha (ms). */
+const RETRY_DELAYS = [800, 2000, 5000, 10000];
+
+/**
+ * Imagem já decodificada (ou null enquanto carrega); re-renderiza quando ficar pronta.
+ * Se falhar (ex.: o Metro reiniciou com o app aberto), tenta de novo sozinha enquanto a tela
+ * estiver montada, em vez de deixar o quadro vazio até reabrir o app.
+ */
 export function useSkiaImage(source: number): SkImage | null {
   const [, setVersion] = useState(0);
   const img = loaded.get(source) ?? null;
   useEffect(() => {
     if (img) return;
     let alive = true;
-    void loadSkiaImage(source).then((ready) => {
-      if (alive && ready) setVersion((v) => v + 1);
-    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const attempt = (n: number) => {
+      void loadSkiaImage(source).then((ready) => {
+        if (!alive) return;
+        if (ready) return setVersion((v) => v + 1);
+        const wait = RETRY_DELAYS[Math.min(n, RETRY_DELAYS.length - 1)]!;
+        timer = setTimeout(() => attempt(n + 1), wait);
+      });
+    };
+    attempt(0);
     return () => {
       alive = false;
+      if (timer) clearTimeout(timer);
     };
   }, [source, img]);
   return img;
