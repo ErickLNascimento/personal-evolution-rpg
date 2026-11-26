@@ -8,8 +8,6 @@ import {
   type HeroLook,
   type HeroSlot,
 } from '@per/domain';
-import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
 import { useEffect, type ComponentProps, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -74,7 +72,9 @@ export function WardrobeStage({
   titleColor,
   subtitle,
   caption,
+  notice,
 }: {
+  notice?: ReactNode;
   hero: HeroLook;
   cheer: number;
   frame: string;
@@ -102,6 +102,43 @@ export function WardrobeStage({
       </View>
       <Text style={[typography.heading, styles.center]}>{subtitle}</Text>
       <Text style={[typography.caption, styles.center]}>{caption}</Text>
+      {notice}
+    </View>
+  );
+}
+
+/** Aviso no pedestal durante a prévia de uma peça bloqueada. */
+export function PreviewNotice({
+  text,
+  action,
+  onAction,
+  onClose,
+}: {
+  text: string;
+  action?: string;
+  onAction?: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useT();
+  return (
+    <View style={styles.notice} accessibilityLiveRegion="polite">
+      <Ionicons name="eye" size={14} color={GOLD} />
+      <Text style={styles.noticeText} numberOfLines={2}>
+        {text}
+      </Text>
+      {action && onAction && (
+        <Pressable onPress={onAction} accessibilityRole="button" hitSlop={8} style={styles.noticeAction}>
+          <Text style={styles.noticeActionText}>{action}</Text>
+        </Pressable>
+      )}
+      <Pressable
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel={t('heroScreen.previewClose')}
+        hitSlop={10}
+      >
+        <Ionicons name="close" size={16} color={colors.textSecondary} />
+      </Pressable>
     </View>
   );
 }
@@ -192,14 +229,20 @@ export function InventoryPicker({
   value,
   level,
   owned,
+  previewing,
   onChoose,
+  onPreview,
 }: {
   slot: HeroSlot;
   look: HeroLook;
   value: string;
   level: number;
   owned: ReadonlySet<string>;
+  /** Peça bloqueada sendo vista no pedestal. */
+  previewing: string | null;
   onChoose: (id: string) => void;
+  /** Tocar numa peça bloqueada: mostra no herói, sem equipar. */
+  onPreview: (item: HeroItem) => void;
 }) {
   const { t, locale } = useT();
   const { items } = HERO_SLOTS[slot];
@@ -222,19 +265,14 @@ export function InventoryPicker({
           return (
             <Pressable
               key={item.id}
-              onPress={() =>
-                unlocked
-                  ? onChoose(item.id)
-                  : fromShop
-                    ? router.push('/shop')
-                    : void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
-              }
+              onPress={() => (unlocked ? onChoose(item.id) : onPreview(item))}
               accessibilityRole="radio"
               accessibilityState={{ selected: active, disabled: !unlocked }}
               accessibilityLabel={a11y}
               style={({ pressed }) => [
                 preview ? styles.cell : styles.gemCell,
                 active && styles.cellActive,
+                previewing === item.id && styles.cellPreview,
                 pressed && styles.pressed,
               ]}
             >
@@ -330,6 +368,28 @@ const styles = StyleSheet.create({
   },
   torchStick: { width: 5, height: 26, borderRadius: 2, backgroundColor: '#6B4A2B', marginTop: -4 },
   center: { textAlign: 'center' },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    alignSelf: 'stretch',
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: GOLD,
+    backgroundColor: '#2B2417',
+  },
+  noticeText: { ...typography.caption, flex: 1, color: colors.text },
+  noticeAction: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: GOLD,
+  },
+  noticeActionText: { fontSize: 12, fontWeight: '800', color: '#1C1A23' },
   tabs: {
     flexDirection: 'row',
     marginTop: spacing.md,
@@ -370,6 +430,7 @@ const styles = StyleSheet.create({
   },
   cellInner: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   cellActive: { borderColor: GOLD, backgroundColor: '#3A2F1E' },
+  cellPreview: { borderColor: GOLD, borderStyle: 'dashed' },
   gem: {
     width: 30,
     height: 30,

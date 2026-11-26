@@ -4,6 +4,7 @@ import {
   HERO_FORMS,
   pathLabel,
   pathMotto,
+  itemLabel,
   RACES,
   raceDescription,
   raceLabel,
@@ -12,6 +13,7 @@ import {
   titleDescription,
   titleHint,
   type HeroForm,
+  type HeroItem,
   type Race,
   type HeroLook,
   type HeroSlot,
@@ -47,6 +49,7 @@ import {
   GOLD,
   InventoryPicker,
   Ornament,
+  PreviewNotice,
   WardrobeStage,
   WardrobeTabs,
   type WardrobeTab,
@@ -102,6 +105,8 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
 
   // Cada escolha faz o herói comemorar no pedestal.
   const [cheer, setCheer] = useState(0);
+  // Peça bloqueada vista no pedestal (não vai para o rascunho nem é salva).
+  const [preview, setPreview] = useState<{ slot: HeroSlot; item: HeroItem } | null>(null);
   const { width } = useWindowDimensions();
   const pager = useRef<Animated.ScrollView>(null);
   const progress = useSharedValue(0);
@@ -134,7 +139,16 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
 
   function choose(next: Partial<HeroLook>) {
     void Haptics.selectionAsync();
+    setPreview(null);
     setLook((l) => ({ ...l, ...next }));
+    setCheer((c) => c + 1);
+  }
+
+  function showPreview(slot: HeroSlot, item: HeroItem) {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Tocar de novo na mesma peça fecha a prévia.
+    if (preview?.slot === slot && preview.item.id === item.id) return setPreview(null);
+    setPreview({ slot, item });
     setCheer((c) => c + 1);
   }
 
@@ -163,7 +177,9 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
       value={look[SLOT_KEY[slot]]}
       level={level}
       owned={owned}
+      previewing={preview?.slot === slot ? preview.item.id : null}
       onChoose={(id) => choose({ [SLOT_KEY[slot]]: id })}
+      onPreview={(item) => showPreview(slot, item)}
     />
   );
 
@@ -254,7 +270,27 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
     <View style={styles.screen}>
       {/* Herói fixo no topo: cada escolha aparece nele na hora. */}
       <WardrobeStage
-        hero={{ ...look, race }}
+        hero={{ ...look, race, ...(preview ? { [SLOT_KEY[preview.slot]]: preview.item.id } : {}) }}
+        notice={
+          preview && (
+            <PreviewNotice
+              text={
+                preview.item.price !== undefined
+                  ? t('heroScreen.previewShop', {
+                      name: itemLabel(preview.slot, preview.item, locale),
+                      price: preview.item.price,
+                    })
+                  : t('heroScreen.previewLevel', {
+                      name: itemLabel(preview.slot, preview.item, locale),
+                      level: preview.item.level,
+                    })
+              }
+              action={preview.item.price !== undefined ? t('heroScreen.previewToShop') : undefined}
+              onAction={() => router.push('/shop')}
+              onClose={() => setPreview(null)}
+            />
+          )
+        }
         cheer={cheer}
         frame={frame}
         title={titleName(title, look.form, locale).toUpperCase()}

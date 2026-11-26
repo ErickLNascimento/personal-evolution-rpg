@@ -613,6 +613,10 @@ const pt = {
     failed: 'Não foi possível enviar. Tente de novo.',
   },
   heroScreen: {
+    previewShop: 'Prévia: {name} · {price} 💎 na Loja',
+    previewLevel: 'Prévia: {name} · libera no nível {level}',
+    previewToShop: 'Ver na Loja',
+    previewClose: 'Fechar prévia',
     tabHero: 'Herói',
     tabLook: 'Visual',
     tabGear: 'Equipamento',

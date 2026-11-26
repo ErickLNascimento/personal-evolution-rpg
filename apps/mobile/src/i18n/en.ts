@@ -612,6 +612,10 @@ const en: Translations = {
     failed: "Couldn't send it. Try again.",
   },
   heroScreen: {
+    previewShop: 'Preview: {name} · {price} 💎 in the Shop',
+    previewLevel: 'Preview: {name} · unlocks at level {level}',
+    previewToShop: 'Open Shop',
+    previewClose: 'Close preview',
     tabHero: 'Hero',
     tabLook: 'Looks',
     tabGear: 'Gear',
