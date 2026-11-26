@@ -799,6 +799,9 @@ const en: Translations = {
     reminderBody: 'Time for your mission. Complete it in the app to earn XP.',
   },
   tour: {
+    fixes: 'FIXES',
+    fixesOnlyTitle: 'Fixes',
+    fixesOnlyText: 'This update fixed a few things.',
     s1Title: 'Your journey starts here',
     s1Text: 'Every habit becomes a daily mission. Completing missions earns XP, levels you up and makes your hero evolve.',
     s2Title: 'Today\'s missions',

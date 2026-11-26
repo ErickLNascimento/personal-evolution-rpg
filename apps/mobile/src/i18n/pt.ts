@@ -800,6 +800,9 @@ const pt = {
     reminderBody: 'Hora da sua missão. Conclua no app para ganhar XP.',
   },
   tour: {
+    fixes: 'CORREÇÕES',
+    fixesOnlyTitle: 'Correções',
+    fixesOnlyText: 'Esta atualização corrigiu alguns detalhes.',
     s1Title: 'Sua jornada começa aqui',
     s1Text: 'Cada hábito vira uma missão diária. Concluir missões dá XP, sobe o nível e faz o seu herói evoluir.',
     s2Title: 'Missões do dia',

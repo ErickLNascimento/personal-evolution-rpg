@@ -4,9 +4,13 @@ import { DEFAULT_LOCALE, type Locale } from './i18n';
  * Novidades: a cada atualização entregue aos usuários (build novo ou EAS Update), acrescente
  * uma entrada no INÍCIO de RELEASE_NOTES com `version` maior que a anterior. Quem abrir o app
  * vê um tour curto só com o que mudou desde a última nota que viu.
+ * Recurso novo vira um slide; correção de bug (`kind: 'fix'`) não ganha slide: entra só numa
+ * lista curta no último slide, com o `text` como nota.
  */
 
 export interface ReleaseNoteItem {
+  /** 'feature' (padrão): ganha um slide. 'fix': só uma linha na lista de correções. */
+  kind?: 'feature' | 'fix';
   /** Nome de um ícone do Ionicons (ex.: 'stats-chart'). */
   icon: string;
   title: string;
@@ -44,12 +48,13 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         route: '/social',
       },
       {
+        kind: 'fix',
         icon: 'phone-portrait',
         title: 'Teclado no Android',
-        text: 'Ao digitar no Android, a tela rola até o campo e dá para ver o que está embaixo, como os resultados da busca de amigos.',
+        text: 'No Android, o teclado não cobre mais os campos de texto, como a busca de amigos.',
         en: {
           title: 'Keyboard on Android',
-          text: 'When typing on Android, the screen scrolls to the field and you can see what is below it, like friend search results.',
+          text: 'On Android, the keyboard no longer covers text fields, like the friend search.',
         },
       },
     ],
@@ -206,12 +211,13 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     date: '2026-11-30',
     items: [
       {
+        kind: 'fix',
         icon: 'skull',
         title: 'Chefes à vista',
-        text: 'Os monstros do chefe da semana e o Oráculo agora são desenhados do mesmo jeito que o seu herói, e não somem mais da tela.',
+        text: 'Os monstros do chefe da semana e o Oráculo não somem mais da tela.',
         en: {
           title: 'Bosses in sight',
-          text: 'The weekly boss monsters and the Oracle are now drawn the same way as your hero, so they no longer disappear from the screen.',
+          text: 'The weekly boss monsters and the Oracle no longer disappear from the screen.',
         },
         route: '/challenges',
       },
@@ -432,4 +438,15 @@ export function releaseItemText(
   locale: Locale = DEFAULT_LOCALE,
 ): { title: string; text: string } {
   return locale === 'en' && item.en ? item.en : { title: item.title, text: item.text };
+}
+
+/** Separa os itens em recursos novos (slides) e correções (lista no último slide). */
+export function splitReleaseItems(items: readonly ReleaseNoteItem[]): {
+  features: ReleaseNoteItem[];
+  fixes: ReleaseNoteItem[];
+} {
+  return {
+    features: items.filter((i) => i.kind !== 'fix'),
+    fixes: items.filter((i) => i.kind === 'fix'),
+  };
 }

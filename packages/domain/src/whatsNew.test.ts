@@ -1,4 +1,5 @@
 import {
+  splitReleaseItems,
   LATEST_RELEASE_NOTE_VERSION,
   RELEASE_NOTES,
   releaseItemText,
@@ -57,5 +58,22 @@ describe('novidades em inglês', () => {
     expect(releaseItemText(item, 'en')).toEqual({ title: 'Shop', text: 'en' });
     expect(releaseItemText(item)).toEqual({ title: 'Loja', text: 'pt' });
     expect(releaseItemText({ icon: 'x', title: 'Loja', text: 'pt' }, 'en').title).toBe('Loja');
+  });
+});
+
+describe('novidades e correções', () => {
+  test('correções saem dos slides e vão para a lista', () => {
+    const items = [
+      { icon: 'a', title: 'Novo', text: 'n' },
+      { kind: 'fix' as const, icon: 'b', title: 'Bug', text: 'b' },
+      { kind: 'feature' as const, icon: 'c', title: 'Outro', text: 'o' },
+    ];
+    const r = splitReleaseItems(items);
+    expect(r.features.map((i) => i.title)).toEqual(['Novo', 'Outro']);
+    expect(r.fixes.map((i) => i.title)).toEqual(['Bug']);
+  });
+  test('toda correção da lista tem texto curto', () => {
+    for (const n of RELEASE_NOTES)
+      for (const i of n.items.filter((x) => x.kind === 'fix')) expect(i.text.length).toBeLessThanOrEqual(120);
   });
 });
