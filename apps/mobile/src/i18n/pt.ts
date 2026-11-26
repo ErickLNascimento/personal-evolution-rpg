@@ -613,6 +613,12 @@ const pt = {
     failed: 'Não foi possível enviar. Tente de novo.',
   },
   heroScreen: {
+    tabHero: 'Herói',
+    tabLook: 'Visual',
+    tabGear: 'Equipamento',
+    tabTitle: 'Título',
+    tabPath: 'Caminho',
+    seal: '⚜ Selar escolhas',
     noPath: 'Sem caminho',
     raceLevel: '{race} · Nível {level}',
     character: 'PERSONAGEM',

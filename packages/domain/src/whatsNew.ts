@@ -47,6 +47,16 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         },
         route: '/social',
       },
+      {
+        icon: 'shirt',
+        title: 'Vestiário do herói',
+        text: 'Seu herói agora fica num pedestal entre tochas, e as escolhas ficam em abas: deslize entre Herói, Visual, Equipamento, Título e Caminho, e veja cada peça no próprio herói antes de escolher.',
+        en: {
+          title: 'Hero wardrobe',
+          text: 'Your hero now stands on a pedestal between torches, and the choices live in tabs: swipe between Hero, Looks, Gear, Title and Path, and see each piece on your hero before picking.',
+        },
+        route: '/hero',
+      },
     ],
   },
   {

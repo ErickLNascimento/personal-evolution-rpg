@@ -612,6 +612,12 @@ const en: Translations = {
     failed: "Couldn't send it. Try again.",
   },
   heroScreen: {
+    tabHero: 'Hero',
+    tabLook: 'Looks',
+    tabGear: 'Gear',
+    tabTitle: 'Title',
+    tabPath: 'Path',
+    seal: '⚜ Seal choices',
     noPath: 'No path',
     raceLevel: '{race} · Level {level}',
     character: 'CHARACTER',
