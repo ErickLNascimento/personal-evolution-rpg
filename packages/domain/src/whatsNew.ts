@@ -57,6 +57,16 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
         },
         route: '/hero',
       },
+      {
+        kind: 'fix',
+        icon: 'skull',
+        title: 'Chefes sempre à vista',
+        text: 'Se a imagem de um chefe falhar ao carregar, o app tenta de novo sozinho, sem deixar o quadro vazio.',
+        en: {
+          title: 'Bosses always in sight',
+          text: 'If a boss image fails to load, the app retries on its own instead of leaving the frame empty.',
+        },
+      },
     ],
   },
   {
