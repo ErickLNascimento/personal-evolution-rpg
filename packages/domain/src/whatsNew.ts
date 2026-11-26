@@ -29,6 +29,153 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: 11,
+    date: '2026-12-07',
+    items: [
+      {
+        icon: 'planet',
+        flag: 'feature_act_2',
+        title: 'Ato II: seis chefes novos',
+        text: 'Kraken do Perfeccionismo, Quimera da Comparação, Banshee da Culpa, Vampiro da Insônia, Mímico das Desculpas e Medusa do Gasto entram no rodízio, alternando com os antigos.',
+        en: {
+          title: 'Act II: six new bosses',
+          text: 'The Kraken of Perfectionism, Chimera of Comparison, Banshee of Guilt, Vampire of Insomnia, Mimic of Excuses and Medusa of Spending join the rotation, alternating with the old ones.',
+        },
+        route: '/challenges',
+      },
+      {
+        icon: 'trophy',
+        flag: 'feature_monthly_boss',
+        title: 'Lorde do mês',
+        text: 'Um chefe lendário, dourado, fica o mês inteiro em Desafios: derrube-o com as missões do mês e ganhe 200 Cristais.',
+        en: {
+          title: 'Lord of the month',
+          text: 'A golden legendary boss stays all month in Challenges: bring it down with the month\'s missions and earn 200 Crystals.',
+        },
+        route: '/challenges',
+      },
+    ],
+  },
+  {
+    version: 10,
+    date: '2026-12-04',
+    items: [
+      {
+        icon: 'ribbon',
+        flag: 'feature_boss_ranks',
+        title: 'Chefes com patente',
+        text: 'Cada chefe que você vence volta mais forte: Capitão, General e Lorde, com mais vida, cores novas e prêmios maiores.',
+        en: {
+          title: 'Boss ranks',
+          text: 'Every boss you beat comes back stronger: Captain, General and Lord, with more HP, new colors and bigger rewards.',
+        },
+        route: '/challenges',
+      },
+      {
+        icon: 'flash',
+        flag: 'feature_boss_weakness',
+        title: 'Fraquezas dos chefes',
+        text: 'Cada chefe tem uma fraqueza: as missões dessa área da vida tiram 2 de vida dele. O Golem da Preguiça, por exemplo, teme a Saúde.',
+        en: {
+          title: 'Boss weaknesses',
+          text: 'Each boss has a weakness: missions in that area of life deal 2 damage. The Golem of Sloth, for example, fears Health.',
+        },
+        route: '/challenges',
+      },
+      {
+        icon: 'warning',
+        flag: 'feature_ambush',
+        title: 'Emboscadas',
+        text: 'De vez em quando um minichefe aparece por 2 dias com um desafio curto. Cumpra a tempo e ganhe Cristais extras.',
+        en: {
+          title: 'Ambushes',
+          text: 'Every now and then a mini-boss shows up for 2 days with a short challenge. Beat it in time for extra Crystals.',
+        },
+      },
+      {
+        icon: 'skull',
+        flag: 'feature_bestiary',
+        title: 'Bestiário',
+        text: 'Em Progresso, a coleção de todos os chefes: os vencidos aparecem caídos, com a maior patente e quantas vezes caíram.',
+        en: {
+          title: 'Bestiary',
+          text: 'In Progress, the collection of every boss: the ones you beat lie defeated, with the highest rank and how many times they fell.',
+        },
+        route: '/progress',
+      },
+    ],
+  },
+  {
+    version: 9,
+    date: '2026-12-03',
+    items: [
+      {
+        icon: 'bonfire',
+        title: 'A Fogueira',
+        text: 'A aba Social virou a Fogueira: veja quantos companheiros já completaram o dia, os pedidos em destaque e os bandos que enfrentam o chefe juntos.',
+        en: {
+          title: 'The Campfire',
+          text: 'The Social tab is now the Campfire: see how many companions have completed the day, requests up front and the bands that face the boss together.',
+        },
+        route: '/social',
+      },
+      {
+        icon: 'stats-chart',
+        title: 'Progresso renovado',
+        text: 'Seu herói, o nível e as gemas de sequência, escudos e XP no topo; o resto em capítulos que abrem com um toque.',
+        en: {
+          title: 'Progress, renewed',
+          text: 'Your hero, level and gems for streak, shields and XP up top; everything else in chapters that open with a tap.',
+        },
+        route: '/progress',
+      },
+      {
+        icon: 'trophy',
+        flag: 'feature_weekly_recap',
+        title: 'Crônica da semana',
+        text: 'De segunda a quarta, um ponto dourado no Progresso avisa: lá está como foi a sua semana, com missões, dias perfeitos, XP, o hábito mais constante e o chefe.',
+        en: {
+          title: 'Weekly chronicle',
+          text: 'Monday to Wednesday, a gold dot on Progress lets you know: your week is there, with missions, perfect days, XP, your most consistent habit and the boss.',
+        },
+        route: '/progress',
+      },
+    ],
+  },
+  {
+    version: 8,
+    date: '2026-12-02',
+    items: [
+      {
+        icon: 'book',
+        title: 'Perfil em capítulos',
+        text: 'O Perfil virou um grimório: seu herói no topo e os ajustes em capítulos que abrem com um toque.',
+        en: {
+          title: 'Profile in chapters',
+          text: 'Your Profile is now a grimoire: your hero up top and settings in chapters that open with a tap.',
+        },
+        route: '/profile',
+      },
+    ],
+  },
+  {
+    version: 7,
+    date: '2026-12-01',
+    items: [
+      {
+        icon: 'airplane',
+        flag: 'feature_vacation',
+        title: 'Modo férias',
+        text: 'Vai viajar ou precisa de uma pausa? Em Perfil → Modo férias, marque até 14 dias: as missões somem e o seu streak fica guardado.',
+        en: {
+          title: 'Vacation mode',
+          text: 'Traveling or need a break? In Profile → Vacation mode, schedule up to 14 days: your missions disappear and your streak is kept safe.',
+        },
+        route: '/profile',
+      },
+    ],
+  },
+  {
     version: 6,
     date: '2026-11-30',
     items: [

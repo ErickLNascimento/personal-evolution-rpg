@@ -7,6 +7,13 @@ import {
   journeyProgress,
   startOfWeek,
   weeklyBoss,
+  BOSS_WEAKNESS,
+  MONTHLY_REWARD,
+  monthlyBoss,
+  monthlyClaimOpen,
+  monthStart,
+  previousMonthStart,
+  bossForWeek,
   type JourneyLength,
   type LocalDate,
   FEATURES,
@@ -14,7 +21,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
-import { BossCard } from '@/components/challenges/BossCard';
+import { BossCard, BossDefeatedRow } from '@/components/challenges/BossCard';
 import { Chips } from '@/components/Chips';
 import { CrystalBadge } from '@/components/crystals/Crystals';
 import { Button, FormMessage } from '@/components/Form';
@@ -23,6 +30,7 @@ import { StackScreen } from '@/components/Screen';
 import {
   abandonJourney,
   claimBoss,
+  claimMonthlyBoss,
   fetchChallenges,
   resolveJourney,
   startJourney,
@@ -34,6 +42,10 @@ import { useToday } from '@/features/profile/useToday';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
+import { useCelebration } from '@/features/celebration/CelebrationProvider';
+import { rankFor, useBossProgress } from '@/features/bosses/api';
+import { useFeature } from '@/features/profile/useFeature';
+import { useProfile } from '@/features/profile/useProfile';
 
 interface ScreenData extends ChallengesData {
   /** Jornadas que acabaram de ser decididas nesta visita. */
@@ -55,8 +67,13 @@ function logsOf(data: ChallengesData, habitId: string): Set<LocalDate> {
 
 /** Desafios com prazo: o chefe da semana e as jornadas de 21 ou 66 dias. */
 function ChallengesScreen() {
+  const { askFeedback } = useCelebration();
   const { t } = useT();
   const { today, ready } = useToday();
+  const ranks = useBossProgress();
+  const weaknessOn = useFeature(FEATURES.bossWeakness);
+  const monthlyOn = useFeature(FEATURES.monthlyBoss);
+  const { profile } = useProfile();
 
   // Carrega e já fecha no banco as jornadas com resultado decidido (o banco confere e paga).
   const load = useCallback(async () => {
@@ -103,11 +120,44 @@ function ChallengesScreen() {
   const data = screen.data;
   const thisWeek = startOfWeek(today);
   const lastWeek = addDays(thisWeek, -7);
-  const boss = weeklyBoss(data.habits, data.logged, today, thisWeek);
-  const previous = weeklyBoss(data.habits, data.logged, today, lastWeek);
+  // Patente de cada chefe para a pessoa: vida e prêmio maiores a cada vitória anterior.
+  const now = rankFor(ranks.progress, thisWeek, ranks.enabled);
+  const before = rankFor(ranks.progress, lastWeek, ranks.enabled);
+  // Fraqueza: missões da área do chefe tiram 2 de vida (mesma conta do banco).
+  const weakOf = (week: LocalDate) =>
+    weaknessOn ? (BOSS_WEAKNESS[bossForWeek(week).id] ?? null) : null;
+  const boss = weeklyBoss(data.habits, data.logged, today, thisWeek, now.rule.hpPct, weakOf(thisWeek));
+  const previous = weeklyBoss(
+    data.habits,
+    data.logged,
+    today,
+    lastWeek,
+    before.rule.hpPct,
+    weakOf(lastWeek),
+  );
+  const shownRank = (r: typeof now) => (ranks.enabled ? r.rank : undefined);
+  // Lorde do mês: o deste mês e, até o dia 7, o do mês anterior se caiu e falta resgatar.
+  const thisMonth = monthStart(today);
+  const lastMonth = previousMonthStart(thisMonth);
+  const lordNow = monthlyBoss(data.habits, data.logged, thisMonth);
+  const lordBefore = monthlyBoss(data.habits, data.logged, lastMonth);
+  const lordReward = profile?.settings.get('monthly_boss_reward') ?? MONTHLY_REWARD;
+  const asWeekly = (m: typeof lordNow) => ({ ...m, weekStart: m.monthStart, weekEnd: m.monthEnd });
   const active = data.journeys.filter((j) => j.status === 'active');
   const finished = data.journeys.filter((j) => j.status !== 'active').slice(0, 5);
   const habitById = new Map(data.habits.map((h) => [h.id, h]));
+
+  async function claimLord(month: LocalDate) {
+    setBusy(`lord:${month}`);
+    setError(null);
+    const r = await claimMonthlyBoss(month);
+    setBusy(null);
+    if (r.error !== null) return setError(r.error);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setNotice(t('challenges.lordDefeated', { coins: r.data.coins }));
+    screen.refresh();
+    askFeedback('boss_defeated');
+  }
 
   async function claim(week: LocalDate) {
     setBusy(`boss:${week}`);
@@ -118,6 +168,8 @@ function ChallengesScreen() {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setNotice(t('challenges.bossDefeated', { coins: r.data.coins }));
     screen.refresh();
+    ranks.refresh();
+    askFeedback('boss_defeated');
   }
 
   return (
@@ -139,21 +191,58 @@ function ChallengesScreen() {
       {notice ? <FormMessage tone="info" text={notice} /> : null}
       <FormMessage text={error} />
 
-      {previous.defeated && !data.bossClaimed.has(lastWeek) && (
-        <BossCard
-          label={t('challenges.lastWeekBoss')}
-          state={previous}
-          claimed={false}
-          busy={busy === `boss:${lastWeek}`}
-          onClaim={() => claim(lastWeek)}
-        />
-      )}
+      {previous.defeated &&
+        (data.bossClaimed.has(lastWeek) ? (
+          <BossDefeatedRow
+            label={t('challenges.lastWeekBoss')}
+            state={previous}
+            rank={shownRank(before)}
+          />
+        ) : (
+          <BossCard
+            label={t('challenges.lastWeekBoss')}
+            state={previous}
+            rank={shownRank(before)}
+            reward={before.rule.reward}
+            claimed={false}
+            busy={busy === `boss:${lastWeek}`}
+            onClaim={() => claim(lastWeek)}
+          />
+        ))}
       <BossCard
         state={boss}
+        rank={shownRank(now)}
+        reward={now.rule.reward}
         claimed={data.bossClaimed.has(thisWeek)}
         busy={busy === `boss:${thisWeek}`}
         onClaim={() => claim(thisWeek)}
       />
+
+      {monthlyOn &&
+        lordBefore.defeated &&
+        !data.monthlyClaimed.has(lastMonth) &&
+        monthlyClaimOpen(lastMonth, today) && (
+          <BossCard
+            label={t('challenges.lastMonthLord')}
+            state={asWeekly(lordBefore)}
+            legendary
+            reward={lordReward}
+            claimed={false}
+            busy={busy === `lord:${lastMonth}`}
+            onClaim={() => claimLord(lastMonth)}
+          />
+        )}
+      {monthlyOn && (
+        <BossCard
+          label={t('challenges.monthLord')}
+          state={asWeekly(lordNow)}
+          legendary
+          reward={lordReward}
+          claimed={data.monthlyClaimed.has(thisMonth)}
+          busy={busy === `lord:${thisMonth}`}
+          onClaim={() => claimLord(thisMonth)}
+        />
+      )}
 
       <Text style={typography.label}>{t('challenges.journeys')}</Text>
       <Text style={typography.caption}>

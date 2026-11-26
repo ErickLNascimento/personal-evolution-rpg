@@ -1,6 +1,9 @@
 import {
   bossForWeek,
-  bossText,
+  bossTitle,
+  BOSS_WEAKNESS,
+  type ObjectiveCategory,
+  type Ambush,
   DEFAULT_HERO,
   displayedTitle,
   isHeroUnset,
@@ -54,6 +57,10 @@ import { useDemoDay } from '@/features/today/useDemoDay';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
+import { VacationNotice } from '@/components/vacation/VacationNotice';
+import { rankFor, useBossProgress } from '@/features/bosses/api';
+import { AmbushCard } from '@/components/ambush/AmbushCard';
+import { fetchAmbush } from '@/features/ambush/api';
 
 export default function TodayScreen() {
   const { isDemo } = useAuth();
@@ -107,6 +114,7 @@ function RealToday() {
   const moodOn = useFeature(FEATURES.moodJournal);
   const shopOn = useFeature(FEATURES.shop);
   const challengesOn = useFeature(FEATURES.challenges);
+  const vacationOn = useFeature(FEATURES.vacation);
   const showNews =
     Boolean(profile) && !showTour && news.length > 0 && (profile?.tourSeenVersion ?? 0) > 0;
   const hero = heroLook(
@@ -139,7 +147,16 @@ function RealToday() {
   const ringLabel = choice === 'today' ? t('today.ringToday') : t('today.ringYesterday');
   const todayDate = day.days[day.days.length - 1]?.date;
   // O chefe só depende da semana; o placar fica na tela Desafios.
-  const boss = bossForWeek(startOfWeek(todayDate ?? day.date));
+  const bossWeek = startOfWeek(todayDate ?? day.date);
+  const boss = bossForWeek(bossWeek);
+  const bossRanks = useBossProgress();
+  const bossRankNow = rankFor(bossRanks.progress, bossWeek, bossRanks.enabled).rank;
+  const ambushOn = useFeature(FEATURES.ambush);
+  // Fraqueza do chefe: só o selo ×2 nas missões da área (o cartão do chefe não a revela).
+  const weaknessOn = useFeature(FEATURES.bossWeakness);
+  const weakness = weaknessOn && challengesOn ? (BOSS_WEAKNESS[boss.id] ?? null) : null;
+  const loadAmbush = useCallback(() => fetchAmbush(), []);
+  const ambush = useFocusLoad<Ambush | null>(loadAmbush, ambushOn);
 
   // O card do herói encolhe e esmaece ao rolar; a barra compacta assume o lugar dele.
   const heroStyle = useAnimatedStyle(() => ({
@@ -190,6 +207,8 @@ function RealToday() {
                 progress={day.progress}
                 scrollY={scrollY}
                 cheer={day.cheer}
+                bossId={day.hasHabits && challengesOn ? boss.id : null}
+                bossRank={bossRankNow}
               />
               <HeroCheerPop hero={hero} cheer={day.cheer} scrollY={scrollY} />
             </>
@@ -273,7 +292,34 @@ function RealToday() {
                   />
                 </Animated.View>
               }
+              beforeMissions={
+                day.hasHabits && challengesOn ? (
+                  <>
+                  {ambushOn && ambush.data && (
+                    <AmbushCard
+                      ambush={ambush.data}
+                      habits={day.habits}
+                      logged={day.logged}
+                      today={today}
+                      hits={day.cheer}
+                      onClaimed={() => {
+                        ambush.refresh();
+                        day.refresh();
+                      }}
+                    />
+                  )}
+                  <BossBanner
+                    id={boss.id}
+                    name={bossTitle(boss, bossRankNow, locale)}
+                    rank={bossRankNow}
+                    hits={day.cheer}
+                    onPress={() => router.push('/challenges')}
+                  />
+                  </>
+                ) : null
+              }
               missions={day.missions}
+              weakness={weakness}
               progress={day.progress}
               level={day.level}
               xpTable={day.xpTable}
@@ -284,7 +330,15 @@ function RealToday() {
               countOf={day.countOf}
               onCount={day.changeCount}
               empty={
-                day.hasHabits ? (
+                day.vacation ? (
+                  <VacationNotice
+                    vacation={day.vacation}
+                    date={day.date}
+                    today={today}
+                    canEnd={vacationOn}
+                    onChanged={day.refresh}
+                  />
+                ) : day.hasHabits ? (
                   <Placeholder
                     text={
                       choice === 'today'
@@ -304,14 +358,6 @@ function RealToday() {
               }
             />
             {moodOn && <MoodCheckIn date={day.date} isToday={choice === 'today'} />}
-            {day.hasHabits && challengesOn && (
-              <BossBanner
-                id={boss.id}
-                name={bossText(boss, locale).name}
-                hits={day.cheer}
-                onPress={() => router.push('/challenges')}
-              />
-            )}
           </>
         )}
       </Screen>
@@ -332,6 +378,8 @@ function DayView({
   onCount,
   empty,
   top,
+  beforeMissions,
+  weakness = null,
 }: {
   missions: Mission[];
   progress: DayProgress;
@@ -347,6 +395,10 @@ function DayView({
   empty?: ReactNode;
   /** Cabeçalho no lugar da barra de XP simples (ex.: o cartão do herói). */
   top?: ReactNode;
+  /** Entre o cabeçalho e a lista de missões (ex.: o chefe da semana). */
+  beforeMissions?: ReactNode;
+  /** Fraqueza do chefe da semana: missões dessa área ganham o selo ×2. */
+  weakness?: ObjectiveCategory | null;
 }) {
   const { t } = useT();
   const bonus = xpTable?.perfectDayBonus ?? 20;
@@ -357,6 +409,8 @@ function DayView({
           <XpBar progress={level} />
         </View>
       )}
+
+      {beforeMissions}
 
       <View style={styles.sectionHeader}>
         <Text style={typography.label}>{t('today.missions')}</Text>
@@ -379,6 +433,7 @@ function DayView({
           onToggle={() => onToggle(m.habit.id)}
           count={m.habit.kind === 'count' ? countOf?.(m.habit.id) : undefined}
           onCount={onCount ? (delta) => onCount(m.habit.id, delta) : undefined}
+          bossWeak={weakness !== null && m.habit.category === weakness}
         />
       ))}
     </>

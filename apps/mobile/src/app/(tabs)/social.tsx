@@ -25,7 +25,7 @@ import {
 import { BossEmblem } from '@/components/challenges/BossCard';
 import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
-import { Placeholder, Screen } from '@/components/Screen';
+import { Screen } from '@/components/Screen';
 import { FriendRow } from '@/components/social/FriendRow';
 import { PillButton } from '@/components/social/PillButton';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -50,6 +50,10 @@ import type { Result } from '@/features/habits/api';
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, MIN_TOUCH, radius, spacing, typography } from '@/theme/tokens';
 import { t as tr, useT } from '@/i18n';
+import { Chapter, ChapterLabel } from '@/components/profile/Chapter';
+import { CampfireHeader } from '@/components/social/CampfireHeader';
+
+const FIRE = '#FB923C';
 
 interface SocialData {
   me: MySocial;
@@ -120,60 +124,25 @@ export default function SocialScreen() {
   const { me, friends, groups } = screen.data;
   const code = formatSocialCode(me.friendCode);
 
+  const doneToday = friends.friends.filter(
+    (f) => f.todayTotal > 0 && f.todayDone >= f.todayTotal,
+  ).length;
+
   return (
     <Screen title={t('social.title')} onRefresh={screen.refresh} refreshing={screen.refreshing}>
       {notice ? <FormMessage tone="info" text={notice} /> : null}
       <FormMessage text={error} />
 
-      <View style={styles.card}>
-        <Text style={typography.label}>{t('social.myCode')}</Text>
-        <Text
-          style={styles.code}
-          selectable
-          accessibilityLabel={t('social.myCodeA11y', { code: code.split('').join(' ') })}
-        >
-          {code}
-        </Text>
-        <Button
-          title={t('social.shareCode')}
-          variant="secondary"
-          onPress={() =>
-            void Share.share({
-              message: t('social.shareMessage', { code }),
-            })
-          }
-        />
-        <View style={styles.switchRow}>
-          <View style={styles.flex}>
-            <Text style={typography.body}>{t('social.discoverable')}</Text>
-            <Text style={typography.caption}>{t('social.discoverableHint')}</Text>
-          </View>
-          <Switch
-            value={me.discoverable}
-            onValueChange={(on) => void run('discoverable', () => setDiscoverable(userId!, on))}
-            accessibilityLabel={t('social.discoverable')}
-            trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
-          />
-        </View>
-      </View>
-
-      <AddFriend
-        busy={busy}
-        onSend={(target) =>
-          run(
-            'add',
-            () => sendFriendRequest(target),
-            (r) =>
-              r.status === 'accepted'
-                ? t('social.nowFriends', { name: socialName(r.user.displayName, locale) })
-                : t('social.requestSent', { name: socialName(r.user.displayName, locale) }),
-          )
-        }
-      />
+      <CampfireHeader friends={friends.friends.length} doneToday={doneToday} bands={groups.length} />
 
       {friends.incoming.length > 0 && (
-        <>
-          <Text style={typography.label}>{t('social.incoming')}</Text>
+        <Chapter
+          icon="mail-unread"
+          color={colors.xp}
+          title={t('campfire.requests', { count: friends.incoming.length })}
+          summary={t('campfire.requestsSummary')}
+          defaultOpen
+        >
           {friends.incoming.map((r) => (
             <FriendRow
               key={r.requestId}
@@ -206,79 +175,151 @@ export default function SocialScreen() {
               }
             />
           ))}
-        </>
+        </Chapter>
       )}
 
-      <Text style={typography.label}>{t('social.friends', { count: friends.friends.length })}</Text>
-      {friends.friends.length === 0 ? (
-        <Placeholder text={t('social.noFriends')} />
-      ) : (
-        friends.friends.map((f) => (
-          <FriendRow
-            key={f.userId}
-            person={f}
-            onPress={() =>
-              Alert.alert(
-                socialName(f.displayName, locale),
-                t('social.friendInfo', { level: f.level, streak: f.streak }),
-                [
-                  { text: t('social.close'), style: 'cancel' },
-                  {
-                    text: t('social.unfriend'),
-                    style: 'destructive',
-                    onPress: () => void run(`remove:${f.userId}`, () => removeFriend(f.userId)),
-                  },
-                ],
-              )
-            }
-          />
-        ))
-      )}
-
-      {friends.outgoing.length > 0 && (
-        <>
-          <Text style={typography.label}>{t('social.outgoing')}</Text>
-          {friends.outgoing.map((r) => (
+      <Chapter
+        icon="people"
+        color={FIRE}
+        title={t('campfire.companions')}
+        summary={t('campfire.companionsSummary', { count: friends.friends.length })}
+        defaultOpen
+      >
+        {friends.friends.length === 0 ? (
+          <Text style={typography.caption}>{t('social.noFriends')}</Text>
+        ) : (
+          friends.friends.map((f) => (
             <FriendRow
-              key={r.requestId}
-              person={r.user}
-              actions={
-                <PillButton
-                  title={t('social.cancel')}
-                  tone="secondary"
-                  loading={busy === `cancel:${r.user.userId}`}
-                  onPress={() =>
-                    void run(`cancel:${r.user.userId}`, () => removeFriend(r.user.userId))
-                  }
-                />
+              key={f.userId}
+              person={f}
+              onPress={() =>
+                Alert.alert(
+                  socialName(f.displayName, locale),
+                  t('social.friendInfo', { level: f.level, streak: f.streak }),
+                  [
+                    { text: t('social.close'), style: 'cancel' },
+                    {
+                      text: t('social.unfriend'),
+                      style: 'destructive',
+                      onPress: () => void run(`remove:${f.userId}`, () => removeFriend(f.userId)),
+                    },
+                  ],
+                )
               }
             />
-          ))}
-        </>
-      )}
+          ))
+        )}
+        {friends.outgoing.length > 0 && (
+          <>
+            <ChapterLabel>{t('social.outgoing')}</ChapterLabel>
+            {friends.outgoing.map((r) => (
+              <FriendRow
+                key={r.requestId}
+                person={r.user}
+                actions={
+                  <PillButton
+                    title={t('social.cancel')}
+                    tone="secondary"
+                    loading={busy === `cancel:${r.user.userId}`}
+                    onPress={() =>
+                      void run(`cancel:${r.user.userId}`, () => removeFriend(r.user.userId))
+                    }
+                  />
+                }
+              />
+            ))}
+          </>
+        )}
+      </Chapter>
 
-      <Text style={typography.label}>{t('social.groups')}</Text>
-      <Text style={typography.caption}>{t('social.groupsHint', { max: MAX_GROUP_MEMBERS })}</Text>
-      {groups.map((g) => (
-        <GroupRow key={g.id} group={g} />
-      ))}
-      <GroupActions
-        busy={busy}
-        onCreate={(name) =>
-          run(
-            'create',
-            () => createGroup(name),
-            () => t('social.groupCreated'),
-          )
+      <Chapter
+        icon="shield-half"
+        color={colors.primary}
+        title={t('campfire.bandsTitle')}
+        summary={
+          groups.length === 0
+            ? t('social.groupsHint', { max: MAX_GROUP_MEMBERS })
+            : t('campfire.bands', { count: groups.length })
         }
-        onJoin={(c) =>
-          run(
-            'join',
-            () => joinGroup(c),
-            () => t('social.groupJoined'),
-          )
-        }
-      />
+        defaultOpen={groups.length > 0}
+      >
+        {groups.length === 0 && (
+          <Text style={typography.caption}>{t('social.groupsHint', { max: MAX_GROUP_MEMBERS })}</Text>
+        )}
+        {groups.map((g) => (
+          <GroupRow key={g.id} group={g} />
+        ))}
+        <GroupActions
+          busy={busy}
+          onCreate={(name) =>
+            run(
+              'create',
+              () => createGroup(name),
+              () => t('social.groupCreated'),
+            )
+          }
+          onJoin={(c) =>
+            run(
+              'join',
+              () => joinGroup(c),
+              () => t('social.groupJoined'),
+            )
+          }
+        />
+      </Chapter>
+
+      <Chapter
+        icon="person-add"
+        color={colors.accent}
+        title={t('campfire.invite')}
+        summary={t('campfire.inviteSummary', { code })}
+      >
+        <View style={styles.codeBox}>
+          <Text style={typography.label}>{t('social.myCode')}</Text>
+          <Text
+            style={styles.code}
+            selectable
+            accessibilityLabel={t('social.myCodeA11y', { code: code.split('').join(' ') })}
+          >
+            {code}
+          </Text>
+          <Button
+            title={t('social.shareCode')}
+            variant="secondary"
+            onPress={() =>
+              void Share.share({
+                message: t('social.shareMessage', { code }),
+              })
+            }
+          />
+        </View>
+        <View style={styles.switchRow}>
+          <View style={styles.flex}>
+            <Text style={typography.body}>{t('social.discoverable')}</Text>
+            <Text style={typography.caption}>{t('social.discoverableHint')}</Text>
+          </View>
+          <Switch
+            value={me.discoverable}
+            onValueChange={(on) => void run('discoverable', () => setDiscoverable(userId!, on))}
+            accessibilityLabel={t('social.discoverable')}
+            trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
+          />
+        </View>
+        <ChapterLabel>{t('social.addFriend')}</ChapterLabel>
+        <AddFriend
+          busy={busy}
+          onSend={(target) =>
+            run(
+              'add',
+              () => sendFriendRequest(target),
+              (r) =>
+                r.status === 'accepted'
+                  ? t('social.nowFriends', { name: socialName(r.user.displayName, locale) })
+                  : t('social.requestSent', { name: socialName(r.user.displayName, locale) }),
+            )
+          }
+        />
+      </Chapter>
     </Screen>
   );
 }
@@ -315,8 +356,7 @@ function AddFriend({
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={typography.label}>{t('social.addFriend')}</Text>
+    <View style={styles.add}>
       <Chips
         options={[
           { value: 'code' as const, label: t('social.modeCode') },
@@ -512,6 +552,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  codeBox: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceRaised,
+  },
+  add: { gap: spacing.sm },
   code: {
     fontSize: 32,
     fontWeight: '800',

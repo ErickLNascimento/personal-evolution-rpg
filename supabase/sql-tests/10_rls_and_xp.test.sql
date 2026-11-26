@@ -1787,6 +1787,527 @@ do $$ begin
     'inglês começa desligado');
 end $$;
 
+-- ── Modo férias ─────────────────────────────────────────────
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('eeeeeeee-1111-1111-1111-111111111111', 'vera@teste.dev', '{"timezone":"America/Manaus"}'),
+  ('eeeeeeee-2222-2222-2222-222222222222', 'rui@teste.dev', '{"timezone":"America/Manaus"}');
+insert into public.habits (id, user_id, title, difficulty, start_date) values
+  ('eeeeeeee-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'eeeeeeee-1111-1111-1111-111111111111', 'Caminhar', 'easy',
+   pg_temp.today() - 20);
+
+-- começa desligado: as duas funções recusam com PR050
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_vacation') = 0,
+    'férias começam desligadas');
+  begin
+    perform public.start_vacation(pg_temp.today(), 3);
+    raise exception 'FALHOU: marcou férias com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.end_vacation(gen_random_uuid());
+    raise exception 'FALHOU: encerrou férias com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_vacation';
+
+-- regras de start_vacation
+set local role authenticated;
+do $$
+declare
+  r jsonb;
+  s date;
+  y integer;
+begin
+  begin
+    insert into public.vacations (user_id, start_date, end_date)
+    values ('eeeeeeee-1111-1111-1111-111111111111', pg_temp.today() - 5, pg_temp.today());
+    raise exception 'FALHOU: app gravou férias direto';
+  exception when insufficient_privilege then null;
+  end;
+
+  r := public.start_vacation(pg_temp.today(), 3);
+  perform pg_temp.check((r->>'end_date')::date = pg_temp.today() + 2, 'férias de 3 dias terminam 2 dias depois');
+  begin
+    perform public.start_vacation(pg_temp.today() + 2, 2);
+    raise exception 'FALHOU: férias sobrepostas';
+  exception when sqlstate 'PR062' then null;
+  end;
+  begin
+    perform public.start_vacation(pg_temp.today() - 1, 2);
+    raise exception 'FALHOU: férias no passado';
+  exception when sqlstate 'PR060' then null;
+  end;
+  begin
+    perform public.start_vacation(pg_temp.today() + 61, 2);
+    raise exception 'FALHOU: férias longe demais';
+  exception when sqlstate 'PR060' then null;
+  end;
+  begin
+    perform public.start_vacation(pg_temp.today() + 10, 15);
+    raise exception 'FALHOU: férias de 15 dias';
+  exception when sqlstate 'PR061' then null;
+  end;
+  begin
+    perform public.start_vacation(pg_temp.today() + 10, 0);
+    raise exception 'FALHOU: férias de 0 dias';
+  exception when sqlstate 'PR061' then null;
+  end;
+
+  -- encerrar: férias que começam hoje são apagadas
+  perform public.end_vacation((r->>'id')::uuid);
+  perform pg_temp.check(not exists (select 1 from public.vacations), 'férias de hoje encerradas são apagadas');
+  begin
+    perform public.end_vacation((r->>'id')::uuid);
+    raise exception 'FALHOU: encerrou férias inexistentes';
+  exception when sqlstate 'P0002' then null;
+  end;
+end $$;
+
+-- em andamento: encerrar termina ontem
+reset role;
+insert into public.vacations (id, user_id, start_date, end_date) values
+  ('eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'eeeeeeee-1111-1111-1111-111111111111',
+   pg_temp.today() - 2, pg_temp.today() + 2);
+set local role authenticated;
+do $$ begin
+  perform public.end_vacation('eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+  perform pg_temp.check(
+    (select end_date from public.vacations where id = 'eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb') = pg_temp.today() - 1,
+    'férias em andamento terminam ontem');
+end $$;
+
+-- limite de 30 dias no ano: 28 já usados no ano de S, longe de S
+reset role;
+delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+do $$
+declare
+  s date := pg_temp.today() + 40;
+  y integer;
+  b date;
+begin
+  if extract(year from s) <> extract(year from s + 2) then s := s + 3; end if;
+  y := extract(year from s)::integer;
+  -- bloco de 28 dias no começo ou no fim do ano, o que não encostar em [hoje, S]
+  b := make_date(y, 1, 1);
+  if b + 27 >= pg_temp.today() - 1 and b <= s + 3 then b := make_date(y, 12, 1); end if;
+  insert into public.vacations (user_id, start_date, end_date) values
+    ('eeeeeeee-1111-1111-1111-111111111111', b, b + 13),
+    ('eeeeeeee-1111-1111-1111-111111111111', b + 14, b + 27);
+  perform set_config('test.vac_start', s::text, true);
+end $$;
+set local role authenticated;
+do $$
+declare
+  s date := current_setting('test.vac_start')::date;
+begin
+  begin
+    perform public.start_vacation(s, 3);
+    raise exception 'FALHOU: passou de 30 dias no ano';
+  exception when sqlstate 'PR063' then null;
+  end;
+  perform pg_temp.check(
+    (select count(*) from public.vacations where start_date = s) = 0, 'férias recusadas não ficam gravadas');
+  perform public.start_vacation(s, 2);
+  perform pg_temp.check(
+    (select count(*) from public.vacations where start_date = s) = 1, 'até 30 dias no ano é aceito');
+end $$;
+
+-- férias valem no streak do banco e no chefe da semana
+reset role;
+delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+insert into public.habit_logs (user_id, habit_id, local_date)
+select 'eeeeeeee-1111-1111-1111-111111111111', 'eeeeeeee-aaaa-aaaa-aaaa-aaaaaaaaaaaa', d::date
+from unnest(array[pg_temp.today() - 7, pg_temp.today() - 6, pg_temp.today() - 5, pg_temp.today()]) d;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  hp_before integer;
+begin
+  perform pg_temp.check(public.user_streak('eeeeeeee-1111-1111-1111-111111111111') < 4,
+    'sem férias, três faltas seguidas quebram o streak');
+  select max_hp into hp_before from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday);
+  perform pg_temp.check(hp_before > 0, 'chefe tem vida sem férias');
+
+  insert into public.vacations (user_id, start_date, end_date) values
+    ('eeeeeeee-1111-1111-1111-111111111111', pg_temp.today() - 4, pg_temp.today() - 1);
+  perform pg_temp.check(public.user_streak('eeeeeeee-1111-1111-1111-111111111111') = 4,
+    'dias de férias não contam nem quebram o streak');
+
+  delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+  insert into public.vacations (user_id, start_date, end_date) values
+    ('eeeeeeee-1111-1111-1111-111111111111', monday, monday + 6);
+  perform pg_temp.check(
+    (select max_hp from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 0,
+    'semana inteira de férias: o chefe não aparece');
+end $$;
+
+-- férias são privadas
+select set_config('request.jwt.claim.sub', 'eeeeeeee-2222-2222-2222-222222222222', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select count(*) from public.vacations) = 0, 'férias de outra pessoa não aparecem');
+end $$;
+reset role;
+
+-- ── Pedido de feedback (pop-up com nota) ───────────────────
+-- Vera (eeee…1111) já tem 4 registros (testes do modo férias): hoje − 7, − 6, − 5 e hoje.
+reset role;
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare
+  u jsonb;
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_feedback_prompt') = 0,
+    'pedido de feedback começa desligado');
+  perform pg_temp.check((select value from public.app_settings where key = 'feedback_prompt_min_missions') = 15,
+    'regras do pedido em app_settings');
+  begin
+    perform public.submit_feedback_rating(5);
+    raise exception 'FALHOU: nota com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+
+  u := public.my_feedback_prompt_usage();
+  perform pg_temp.check((u->>'first_log_date')::date = pg_temp.today() - 7, 'uso: primeiro registro');
+  perform pg_temp.check((u->>'missions_done')::int = 4, 'uso: total de missões');
+  perform pg_temp.check(not (u->>'already_rated')::boolean, 'uso: ainda sem nota');
+
+  -- o formulário continua gravando direto; nota pelo insert direto, não
+  insert into public.feedback (kind, message, platform) values ('ideia', 'Mais chefes, por favor', 'ios');
+  begin
+    insert into public.feedback (kind, message, rating, source) values ('elogio', null, 5, 'prompt');
+    raise exception 'FALHOU: nota gravada direto na tabela';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.feedback (kind, message) values ('outro', null);
+    raise exception 'FALHOU: formulário sem mensagem';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_feedback_prompt';
+set local role authenticated;
+do $$
+declare
+  v_id uuid;
+begin
+  v_id := public.submit_feedback_rating(5, null, '1.0.0', 'ios');
+  perform pg_temp.check(
+    (select kind = 'elogio' and source = 'prompt' and rating = 5 and message is null
+     from public.feedback where id = v_id), 'nota 5 vira elogio, sem comentário');
+  v_id := public.submit_feedback_rating(2, '  Muitas notificações  ');
+  perform pg_temp.check(
+    (select kind = 'outro' and message = 'Muitas notificações' from public.feedback where id = v_id),
+    'nota baixa com o porquê, comentário limpo');
+  perform pg_temp.check((public.my_feedback_prompt_usage()->>'already_rated')::boolean, 'uso: já deu nota');
+  begin
+    perform public.submit_feedback_rating(0);
+    raise exception 'FALHOU: nota 0';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.submit_feedback_rating(4, repeat('a', 1001));
+    raise exception 'FALHOU: comentário longo';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.submit_feedback_rating(4, null, null, 'windows');
+    raise exception 'FALHOU: plataforma inválida';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+reset role;
+
+-- ── Resumo da semana ────────────────────────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_weekly_recap') = 0,
+    'resumo da semana começa desligado');
+end $$;
+
+-- ── Patentes dos chefes ─────────────────────────────────────
+-- Vera (eeee…1111): um hábito diário desde hoje − 20; sem férias para não zerar a semana.
+reset role;
+delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  boss text := public.boss_for_week(date_trunc('week', pg_temp.today())::date);
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_boss_ranks') = 0,
+    'patentes começam desligadas');
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_bestiary') = 0,
+    'bestiário começa desligado');
+  perform pg_temp.check(public.boss_for_week(monday) = public.boss_for_week(monday - 42),
+    'o rodízio repete a cada 6 semanas');
+  perform pg_temp.check(public.boss_for_week(monday) <> public.boss_for_week(monday - 7),
+    'semanas seguidas, chefes diferentes');
+  -- três vitórias antigas contra o mesmo chefe: o desta semana seria Lorde
+  insert into public.boss_victories (user_id, week_start, boss_id, rank) values
+    ('eeeeeeee-1111-1111-1111-111111111111', monday - 42, boss, 0),
+    ('eeeeeeee-1111-1111-1111-111111111111', monday - 84, boss, 0),
+    ('eeeeeeee-1111-1111-1111-111111111111', monday - 126, boss, 0);
+  perform pg_temp.check(public.boss_rank('eeeeeeee-1111-1111-1111-111111111111', monday) = 0,
+    'flag desligada: todo chefe é Soldado');
+  perform pg_temp.check(
+    (select max_hp from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 6,
+    'Soldado: 80% de 7 missões = 6');
+end $$;
+update public.app_settings set value = 1 where key = 'feature_boss_ranks';
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+begin
+  perform pg_temp.check(public.boss_rank('eeeeeeee-1111-1111-1111-111111111111', monday) = 3,
+    'três vitórias: Lorde');
+  perform pg_temp.check(
+    (select max_hp from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 7,
+    'Lorde: 95% de 7 missões = 7');
+  -- semana inteira feita
+  insert into public.habit_logs (user_id, habit_id, local_date)
+  select 'eeeeeeee-1111-1111-1111-111111111111', 'eeeeeeee-aaaa-aaaa-aaaa-aaaaaaaaaaaa', d::date
+  from generate_series(monday, monday + 6, interval '1 day') d
+  on conflict do nothing;
+end $$;
+
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  r jsonb;
+begin
+  begin
+    insert into public.boss_victories (user_id, week_start, boss_id, rank)
+    values ('eeeeeeee-1111-1111-1111-111111111111', monday - 7, 'golem', 3);
+    raise exception 'FALHOU: app gravou vitória direto';
+  exception when insufficient_privilege then null;
+  end;
+  perform pg_temp.check((select count(*) from public.boss_ranks) = 4, 'tabela de patentes legível');
+  r := public.claim_weekly_boss(monday);
+  perform pg_temp.check((r->>'coins_awarded')::int = 130 and (r->>'rank')::int = 3,
+    'Lorde derrotado rende 130 Cristais');
+  perform pg_temp.check(
+    (select rank from public.boss_victories where week_start = monday) = 3, 'vitória gravada com a patente');
+  r := public.claim_weekly_boss(monday);
+  perform pg_temp.check((r->>'coins_awarded')::int = 0, 'resgate não paga duas vezes');
+  perform pg_temp.check((select count(*) from public.boss_victories where week_start = monday) = 1,
+    'nem grava a vitória duas vezes');
+end $$;
+
+-- vitórias são privadas
+select set_config('request.jwt.claim.sub', 'eeeeeeee-2222-2222-2222-222222222222', true);
+do $$ begin
+  perform pg_temp.check((select count(*) from public.boss_victories) = 0, 'vitórias de outra pessoa não aparecem');
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_boss_ranks';
+
+-- ── Fraquezas dos chefes ────────────────────────────────────
+-- Vera fez a semana inteira (testes das patentes): 7 missões. O hábito passa a ter um objetivo
+-- na área fraca do chefe desta semana.
+reset role;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  o uuid;
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_boss_weakness') = 0,
+    'fraquezas começam desligadas');
+  perform pg_temp.check(public.boss_weakness('golem') = 'health' and public.boss_weakness('basilisco') = 'relationships',
+    'mesmas fraquezas do app');
+  insert into public.objectives (user_id, title, category)
+  values ('eeeeeeee-1111-1111-1111-111111111111', 'Contra o chefe', public.boss_weakness(public.boss_for_week(monday)))
+  returning id into o;
+  update public.habits set objective_id = o where id = 'eeeeeeee-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  perform pg_temp.check(
+    (select damage from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 7,
+    'flag desligada: cada missão tira 1');
+  update public.app_settings set value = 1 where key = 'feature_boss_weakness';
+  perform pg_temp.check(
+    (select damage from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 14,
+    'na área fraca, cada missão tira 2');
+  perform pg_temp.check(
+    (select max_hp from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 6,
+    'a vida não muda');
+  update public.objectives set category = case when category = 'health' then 'finance' else 'health' end where id = o;
+  perform pg_temp.check(
+    (select damage from public.weekly_boss_status('eeeeeeee-1111-1111-1111-111111111111', monday)) = 7,
+    'outra área tira 1');
+  update public.app_settings set value = 0 where key = 'feature_boss_weakness';
+end $$;
+
+-- ── Emboscadas ──────────────────────────────────────────────
+-- Vera: hábito diário (fácil) desde hoje − 20 e a semana atual inteira registrada.
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_ambush') = 0,
+    'emboscadas começam desligadas');
+  perform pg_temp.check(public.my_ambush() is null, 'desligada: nenhuma emboscada');
+  begin
+    perform public.claim_ambush(pg_temp.today());
+    raise exception 'FALHOU: resgatou emboscada com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  hits integer := 0;
+  w date;
+  a record;
+  found_week date;
+begin
+  -- sorteio: cerca de 1 em cada 3 semanas, sempre numa quarta ou num sábado
+  for k in 3..62 loop
+    w := monday + 7 * k;
+    for a in select * from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111', w) loop
+      hits := hits + 1;
+      found_week := coalesce(found_week, w);
+      perform pg_temp.check(extract(dow from a.start_date) in (3, 6), 'emboscada começa na quarta ou no sábado');
+      perform pg_temp.check(a.ambusher in ('goblin', 'slime', 'morcego', 'diabrete', 'esqueleto'), 'minichefe do catálogo');
+    end loop;
+  end loop;
+  perform pg_temp.check(hits between 8 and 35, 'frequência perto de 1 em 3 semanas: ' || hits || ' em 60');
+  -- a semana seguinte à do primeiro hábito (hoje − 20) cai nas duas primeiras semanas de uso
+  perform pg_temp.check(not exists (select 1 from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111',
+      date_trunc('week', pg_temp.today() - 20)::date + 7)),
+    'nada nas duas primeiras semanas de uso');
+  -- férias nos dias da emboscada cancelam o sorteio
+  select x.start_date into w from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111', found_week) x;
+  insert into public.vacations (user_id, start_date, end_date) values ('eeeeeeee-1111-1111-1111-111111111111', w, w + 1);
+  perform pg_temp.check(not exists (select 1 from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111', found_week)),
+    'sem emboscada nas férias');
+  delete from public.vacations where user_id = 'eeeeeeee-1111-1111-1111-111111111111';
+  perform pg_temp.check(exists (select 1 from public.ambush_for_week('eeeeeeee-1111-1111-1111-111111111111', found_week)),
+    'o sorteio é o mesmo sempre');
+
+  -- progresso: uma missão fácil por dia, os dois dias perfeitos
+  perform pg_temp.check((select done from public.ambush_progress('eeeeeeee-1111-1111-1111-111111111111', 'goblin', monday)) = 2,
+    'Goblin: 2 de 4 missões');
+  perform pg_temp.check((select target from public.ambush_progress('eeeeeeee-1111-1111-1111-111111111111', 'goblin', monday)) = 4,
+    'Goblin pede 4');
+  perform pg_temp.check((select done from public.ambush_progress('eeeeeeee-1111-1111-1111-111111111111', 'morcego', monday)) = 2,
+    'Morcego: os 2 dias perfeitos');
+  perform pg_temp.check((select done from public.ambush_progress('eeeeeeee-1111-1111-1111-111111111111', 'esqueleto', monday)) = 0,
+    'Esqueleto: só missões difíceis contam');
+end $$;
+update public.app_settings set value = 1 where key = 'feature_ambush';
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.claim_ambush(date_trunc('week', pg_temp.today())::date); -- segunda: nunca há emboscada
+    raise exception 'FALHOU: resgatou emboscada inexistente';
+  exception when sqlstate 'P0002' then null;
+  end;
+  begin
+    insert into public.ambush_victories (user_id, start_date, ambusher)
+    values ('eeeeeeee-1111-1111-1111-111111111111', pg_temp.today(), 'slime');
+    raise exception 'FALHOU: app gravou emboscada direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_ambush';
+
+-- ── Ato II dos chefes ───────────────────────────────────────
+reset role;
+do $$
+declare
+  monday date := date_trunc('week', pg_temp.today())::date;
+  before_now text := public.boss_for_week(date_trunc('week', pg_temp.today())::date);
+  before_past text := public.boss_for_week(date_trunc('week', pg_temp.today())::date - 7);
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_act_2') = 0,
+    'Ato II começa desligado');
+  -- começa nesta semana, mas com a flag desligada nada muda
+  update public.app_settings set value = (monday - date '1970-01-01') / 7 where key = 'boss_act2_start_week';
+  perform pg_temp.check(public.boss_for_week(monday) = before_now, 'flag desligada: chefe de sempre');
+  update public.app_settings set value = 1 where key = 'feature_act_2';
+  perform pg_temp.check(public.boss_for_week(monday) = 'kraken', 'Ato II começa por um chefe novo');
+  perform pg_temp.check(public.boss_for_week(monday + 7) = 'golem', 'depois um antigo');
+  perform pg_temp.check(public.boss_for_week(monday + 84) = 'kraken', 'rodízio de 12 semanas');
+  perform pg_temp.check(public.boss_for_week(monday - 7) = before_past, 'semanas passadas mantêm o chefe');
+  perform pg_temp.check(public.boss_weakness('medusa') = 'finance' and public.boss_weakness('mimico') = 'knowledge',
+    'fraquezas do Ato II');
+  update public.app_settings set value = 0 where key = 'feature_act_2';
+  update public.app_settings set value = 0 where key = 'boss_act2_start_week';
+end $$;
+
+-- ── Lorde do mês ────────────────────────────────────────────
+reset role;
+do $$
+declare
+  m date := date_trunc('month', pg_temp.today())::date;
+  days integer;
+  s record;
+begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_monthly_boss') = 0,
+    'Lorde do mês começa desligado');
+  perform pg_temp.check(public.monthly_boss_for(date '2026-11-01') = 'sombra', 'mesma conta do app (nov/2026 = sombra)');
+  perform pg_temp.check(public.monthly_boss_for(date '2026-12-01') = 'basilisco', 'gira a cada mês');
+  -- vida = 70% das missões do mês (hábito diário de Vera desde hoje − 20)
+  select count(*) into days from generate_series(greatest(m, pg_temp.today() - 20),
+    (m + interval '1 month' - interval '1 day')::date, interval '1 day');
+  select * into s from public.monthly_boss_status('eeeeeeee-1111-1111-1111-111111111111', m);
+  perform pg_temp.check(s.max_hp = ceil(days * 0.7), 'vida = 70% das missões do mês');
+end $$;
+select set_config('request.jwt.claim.sub', 'eeeeeeee-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.claim_monthly_boss(date_trunc('month', pg_temp.today())::date);
+    raise exception 'FALHOU: resgatou o Lorde com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_monthly_boss';
+select set_config('test.lord_up',
+  (select (damage < max_hp)::text from public.monthly_boss_status('eeeeeeee-1111-1111-1111-111111111111',
+    date_trunc('month', pg_temp.today())::date)), true);
+set local role authenticated;
+do $$
+declare
+  m date := date_trunc('month', pg_temp.today())::date;
+begin
+  begin
+    perform public.claim_monthly_boss(m + 1);
+    raise exception 'FALHOU: aceitou data que não é dia 1º';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.claim_monthly_boss((m - interval '2 months')::date);
+    raise exception 'FALHOU: resgatou fora do prazo';
+  exception when invalid_parameter_value then null;
+  end;
+  if current_setting('test.lord_up')::boolean then
+    begin
+      perform public.claim_monthly_boss(m);
+      raise exception 'FALHOU: resgatou o Lorde de pé';
+    exception when sqlstate 'PR033' then null;
+    end;
+  end if;
+  begin
+    insert into public.monthly_boss_victories (user_id, month_start, boss_id)
+    values ('eeeeeeee-1111-1111-1111-111111111111', m, 'golem');
+    raise exception 'FALHOU: app gravou vitória do Lorde direto';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_monthly_boss';
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

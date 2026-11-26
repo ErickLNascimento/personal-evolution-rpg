@@ -11,6 +11,24 @@ export const FEATURES = {
   dataExport: 'feature_data_export',
   /** App em inglês (seletor de idioma no Perfil); desligado, tudo em português. */
   english: 'feature_english',
+  /** Modo férias: pausar dias sem perder o streak (Perfil e tela Hoje). */
+  vacation: 'feature_vacation',
+  /** Pop-up que pede uma nota de 1 a 5 depois de momentos bons. */
+  feedbackPrompt: 'feature_feedback_prompt',
+  /** Cartão "Resumo da semana" na tela Hoje, de segunda a quarta. */
+  weeklyRecap: 'feature_weekly_recap',
+  /** Patentes dos chefes: cada vitória faz o chefe voltar mais forte. */
+  bossRanks: 'feature_boss_ranks',
+  /** Bestiário no Progresso: a coleção de chefes vencidos. */
+  bestiary: 'feature_bestiary',
+  /** Fraquezas: cada chefe leva golpe dobrado das missões de uma área da vida. */
+  bossWeakness: 'feature_boss_weakness',
+  /** Emboscadas: minichefes surpresa de 2 dias com um desafio curto. */
+  ambush: 'feature_ambush',
+  /** Ato II: seis chefes novos no rodízio, a partir de boss_act2_start_week. */
+  act2: 'feature_act_2',
+  /** Lorde do mês: um chefe lendário que dura o mês inteiro. */
+  monthlyBoss: 'feature_monthly_boss',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

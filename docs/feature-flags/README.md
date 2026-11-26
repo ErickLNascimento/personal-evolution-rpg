@@ -21,6 +21,9 @@ sem mexer no Supabase:
 EXPO_PUBLIC_DEV_FEATURES=feature_english,feature_data_export
 ```
 
+Também aceita chaves só de teste: `dev_feedback_prompt_always` faz o pedido de feedback aparecer
+sempre que as regras de uso deixarem, ignorando respostas anteriores e a nota já enviada.
+
 Reinicie o Metro depois de mudar (`npx expo start --clear`). Builds de produção ignoram a variável.
 O banco continua seguindo a flag real: RPCs de um recurso desligado ainda recusam com `PR050`.
 
@@ -63,6 +66,161 @@ sobre a pessoa. **Começa desligada.**
 update public.app_settings set value = 1 where key = 'feature_data_export';
 -- desligar
 update public.app_settings set value = 0 where key = 'feature_data_export';
+```
+
+### Ato II dos chefes: `feature_act_2`
+
+Seis chefes novos (Kraken do Perfeccionismo, Quimera da Comparação, Banshee da Culpa, Vampiro da
+Insônia, Mímico das Desculpas, Medusa do Gasto) entram no rodízio a partir da semana marcada em
+`boss_act2_start_week`. Dali em diante são 12 chefes, alternando novo e antigo, começando por um novo;
+as semanas anteriores mantêm o chefe que tiveram. O Bestiário ganha a página do Ato II. **Começa
+desligada.** Ligue só depois que a versão com os sprites novos chegar aos testers, e não desligue
+depois de começar (as semanas já vividas voltariam aos chefes do Ato I).
+
+```sql
+-- marcar a segunda-feira de início (número da semana desde 1970) e ligar
+update public.app_settings set value = ('2026-12-07'::date - date '1970-01-01') / 7
+  where key = 'boss_act2_start_week';
+update public.app_settings set value = 1 where key = 'feature_act_2';
+```
+
+### Lorde do mês: `feature_monthly_boss`
+
+Em Desafios, um chefe do rodízio na forma lendária (dourado) fica o mês inteiro: vida de 70% das
+missões agendadas no mês, cada missão tira 1. Prêmio em `monthly_boss_reward` (padrão 200 Cristais),
+resgatável até o dia 7 do mês seguinte; a vitória fica em `monthly_boss_victories`. Gira pelos 6 do
+Ato I, ou pelos 12 quando o Ato II já está no rodízio no dia 1º. Desligada, o Lorde não aparece e
+`claim_monthly_boss` recusa com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_monthly_boss';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_monthly_boss';
+-- mudar o prêmio
+update public.app_settings set value = 250 where key = 'monthly_boss_reward';
+```
+
+### Patentes dos chefes: `feature_boss_ranks`
+
+Cada vitória contra um chefe o faz voltar uma patente acima (Soldado, Capitão, General, Lorde), com
+mais vida, outra cor e prêmio maior. Vida e prêmio por patente ficam na tabela `boss_ranks`. A
+vitória conta no resgate e fica em `boss_victories`. Desligada, todo chefe é Soldado, com a vida e
+o prêmio de antes. Chefe do bando sem patente por enquanto. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_boss_ranks';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_boss_ranks';
+-- ajustar a vida (%) e o prêmio de uma patente (0 Soldado, 1 Capitão, 2 General, 3 Lorde)
+update public.boss_ranks set hp_pct = 90, reward = 120 where rank = 3;
+```
+
+### Fraquezas dos chefes: `feature_boss_weakness`
+
+Cada chefe leva golpe dobrado das missões de uma área da vida (a área do objetivo do hábito):
+Golem → Saúde, Hidra → Produtividade, Lich → Carreira, Dragão → Bem-estar, Sombra → Crescimento
+pessoal, Basilisco → Relacionamentos. A vida não muda; hábito sem objetivo conta 1. A fraqueza não é
+escrita no cartão do chefe: na tela Hoje, a missão da área fraca ganha o selo "×2 no chefe". Desligada, toda missão conta 1. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_boss_weakness';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_boss_weakness';
+```
+
+### Emboscadas: `feature_ambush`
+
+De vez em quando (sorteio por pessoa: em média 1 a cada 3 semanas, numa quarta ou num sábado) um
+minichefe aparece por 2 dias com um desafio curto: Goblin do Atraso (4 missões), Slime da Bagunça (3
+de Produtividade), Morcego da Madrugada (os 2 dias perfeitos), Diabrete do Celular (3 de Bem-estar) e
+Esqueleto do "Depois" (2 difíceis). Cartão na tela Hoje, aviso às 9h do primeiro dia, resgate até o
+dia seguinte ao fim e uma seção no Bestiário. Nunca nas 2 primeiras semanas de uso nem nas férias.
+Desligada, nada aparece e `claim_ambush` recusa com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_ambush';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_ambush';
+```
+
+No build de desenvolvimento, `dev_ambush_preview` em `EXPO_PUBLIC_DEV_FEATURES` mostra uma emboscada
+de mentira quando não há uma sorteada (só para ver o cartão; o resgate falha).
+
+### Bestiário: `feature_bestiary`
+
+Capítulo "Bestiário" no Progresso, com os chefes vencidos (caídos, na cor da maior patente) e
+silhuetas dos que faltam. Só leitura de `boss_victories`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_bestiary';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_bestiary';
+```
+
+### Resumo da semana: `feature_weekly_recap`
+
+"Crônica da semana" no topo da aba Progresso, de segunda a quarta, com o balanço da semana
+anterior: manchete pela taxa de conclusão, missões, dias perfeitos e XP (comparados com a semana de
+antes), o hábito mais constante e se o chefe caiu. Um ponto dourado na aba Progresso avisa até a
+pessoa abrir a aba. Só leitura: sem função no banco. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_weekly_recap';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_weekly_recap';
+```
+
+### Pedido de feedback: `feature_feedback_prompt`
+
+Pop-up "O Oráculo quer ouvir você", com nota de 1 a 5 em gemas e comentário (com nota 1 ou 2,
+pergunta o que melhorar). Aparece logo depois de um momento bom (dia perfeito, subir de nível ou
+derrotar o chefe), só para quem já usa o app há algum tempo, no máximo uma vez a cada 30 dias, e
+nunca mais depois de enviar, de "Não perguntar mais" ou de 3 "Agora não". Desligada, o pop-up não
+aparece e `submit_feedback_rating` recusa com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_feedback_prompt';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_feedback_prompt';
+```
+
+Os números das regras também ficam em `app_settings` e valem na próxima abertura do app:
+
+| Chave | Padrão | O que é |
+|---|---|---|
+| `feedback_prompt_min_days` | 5 | dias desde o primeiro registro de missão |
+| `feedback_prompt_min_missions` | 15 | missões registradas no total |
+| `feedback_prompt_cooldown_days` | 30 | intervalo mínimo entre dois pedidos |
+| `feedback_prompt_max_dismissals` | 3 | "Agora não" até parar de perguntar |
+
+```sql
+-- ex.: pedir mais cedo
+update public.app_settings set value = 2 where key = 'feedback_prompt_min_days';
+-- notas recebidas (as mais recentes primeiro)
+select created_at, rating, message, platform, app_version
+from public.feedback where source = 'prompt' order by created_at desc;
+```
+
+### Modo férias: `feature_vacation`
+
+Seção "Modo férias" no Perfil e o aviso de férias na tela Hoje. Nos dias de férias nenhum hábito
+fica agendado: as missões somem, o streak não conta nem quebra, e chefe da semana, jornadas e
+chefe do grupo ignoram o dia. Até 14 dias por período e 30 por ano. Desligada, o app esconde o
+recurso e `start_vacation`/`end_vacation` recusam com `PR050`; férias já marcadas continuam
+valendo, para não quebrar o streak de quem está viajando. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_vacation';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_vacation';
 ```
 
 ### App em inglês: `feature_english`

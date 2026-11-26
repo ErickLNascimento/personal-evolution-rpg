@@ -1,0 +1,8 @@
+{
+  "image": "morcego_idle.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 6,
+  "fps": 8,
+  "loop": true
+}

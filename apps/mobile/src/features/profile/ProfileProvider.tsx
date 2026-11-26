@@ -1,5 +1,7 @@
 import {
   enabledFeatures,
+  FEATURES,
+  setBossCalendar,
   isPathId,
   isRace,
   type Branch,
@@ -48,6 +50,8 @@ export interface Profile {
   cosmetics: ReadonlySet<string>;
   /** Feature flags ligadas (app_settings `feature_*` = 1); ver FEATURES no domínio. */
   features: ReadonlySet<string>;
+  /** Todos os números de app_settings (ex.: regras do pedido de feedback). */
+  settings: ReadonlyMap<string, number>;
 }
 
 /** O que vem de outras tabelas além de `profiles`. */
@@ -56,6 +60,7 @@ interface ProfileExtras {
   tourVersion: number | null;
   cosmetics: ReadonlySet<string>;
   features: ReadonlySet<string>;
+  settings: ReadonlyMap<string, number>;
 }
 
 interface ProfileRow {
@@ -138,10 +143,18 @@ const DEV_FEATURES: string[] = __DEV__
   : [];
 
 /** Guarda as flags também para o código fora do React (lib/featureSnapshot). */
-function snapshot(features: Set<string>): Set<string> {
+function snapshot(features: Set<string>, settings: ReadonlyMap<string, number> = new Map()): Set<string> {
   for (const k of DEV_FEATURES) features.add(k);
   setFeatureSnapshot(features);
+  // Calendário dos chefes: com o Ato II ligado, o rodízio de 12 vale a partir da semana marcada.
+  setBossCalendar({
+    act2StartWeek: features.has(FEATURES.act2) ? (settings.get('boss_act2_start_week') ?? 0) : 0,
+  });
   return features;
+}
+
+function settingsOf(rows: readonly { key: string; value: number }[]): Map<string, number> {
+  return new Map(rows.map((r) => [r.key, Number(r.value)]));
 }
 
 async function fetchProfile(
@@ -161,7 +174,8 @@ async function fetchProfile(
       earnedTitles: new Set((titles.data ?? []).map((t) => t.title_id)),
       tourVersion: tour.data?.find((r) => r.key === 'tour_version')?.value ?? null,
       cosmetics: new Set((cosmetics.data ?? []).map((c) => c.item_id)),
-      features: snapshot(enabledFeatures(tour.data ?? [])),
+      features: snapshot(enabledFeatures(tour.data ?? []), settingsOf(tour.data ?? [])),
+      settings: settingsOf(tour.data ?? []),
     }),
     error: null,
   };
@@ -248,12 +262,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 tourVersion: prev.profile.tourVersion,
                 cosmetics: prev.profile.cosmetics,
                 features: prev.profile.features,
+                settings: prev.profile.settings,
               }
             : {
                 earnedTitles: new Set(),
                 tourVersion: null,
                 cosmetics: new Set(),
                 features: new Set(),
+                settings: new Map(),
               },
         ),
         error: null,

@@ -19,9 +19,11 @@ import { claimGroupBoss, fetchGroup, leaveGroup, type GroupInfo } from '@/featur
 import { useFocusLoad } from '@/lib/useFocusLoad';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { useT } from '@/i18n';
+import { useCelebration } from '@/features/celebration/CelebrationProvider';
 
 /** Grupo: chefe da semana em conjunto, membros com o resumo de cada um e o convite. */
 function GroupScreen() {
+  const { askFeedback } = useCelebration();
   const { t } = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const load = useCallback(() => fetchGroup(id), [id]);
@@ -56,6 +58,7 @@ function GroupScreen() {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setNotice(t('social.groupWin', { coins: r.data.coins }));
     screen.refresh();
+    askFeedback('boss_defeated');
   }
 
   return (

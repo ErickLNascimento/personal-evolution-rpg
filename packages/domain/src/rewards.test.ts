@@ -38,3 +38,10 @@ describe('cosméticos da loja', () => {
     expect(sanitizeHero(saved, 1, new Set(['loja-aura-gelo'])).aura).toBe('loja-aura-gelo');
   });
 });
+
+describe('validateReward em inglês', () => {
+  test('a mensagem segue o idioma', () => {
+    expect(validateReward({ title: '', price: 50 }, 'en')).toBe('Give the reward a name.');
+    expect(validateReward({ title: '', price: 50 })).toBe('Dê um nome para a recompensa.');
+  });
+});

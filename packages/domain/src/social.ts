@@ -7,7 +7,7 @@
  * depois que o outro aceita. Quem não quer ser encontrado desliga a busca no Perfil.
  */
 import { addDays, type LocalDate } from './dates';
-import { BOSSES, bossForWeek, type Boss } from './challenges';
+import { ACT_II_BOSSES, BOSSES, bossForWeek, type Boss } from './challenges';
 import { DEFAULT_LOCALE, type Locale } from './i18n';
 
 /** Sem 0/O e 1/I, para não confundir ao ditar ou digitar. */
@@ -67,9 +67,11 @@ export function socialName(
 
 /** Chefe do grupo: outro da lista, para não repetir o chefe individual da mesma semana. */
 export function groupBossForWeek(weekStart: LocalDate): Boss {
+  // Três posições adiante no ato do chefe solo: bando e solo nunca enfrentam o mesmo chefe.
   const solo = bossForWeek(weekStart);
-  const i = BOSSES.findIndex((b) => b.id === solo.id);
-  return BOSSES[(i + 3) % BOSSES.length]!;
+  const act = BOSSES.some((b) => b.id === solo.id) ? BOSSES : ACT_II_BOSSES;
+  const i = act.findIndex((b) => b.id === solo.id);
+  return act[(i + 3) % act.length]!;
 }
 
 export interface GroupBossState {

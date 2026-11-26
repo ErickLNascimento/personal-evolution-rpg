@@ -1,4 +1,4 @@
-import { Canvas, FilterMode, ImageShader, MipmapMode, Rect } from '@shopify/react-native-skia';
+import { Canvas, ColorMatrix, FilterMode, ImageShader, MipmapMode, Rect } from '@shopify/react-native-skia';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useDerivedValue, useFrameCallback, useSharedValue } from 'react-native-reanimated';
@@ -155,7 +155,278 @@ const SHEETS: Record<string, Record<BossAnim, Sheet>> = {
       require('../../../assets/sprites/bosses/basilisco_defeat.json'),
     ],
   },
+  // Ato II (tools/sprites/gen_bosses_act2.py)
+  kraken: {
+    idle: [
+      require('../../../assets/sprites/bosses/kraken_idle.png'),
+      require('../../../assets/sprites/bosses/kraken_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/kraken_taunt.png'),
+      require('../../../assets/sprites/bosses/kraken_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/kraken_hit.png'),
+      require('../../../assets/sprites/bosses/kraken_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/kraken_weak.png'),
+      require('../../../assets/sprites/bosses/kraken_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/kraken_defeat.png'),
+      require('../../../assets/sprites/bosses/kraken_defeat.json'),
+    ],
+  },
+  quimera: {
+    idle: [
+      require('../../../assets/sprites/bosses/quimera_idle.png'),
+      require('../../../assets/sprites/bosses/quimera_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/quimera_taunt.png'),
+      require('../../../assets/sprites/bosses/quimera_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/quimera_hit.png'),
+      require('../../../assets/sprites/bosses/quimera_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/quimera_weak.png'),
+      require('../../../assets/sprites/bosses/quimera_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/quimera_defeat.png'),
+      require('../../../assets/sprites/bosses/quimera_defeat.json'),
+    ],
+  },
+  banshee: {
+    idle: [
+      require('../../../assets/sprites/bosses/banshee_idle.png'),
+      require('../../../assets/sprites/bosses/banshee_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/banshee_taunt.png'),
+      require('../../../assets/sprites/bosses/banshee_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/banshee_hit.png'),
+      require('../../../assets/sprites/bosses/banshee_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/banshee_weak.png'),
+      require('../../../assets/sprites/bosses/banshee_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/banshee_defeat.png'),
+      require('../../../assets/sprites/bosses/banshee_defeat.json'),
+    ],
+  },
+  vampiro: {
+    idle: [
+      require('../../../assets/sprites/bosses/vampiro_idle.png'),
+      require('../../../assets/sprites/bosses/vampiro_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/vampiro_taunt.png'),
+      require('../../../assets/sprites/bosses/vampiro_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/vampiro_hit.png'),
+      require('../../../assets/sprites/bosses/vampiro_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/vampiro_weak.png'),
+      require('../../../assets/sprites/bosses/vampiro_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/vampiro_defeat.png'),
+      require('../../../assets/sprites/bosses/vampiro_defeat.json'),
+    ],
+  },
+  mimico: {
+    idle: [
+      require('../../../assets/sprites/bosses/mimico_idle.png'),
+      require('../../../assets/sprites/bosses/mimico_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/mimico_taunt.png'),
+      require('../../../assets/sprites/bosses/mimico_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/mimico_hit.png'),
+      require('../../../assets/sprites/bosses/mimico_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/mimico_weak.png'),
+      require('../../../assets/sprites/bosses/mimico_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/mimico_defeat.png'),
+      require('../../../assets/sprites/bosses/mimico_defeat.json'),
+    ],
+  },
+  medusa: {
+    idle: [
+      require('../../../assets/sprites/bosses/medusa_idle.png'),
+      require('../../../assets/sprites/bosses/medusa_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/medusa_taunt.png'),
+      require('../../../assets/sprites/bosses/medusa_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/medusa_hit.png'),
+      require('../../../assets/sprites/bosses/medusa_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/medusa_weak.png'),
+      require('../../../assets/sprites/bosses/medusa_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/medusa_defeat.png'),
+      require('../../../assets/sprites/bosses/medusa_defeat.json'),
+    ],
+  },
+  // Minichefes das emboscadas (tools/sprites/gen_minis.py)
+  goblin: {
+    idle: [
+      require('../../../assets/sprites/bosses/goblin_idle.png'),
+      require('../../../assets/sprites/bosses/goblin_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/goblin_taunt.png'),
+      require('../../../assets/sprites/bosses/goblin_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/goblin_hit.png'),
+      require('../../../assets/sprites/bosses/goblin_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/goblin_weak.png'),
+      require('../../../assets/sprites/bosses/goblin_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/goblin_defeat.png'),
+      require('../../../assets/sprites/bosses/goblin_defeat.json'),
+    ],
+  },
+  slime: {
+    idle: [
+      require('../../../assets/sprites/bosses/slime_idle.png'),
+      require('../../../assets/sprites/bosses/slime_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/slime_taunt.png'),
+      require('../../../assets/sprites/bosses/slime_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/slime_hit.png'),
+      require('../../../assets/sprites/bosses/slime_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/slime_weak.png'),
+      require('../../../assets/sprites/bosses/slime_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/slime_defeat.png'),
+      require('../../../assets/sprites/bosses/slime_defeat.json'),
+    ],
+  },
+  morcego: {
+    idle: [
+      require('../../../assets/sprites/bosses/morcego_idle.png'),
+      require('../../../assets/sprites/bosses/morcego_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/morcego_taunt.png'),
+      require('../../../assets/sprites/bosses/morcego_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/morcego_hit.png'),
+      require('../../../assets/sprites/bosses/morcego_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/morcego_weak.png'),
+      require('../../../assets/sprites/bosses/morcego_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/morcego_defeat.png'),
+      require('../../../assets/sprites/bosses/morcego_defeat.json'),
+    ],
+  },
+  diabrete: {
+    idle: [
+      require('../../../assets/sprites/bosses/diabrete_idle.png'),
+      require('../../../assets/sprites/bosses/diabrete_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/diabrete_taunt.png'),
+      require('../../../assets/sprites/bosses/diabrete_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/diabrete_hit.png'),
+      require('../../../assets/sprites/bosses/diabrete_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/diabrete_weak.png'),
+      require('../../../assets/sprites/bosses/diabrete_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/diabrete_defeat.png'),
+      require('../../../assets/sprites/bosses/diabrete_defeat.json'),
+    ],
+  },
+  esqueleto: {
+    idle: [
+      require('../../../assets/sprites/bosses/esqueleto_idle.png'),
+      require('../../../assets/sprites/bosses/esqueleto_idle.json'),
+    ],
+    taunt: [
+      require('../../../assets/sprites/bosses/esqueleto_taunt.png'),
+      require('../../../assets/sprites/bosses/esqueleto_taunt.json'),
+    ],
+    hit: [
+      require('../../../assets/sprites/bosses/esqueleto_hit.png'),
+      require('../../../assets/sprites/bosses/esqueleto_hit.json'),
+    ],
+    weak: [
+      require('../../../assets/sprites/bosses/esqueleto_weak.png'),
+      require('../../../assets/sprites/bosses/esqueleto_weak.json'),
+    ],
+    defeat: [
+      require('../../../assets/sprites/bosses/esqueleto_defeat.png'),
+      require('../../../assets/sprites/bosses/esqueleto_defeat.json'),
+    ],
+  },
 };
+
+/**
+ * Tonalidade do chefe: a cor da patente (Capitão aço, General vermelho escuro, Lorde dourado) ou a
+ * silhueta do bestiário (chefe nunca vencido). Filtro de cor 4×5 sobre o sprite, sem folhas novas.
+ */
+export type BossTint = 'capitao' | 'general' | 'lorde' | 'silhouette';
+
+const LUMA = [0.2126, 0.7152, 0.0722] as const;
+/** Mistura com o cinza (s = quanto da cor original fica) e ganho por canal. */
+function tintMatrix(s: number, gains: readonly [number, number, number], add = [0, 0, 0]): number[] {
+  const rows: number[] = [];
+  gains.forEach((g, i) => {
+    const row = LUMA.map((l, j) => (1 - s) * l * g + (i === j ? s * g : 0));
+    rows.push(...row, 0, add[i] ?? 0);
+  });
+  return [...rows, 0, 0, 0, 1, 0];
+}
+
+const TINTS: Record<BossTint, number[]> = {
+  capitao: tintMatrix(0.35, [0.92, 1.0, 1.18]),
+  general: tintMatrix(0.55, [0.85, 0.62, 0.7]),
+  lorde: tintMatrix(0.45, [1.3, 1.08, 0.55], [0.04, 0.02, 0]),
+  silhouette: [0, 0, 0, 0, 0.26, 0, 0, 0, 0, 0.27, 0, 0, 0, 0, 0.33, 0, 0, 0, 1, 0],
+};
+
+/** Tonalidade de cada patente (Soldado = cores originais). */
+export const RANK_TINT: readonly (BossTint | null)[] = [null, 'capitao', 'general', 'lorde'];
 
 let runSerial = 0;
 
@@ -169,6 +440,7 @@ export function BossSprite({
   size = 96,
   playKey = 0,
   onEnd,
+  tint = null,
 }: {
   id: string;
   anim?: BossAnim;
@@ -176,6 +448,8 @@ export function BossSprite({
   /** Muda para tocar de novo a mesma animação (ex.: outro golpe). */
   playKey?: number;
   onEnd?: () => void;
+  /** Cor da patente ou silhueta; null = cores originais. */
+  tint?: BossTint | null;
 }) {
   const sheets = SHEETS[id] ?? SHEETS.sombra!;
   const [source, meta] = sheets[anim];
@@ -229,6 +503,7 @@ export function BossSprite({
               fit="fill"
               sampling={{ filter: FilterMode.Nearest, mipmap: MipmapMode.None }}
             />
+            {tint ? <ColorMatrix matrix={TINTS[tint]} /> : null}
           </Rect>
         )}
       </Canvas>

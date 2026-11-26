@@ -6,9 +6,12 @@ import type {
   LocalDate,
   ObjectiveCategory,
   RetireAction,
+  Vacation,
 } from '@per/domain';
+import { withVacations } from '@per/domain';
 import { supabase } from '@/lib/supabase';
 import { t } from '@/i18n';
+import { listVacations } from '@/features/vacation/api';
 
 export interface HabitRecord {
   id: string;
@@ -23,6 +26,19 @@ export interface HabitRecord {
   archivedOn: LocalDate | null;
   /** "HH:MM:SS" como vem do Postgres, ou `null`. */
   reminderTime: string | null;
+  /** Área do objetivo (null = sem objetivo). */
+  category?: ObjectiveCategory | null;
+  /** Férias do usuário: nesses dias o hábito não fica agendado (isHabitScheduledOn). */
+  vacations?: readonly Vacation[];
+}
+
+/**
+ * Férias do usuário para anexar aos hábitos. Se não carregarem, os hábitos seguem sem elas
+ * (as missões aparecem) em vez de a tela inteira falhar.
+ */
+async function vacationsOrNone(): Promise<readonly Vacation[]> {
+  const r = await listVacations();
+  return r.data ?? [];
 }
 
 export interface ObjectiveRecord {
@@ -44,10 +60,12 @@ interface HabitRow {
   start_date: string;
   archived_on: string | null;
   reminder_time: string | null;
+  /** Objetivo embutido (só a área), para as fraquezas dos chefes. */
+  objectives?: { category: ObjectiveCategory } | null;
 }
 
 const HABIT_COLUMNS =
-  'id, title, kind, difficulty, schedule_days, objective_id, target_qty, unit, start_date, archived_on, reminder_time';
+  'id, title, kind, difficulty, schedule_days, objective_id, target_qty, unit, start_date, archived_on, reminder_time, objectives(category)';
 /** Sem `kind`, para bancos que ainda não receberam a migration dos tipos de hábito. */
 const LEGACY_COLUMNS = HABIT_COLUMNS.replace(' kind,', '');
 /** Postgres: coluna inexistente. */
@@ -67,6 +85,7 @@ function fromRow(row: HabitRow): HabitRecord {
     startDate: row.start_date,
     archivedOn: row.archived_on,
     reminderTime: row.reminder_time,
+    category: row.objectives?.category ?? null,
   };
 }
 
@@ -104,21 +123,23 @@ export async function listHabits(): Promise<Result<HabitRecord[]>> {
       .select(columns)
       .order('created_at', { ascending: true })
       .returns<HabitRow[]>();
+  const vacations = vacationsOrNone();
   let { data, error } = await query(HABIT_COLUMNS);
   if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(LEGACY_COLUMNS));
   if (error) return failure(error, t('errors.loadHabits'));
   if (!data) return { data: null, error: t('errors.loadHabits') };
-  return { data: data.map(fromRow), error: null };
+  return { data: withVacations(data.map(fromRow), await vacations), error: null };
 }
 
 export async function getHabit(id: string): Promise<Result<HabitRecord>> {
   const query = (columns: string) =>
     client().from('habits').select(columns).eq('id', id).single<HabitRow>();
+  const vacations = vacationsOrNone();
   let { data, error } = await query(HABIT_COLUMNS);
   if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await query(LEGACY_COLUMNS));
   if (error) return failure(error, t('errors.habitNotFound'));
   if (!data) return { data: null, error: t('errors.habitNotFound') };
-  return { data: fromRow(data), error: null };
+  return { data: { ...fromRow(data), vacations: await vacations }, error: null };
 }
 
 export async function createHabit(

@@ -1,6 +1,8 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import {
   addDays,
+  monthStart,
+  previousMonthStart,
   startOfWeek,
   type Journey,
   type JourneyStatus,
@@ -22,6 +24,8 @@ export interface ChallengesData {
   logged: Map<LocalDate, Set<string>>;
   /** Segundas-feiras cujo chefe já foi resgatado (desta semana e da anterior). */
   bossClaimed: Set<LocalDate>;
+  /** Meses (dia 1º) cujo Lorde já foi resgatado (este e o anterior). */
+  monthlyClaimed: Set<LocalDate>;
   crystals: number;
 }
 
@@ -50,6 +54,10 @@ interface JourneyRow {
 export async function fetchChallenges(today: LocalDate): Promise<Result<ChallengesData>> {
   const db = client();
   const lastWeek = addDays(startOfWeek(today), -7);
+  const thisMonth = monthStart(today);
+  const lastMonth = previousMonthStart(thisMonth);
+  // O Lorde do mês anterior ainda pode ser resgatado até o dia 7: lê o mês anterior também.
+  const monthFrom = Number(today.slice(8)) <= 7 ? lastMonth : thisMonth;
   const [habits, journeys, balance, claims] = await Promise.all([
     listHabits(),
     db
@@ -63,7 +71,12 @@ export async function fetchChallenges(today: LocalDate): Promise<Result<Challeng
       .from('coin_transactions')
       .select('item_id')
       .eq('source_type', 'challenge')
-      .in('item_id', [`boss:${lastWeek}`, `boss:${startOfWeek(today)}`])
+      .in('item_id', [
+        `boss:${lastWeek}`,
+        `boss:${startOfWeek(today)}`,
+        `month-boss:${thisMonth}`,
+        `month-boss:${lastMonth}`,
+      ])
       .returns<{ item_id: string }[]>(),
   ]);
   if (habits.error !== null) return habits;
@@ -79,7 +92,7 @@ export async function fetchChallenges(today: LocalDate): Promise<Result<Challeng
   }));
   const from = list
     .filter((j) => j.status === 'active')
-    .reduce((min, j) => (j.startDate < min ? j.startDate : min), lastWeek);
+    .reduce((min, j) => (j.startDate < min ? j.startDate : min), monthFrom < lastWeek ? monthFrom : lastWeek);
   const logs = await fetchAll<{ habit_id: string; local_date: string }>((a, b) =>
     db
       .from('habit_logs')
@@ -103,7 +116,16 @@ export async function fetchChallenges(today: LocalDate): Promise<Result<Challeng
       habits: habits.data,
       journeys: list,
       logged,
-      bossClaimed: new Set((claims.data ?? []).map((c) => c.item_id.slice('boss:'.length))),
+      bossClaimed: new Set(
+        (claims.data ?? [])
+          .filter((c) => c.item_id.startsWith('boss:'))
+          .map((c) => c.item_id.slice('boss:'.length)),
+      ),
+      monthlyClaimed: new Set(
+        (claims.data ?? [])
+          .filter((c) => c.item_id.startsWith('month-boss:'))
+          .map((c) => c.item_id.slice('month-boss:'.length)),
+      ),
       crystals: Number(balance.data ?? 0),
     },
     error: null,
@@ -146,6 +168,17 @@ export async function abandonJourney(id: string): Promise<Result<true>> {
 export async function claimBoss(weekStart: LocalDate): Promise<Result<Reward>> {
   const { data, error } = await client().rpc('claim_weekly_boss', { p_week_start: weekStart });
   if (error) return failure(error, t('challenges.errorClaim'));
+  const r = data as { coins_awarded: number; coin_balance: number };
+  return { data: { coins: Number(r.coins_awarded), balance: Number(r.coin_balance) }, error: null };
+}
+
+/** Resgata o Lorde do mês (o banco confere a vida e o prazo, e paga). */
+export async function claimMonthlyBoss(month: LocalDate): Promise<Result<Reward>> {
+  const { data, error } = await client().rpc('claim_monthly_boss', { p_month_start: month });
+  if (error) {
+    if (error.code === 'PR033') return { data: null, error: t('challenges.errorNotDefeated') };
+    return failure(error, t('challenges.errorClaim'));
+  }
   const r = data as { coins_awarded: number; coin_balance: number };
   return { data: { coins: Number(r.coins_awarded), balance: Number(r.coin_balance) }, error: null };
 }

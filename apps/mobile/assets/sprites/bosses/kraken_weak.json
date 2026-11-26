@@ -1,0 +1,8 @@
+{
+  "image": "kraken_weak.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "frameCount": 8,
+  "fps": 8,
+  "loop": true
+}

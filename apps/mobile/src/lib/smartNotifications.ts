@@ -1,6 +1,18 @@
-import { FEATURES, smartNotifications, stageName, type SmartNotification } from '@per/domain';
+import {
+  addDays,
+  ambushGoalText,
+  OBJECTIVE_CATEGORY_LABELS,
+  pick,
+  currentOrNextVacation,
+  FEATURES,
+  isHabitScheduledOn,
+  smartNotifications,
+  stageName,
+  type SmartNotification,
+} from '@per/domain';
 import { listHabits } from '@/features/habits/api';
 import { currentLocale } from '@/i18n';
+import { fetchAmbush } from '@/features/ambush/api';
 import { fetchFlashMission, fetchHeroPath } from '@/features/hero/pathApi';
 import { isFeatureOn } from '@/lib/featureSnapshot';
 import { supabase } from '@/lib/supabase';
@@ -21,7 +33,7 @@ export function setSmartNotificationsEnabled(on: boolean): void {
 }
 
 /** Data de hoje e minutos desde a meia-noite, na hora local do aparelho (a das notificações). */
-function deviceNow(now: Date) {
+export function deviceNow(now: Date) {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
@@ -38,7 +50,7 @@ export async function buildSmartNotifications(): Promise<SmartNotification[]> {
   const now = new Date();
   const { today, nowMinutes } = deviceNow(now);
 
-  const [habits, logs, flash, path] = await Promise.all([
+  const [habits, logs, flash, path, ambush] = await Promise.all([
     listHabits(),
     supabase
       .from('habit_logs')
@@ -47,10 +59,15 @@ export async function buildSmartNotifications(): Promise<SmartNotification[]> {
       .returns<{ habit_id: string }[]>(),
     fetchFlashMission(),
     fetchHeroPath(),
+    isFeatureOn(FEATURES.ambush) ? fetchAmbush() : Promise.resolve({ data: null }),
   ]);
   if (habits.error !== null) return [];
 
-  const flashHabit = flash.data ? habits.data.find((h) => h.id === flash.data!.habitId) : undefined;
+  // Num dia de férias a missão relâmpago não vale (o hábito não está agendado): sem aviso.
+  const flashHabit = flash.data
+    ? habits.data.find((h) => h.id === flash.data!.habitId && isHabitScheduledOn(h, today))
+    : undefined;
+  const vacation = currentOrNextVacation(habits.data[0]?.vacations ?? [], today);
   const p = path.data;
   const promotion =
     p && p.canPromote && p.path && p.next
@@ -72,6 +89,18 @@ export async function buildSmartNotifications(): Promise<SmartNotification[]> {
         ? { title: flashHabit.title, deadline: flash.data.deadline, done: flash.data.done }
         : null,
     promotion,
+    vacationReturn: vacation ? addDays(vacation.endDate, 1) : null,
+    ambush: ambush.data
+      ? {
+          date: ambush.data.startDate,
+          name: pick(ambush.data.ambusher.name, currentLocale()),
+          goal: ambushGoalText(
+            ambush.data.ambusher.goal,
+            (c) => OBJECTIVE_CATEGORY_LABELS[currentLocale()][c],
+            currentLocale(),
+          ),
+        }
+      : null,
     locale: currentLocale(),
   });
 }
