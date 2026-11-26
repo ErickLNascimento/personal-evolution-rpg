@@ -40,8 +40,12 @@ float hash(float2 p) { return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.54
 half4 main(float2 xy) {
   if (xy.x > res.x || xy.y > res.y) { return half4(0); }
   float2 p = floor(xy / px) * px + px * 0.5;
-  float2 c = float2(feet.x, feet.y - bodyH * 0.48);
-  float2 d = (p - c) / float2(bodyH * 0.40, bodyH * 0.62);
+  // Centro do brilho no tronco: a cabeça (e o que vai nela) fica de fora.
+  float2 c = float2(feet.x, feet.y - bodyH * 0.40);
+  float2 d = (p - c) / float2(bodyH * 0.42, bodyH * 0.52);
+  // Cabeça: coroa, elmo, faixa e cabelo ficam limpos, sem brilho nem partículas por trás.
+  float2 head = (p - float2(feet.x, feet.y - bodyH * 0.76)) / float2(bodyH * 0.24, bodyH * 0.22);
+  float headClear = smoothstep(0.85, 1.35, length(head));
   float r = length(d);
   float pulse = 0.72 + 0.28 * sin(time * 2.6);
   float3 col = color;
@@ -124,7 +128,7 @@ half4 main(float2 xy) {
     a = max(a, hit * (1.0 - y * 0.6));
     col = mix(color, float3(1.0), hit * 0.35);
   }
-  a = clamp(a, 0.0, 0.95);
+  a = clamp(a * headClear, 0.0, 0.95);
   return half4(col * a, a);
 }
 `)!;
@@ -208,5 +212,6 @@ export function AuraFx({
 }
 
 const styles = StyleSheet.create({
-  layer: { position: 'absolute' },
+  // Sempre atrás do herói.
+  layer: { position: 'absolute', zIndex: 0 },
 });

@@ -57,13 +57,16 @@ export function HeroAvatar({
         boxHeight={height}
         animated={animated}
       />
-      <PixelHero
-        hero={hero}
-        size={heroWidth}
-        anim={anim}
-        playing={animated || oneShot}
-        onEnd={() => setAnim('idle')}
-      />
+      {/* zIndex: o herói fica sempre na frente do efeito da aura. */}
+      <View style={{ zIndex: 1 }}>
+        <PixelHero
+          hero={hero}
+          size={heroWidth}
+          anim={anim}
+          playing={animated || oneShot}
+          onEnd={() => setAnim('idle')}
+        />
+      </View>
     </View>
   );
 }
