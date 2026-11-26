@@ -9,7 +9,8 @@
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "postinstall": "setup-skia-web public"
+    "postinstall": "setup-skia-web public",
+    "eas-build-pre-install": "node scripts/eas-google-services.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
