@@ -6,10 +6,62 @@ produção; ver [docs/monetizacao.md](../monetizacao.md).
 
 ## 1. Conta de desenvolvedor (você)
 
-1. Abra <https://play.google.com/console/signup> com a conta Google que vai ser dona do app.
-2. Escolha **Pessoal** (ou **Organização**, se tiver CNPJ e número D-U-N-S: sem a regra dos 12 testers).
-3. Pague a taxa única de US$ 25 e envie o documento para a verificação de identidade (leva de 1 a 3 dias).
-4. Confirme um celular Android no app Play Console (a verificação pede).
+Status: **a fazer** (em espera desde 27/11/2026).
+
+### Antes de começar: 3 decisões
+
+**1. Conta pessoal ou de organização?**
+
+| | Pessoal | Organização |
+|---|---|---|
+| O que precisa | Documento seu (RG ou CNH) | **CNPJ + número D-U-N-S** (pode levar até 30 dias) |
+| Teste fechado obrigatório | **Sim: 12 testers por 14 dias seguidos** antes da produção | Não |
+| Nome na loja | O que você escolher (ex.: "Ascenda") | Nome da empresa |
+
+Sem CNPJ: **pessoal** (o relógio dos 14 dias começa logo). Com CNPJ: organização evita os 12
+testers. Trocar depois não é simples: vira transferência de conta, e os grupos de teste não vão junto.
+
+**2. Qual conta Google:** criar uma conta Gmail só para o app (ex.: `ascenda.app@gmail.com`), com
+verificação em duas etapas. Ela é a dona do app; outras pessoas ganham acesso depois pelo Console.
+
+**3. Nome e e-mail públicos:** o nome de desenvolvedor e o e-mail de contato aparecem na loja. Esse
+e-mail substitui o `CONTATO_EMAIL` das páginas em `docs/site/` (passo 2).
+
+### Passo a passo
+
+1. Abrir <https://play.google.com/console/signup> com a conta Google escolhida.
+2. Escolher **"Você mesmo"** (pessoal) ou **"Uma organização ou empresa"**.
+3. Preencher nome de desenvolvedor, e-mail e telefone de contato (verificados por código), dados
+   pessoais como no documento e endereço.
+4. Responder às perguntas sobre experiência com Android e o tipo de app.
+5. Pagar a **taxa única de US$ 25** (cartão).
+6. **Verificação de identidade:** foto do documento (às vezes uma selfie). Costuma levar de alguns
+   dias a uma semana.
+7. **Verificação do aparelho:** instalar o app **Google Play Console** num Android e entrar com a
+   mesma conta.
+
+### Enquanto a verificação não sai: juntar os 12 testers
+
+É o passo mais lento. Cada tester precisa:
+- ter **conta Google** e um **Android**;
+- aceitar o convite, instalar **pela Play** e manter o app instalado **14 dias seguidos**.
+
+Os testers atuais do APK contam (migram para a versão da Play; os dados ficam na conta). Fazer uma
+lista com os **e-mails Google** de cada um: é o que o Play Console pede (ou usar um Grupo do Google).
+
+### Quando a conta for aprovada (comigo)
+
+1. Gerar o AAB de produção e testar no Android antes.
+2. Preencher os formulários do Console (passo 3 deste guia).
+3. Ficha da loja com o nome final ([listing.md](listing.md)), capturas e recurso gráfico.
+4. Publicar as páginas de privacidade e exclusão de conta com o e-mail certo (passo 2).
+
+Fontes sobre a regra dos 12 testers:
+[ajuda do Play Console](https://support.google.com/googleplay/android-developer/answer/14151465) ·
+[Android Authority](https://www.androidauthority.com/google-play-app-testing-requirement-3510580) ·
+[guia do Testers Community](https://www.testerscommunity.com/blog/google-play-developer-account-guide).
+A regra vale para contas pessoais criadas depois de 13/11/2023; desde dezembro de 2024 são 12
+testers (antes eram 20).
 
 ## 2. Páginas públicas (política e exclusão de conta)
 
