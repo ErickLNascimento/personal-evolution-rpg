@@ -59,6 +59,16 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
           title: 'Shorter news',
           text: 'News now fits on a single screen, with a short summary of each item.',
         },
+      {
+        kind: 'fix',
+        icon: 'compass',
+        title: 'Área da vida na missão',
+        text: 'Ao criar uma missão, as 8 áreas da vida aparecem sempre; os objetivos ficam como opção dentro de cada área.',
+        en: {
+          title: 'Area of life on missions',
+          text: 'When creating a mission, all 8 areas of life always show; goals are optional within each area.',
+        },
+      },
       },
     ],
   },

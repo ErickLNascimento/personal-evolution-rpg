@@ -135,6 +135,12 @@ const en: Translations = {
     hintActive: 'See stats, edit or archive',
   },
   habitForm: {
+    area: 'AREA OF LIFE',
+    areaHint: "Each mission strengthens one of your hero's attributes and counts toward boss weaknesses and ambushes.",
+    noArea: 'None',
+    objectiveOptional: 'GOAL (OPTIONAL)',
+    areaGeneral: 'General',
+    areaAuto: 'When you save, the mission goes into the "{area}" goal. Or create a goal with another name.',
     repeat: 'Remind me throughout the day',
     repeatHint: 'For missions you do several times a day, like drinking water.',
     repeatHours: 'every {h}h',

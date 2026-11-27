@@ -136,6 +136,12 @@ const pt = {
     hintActive: 'Ver estatísticas, editar ou arquivar',
   },
   habitForm: {
+    area: 'ÁREA DA VIDA',
+    areaHint: 'Cada missão fortalece um atributo do herói e conta nas fraquezas dos chefes e nas emboscadas.',
+    noArea: 'Nenhuma',
+    objectiveOptional: 'OBJETIVO (OPCIONAL)',
+    areaGeneral: 'Geral da área',
+    areaAuto: 'Ao salvar, a missão entra no objetivo "{area}". Ou crie um objetivo com outro nome.',
     repeat: 'Lembrar ao longo do dia',
     repeatHint: 'Para missões de várias vezes ao dia, como beber água.',
     repeatHours: 'a cada {h}h',
