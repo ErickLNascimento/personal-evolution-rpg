@@ -40,7 +40,10 @@ export function HeroCard({
   titleId,
   cheer,
   aside,
+  freshItems = 0,
 }: {
+  /** Peças liberadas que a pessoa ainda não viu no vestiário. */
+  freshItems?: number;
   hero: HeroLook;
   level: LevelProgress;
   name: string | null;
@@ -91,6 +94,11 @@ export function HeroCard({
               : t('hero.noPath')}
           </Text>
           {unset && <Text style={styles.cta}>{t('hero.tapToCreate')}</Text>}
+          {!unset && freshItems > 0 && (
+            <Text style={styles.fresh}>
+              {freshItems === 1 ? t('hero.freshOne') : t('hero.freshMany', { count: freshItems })}
+            </Text>
+          )}
           {crystals !== undefined && (
             <View style={styles.wallet}>
               <CrystalBadge amount={crystals} />
@@ -122,6 +130,7 @@ export function HeroCard({
 }
 
 const styles = StyleSheet.create({
+  fresh: { fontSize: 13, fontWeight: '800', color: '#D9A441' },
   card: {
     gap: spacing.sm,
     padding: spacing.md,

@@ -89,7 +89,7 @@ function failure(error: PostgrestError, fallback: string): { data: null; error: 
   return { data: null, error: fallback };
 }
 
-interface CardRow {
+export interface CardRow {
   user_id: string;
   display_name: string | null;
   hero: unknown;
@@ -104,7 +104,7 @@ interface CardRow {
   today_total?: number;
 }
 
-function toCard(row: CardRow): SocialCard {
+export function toCard(row: CardRow): SocialCard {
   const level = Number(row.level ?? 1);
   return {
     userId: row.user_id,
@@ -164,6 +164,17 @@ export async function fetchFriends(): Promise<Result<FriendsData>> {
       incoming: r.incoming.map((i) => ({ requestId: i.request_id, user: toCard(i.user) })),
       outgoing: r.outgoing.map((i) => ({ requestId: i.request_id, user: toCard(i.user) })),
     },
+    error: null,
+  };
+}
+
+/** Pedidos recebidos e pendentes, do mais novo ao mais antigo (aviso de convite). */
+export async function fetchIncomingRequests(): Promise<Result<FriendRequest[]>> {
+  const { data, error } = await client().rpc('incoming_friend_requests');
+  if (error) return failure(error, t('social.errorLoadFriends'));
+  const rows = (data ?? []) as { request_id: string; user: CardRow }[];
+  return {
+    data: rows.map((r) => ({ requestId: r.request_id, user: toCard(r.user) })),
     error: null,
   };
 }

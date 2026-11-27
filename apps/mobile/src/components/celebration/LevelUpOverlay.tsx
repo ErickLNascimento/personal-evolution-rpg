@@ -1,4 +1,5 @@
-import { heroTitle, unlocksBetween, type HeroLook } from '@per/domain';
+import { heroTitle, itemLabel, HERO_SLOTS, newHeroItems, slotLabel, type HeroLook } from '@per/domain';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo } from 'react';
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -77,9 +78,14 @@ export function LevelUpOverlay({
   const { width, height } = useWindowDimensions();
   const { t, locale } = useT();
   const color = tierColor(toLevel);
-  const unlocks = useMemo(
-    () => unlocksBetween(fromLevel, toLevel, hero.form, locale),
-    [fromLevel, toLevel, hero.form, locale],
+  // Peças ganhas neste salto de nível, com a miniatura do herói usando cada uma.
+  const pieces = useMemo(
+    () =>
+      newHeroItems(toLevel, fromLevel).map(({ slot, id }) => {
+        const item = HERO_SLOTS[slot].items.find((i) => i.id === id)!;
+        return { slot, id, name: itemLabel(slot, item, locale), slotName: slotLabel(slot, locale) };
+      }),
+    [fromLevel, toLevel, locale],
   );
   const toTitle = heroTitle(toLevel, hero.form, locale);
   const newTitle = toTitle !== heroTitle(fromLevel, hero.form, locale) ? toTitle : null;
@@ -183,17 +189,31 @@ export function LevelUpOverlay({
             </Animated.Text>
           )}
 
-          {unlocks.length > 0 && (
-            <View style={styles.unlocks}>
-              {unlocks
-                .filter((u) => u.kind !== 'title')
-                .slice(0, 5)
-                .map((u, i) => (
-                  <Animated.Text key={u.label} entering={FadeInDown.delay(1600 + i * 130).duration(350)} style={styles.unlock}>
-                    ✦ {t('levelUp.unlocked', { label: u.label })}
-                  </Animated.Text>
+          {pieces.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(1500).duration(400)} style={styles.unlocks}>
+              <Text style={styles.unlocksTitle}>{t('levelUp.newPieces', { count: pieces.length })}</Text>
+              <View style={styles.pieces}>
+                {pieces.slice(0, 6).map((p, i) => (
+                  <Animated.View
+                    key={`${p.slot}:${p.id}`}
+                    entering={FadeInDown.delay(1600 + i * 120).duration(350)}
+                    style={[styles.piece, { borderColor: color }]}
+                    accessible
+                    accessibilityLabel={`${p.slotName}: ${p.name}`}
+                  >
+                    <View style={styles.pieceArt}>
+                      <HeroAvatar hero={{ ...hero, [p.slot]: p.id }} size={44} />
+                    </View>
+                    <Text style={styles.pieceName} numberOfLines={1}>
+                      {p.name}
+                    </Text>
+                    <Text style={styles.pieceSlot} numberOfLines={1}>
+                      {p.slotName}
+                    </Text>
+                  </Animated.View>
                 ))}
-            </View>
+              </View>
+            </Animated.View>
           )}
 
           <Animated.View entering={FadeIn.delay(1900).duration(400)} style={styles.buttonWrap}>
@@ -204,6 +224,18 @@ export function LevelUpOverlay({
             >
               <Text style={styles.buttonText}>{t('levelUp.continue')}</Text>
             </Pressable>
+            {pieces.length > 0 && (
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  router.push('/hero');
+                }}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.secondary, { borderColor: color }, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={[styles.secondaryText, { color }]}>{t('levelUp.openWardrobe')}</Text>
+              </Pressable>
+            )}
           </Animated.View>
         </View>
 
@@ -239,8 +271,30 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
   },
   newTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  unlocks: { gap: 4, marginTop: spacing.sm, alignItems: 'center' },
-  unlock: { fontSize: 14, color: colors.textSecondary },
+  unlocks: { gap: spacing.sm, marginTop: spacing.sm, alignItems: 'center', alignSelf: 'stretch' },
+  unlocksTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 1.4, color: colors.textSecondary },
+  pieces: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm },
+  piece: {
+    width: 92,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(28,26,35,0.9)',
+  },
+  pieceArt: { height: 54, justifyContent: 'flex-end' },
+  pieceName: { fontSize: 13, fontWeight: '800', color: colors.text, maxWidth: 86 },
+  pieceSlot: { fontSize: 11, color: colors.textSecondary, maxWidth: 86 },
+  secondary: {
+    minHeight: 48,
+    marginTop: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryText: { fontSize: 16, fontWeight: '800' },
   buttonWrap: { marginTop: spacing.lg, alignSelf: 'stretch' },
   button: { minHeight: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   buttonText: { fontSize: 17, fontWeight: '800', color: '#0B0B12' },

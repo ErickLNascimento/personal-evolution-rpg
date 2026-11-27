@@ -13,6 +13,9 @@ import {
   formatReminderTime,
   parseReminderTime,
   validateObjectiveTitle,
+  DEFAULT_REMINDER_UNTIL,
+  REMINDER_REPEAT_MINUTES,
+  reminderTimesOfDay,
   WEEKDAY_SHORTS,
   xpForHabit,
   type HabitDraft,
@@ -82,6 +85,23 @@ export function HabitForm({
   const { t, locale } = useT();
   const options = useOptions();
   const [draft, setDraft] = useState<HabitDraft>(initial);
+  // Objetivos ativos e a área da vida da missão (sem objetivo na área, um é criado ao salvar).
+  const [objectives, setObjectives] = useState<ObjectiveRecord[]>([]);
+  const [objectivesError, setObjectivesError] = useState<string | null>(null);
+  const [area, setArea] = useState<ObjectiveCategory | null>(null);
+  useEffect(() => {
+    let active = true;
+    listObjectives().then((r) => {
+      if (!active) return;
+      if (r.error !== null) return setObjectivesError(r.error);
+      setObjectives(r.data);
+      const current = r.data.find((o) => o.id === initial.objectiveId);
+      if (current) setArea(current.category);
+    });
+    return () => {
+      active = false;
+    };
+  }, [initial.objectiveId]);
   // Meta diária fica escondida até a pessoa pedir (ou se o hábito já tiver uma).
   const [showTarget, setShowTarget] = useState(Boolean(initial.targetQty || initial.unit));
   const [errors, setErrors] = useState<HabitDraftErrors>({});
@@ -93,6 +113,8 @@ export function HabitForm({
   const kind = draft.kind ?? 'do';
   // Desligado, some o seletor; hábitos que já são Evitar/Contar seguem editáveis.
   const kindsOn = useFeature(FEATURES.habitKinds) || (initial.kind ?? 'do') !== 'do';
+  // Lembretes ao longo do dia: com a flag, ou se o hábito já repete (para poder desligar).
+  const repeatOn = useFeature(FEATURES.reminderRepeat) || Boolean(initial.reminderEveryMinutes);
 
   async function submit() {
     const result = validateHabitDraft(draft, locale);
@@ -102,7 +124,23 @@ export function HabitForm({
     }
     setErrors({});
     setSaving(true);
-    setError(await onSubmit(result.value));
+    let input = result.value;
+    // Área escolhida sem objetivo: usa o primeiro objetivo ativo dela ou cria um com o nome da área.
+    if (area && !input.objectiveId) {
+      const existing = objectives.find((o) => o.category === area);
+      if (existing) input = { ...input, objectiveId: existing.id };
+      else {
+        const r = await createObjective(OBJECTIVE_CATEGORY_LABELS[locale][area], area);
+        if (r.error !== null) {
+          setSaving(false);
+          setError(r.error);
+          return;
+        }
+        setObjectives((list) => [...list, r.data]);
+        input = { ...input, objectiveId: r.data.id };
+      }
+    }
+    setError(await onSubmit(input));
     setSaving(false);
   }
 
@@ -161,6 +199,18 @@ export function HabitForm({
         error={errors.reminderTime}
       />
 
+      {repeatOn && kind === 'count' && draft.reminderTime ? (
+        <RepeatField
+          start={draft.reminderTime}
+          every={draft.reminderEveryMinutes ?? null}
+          until={draft.reminderUntil ?? null}
+          onChange={(every, until) =>
+            setDraft((d) => ({ ...d, reminderEveryMinutes: every, reminderUntil: until }))
+          }
+          error={errors.reminderUntil}
+        />
+      ) : null}
+
       {kind === 'avoid' ? null : kind === 'count' || showTarget ? (
         <View style={styles.group}>
           <View style={styles.row}>
@@ -215,7 +265,17 @@ export function HabitForm({
         </Pressable>
       )}
 
-      <ObjectivePicker value={draft.objectiveId} onChange={(id) => set('objectiveId', id)} />
+      <ObjectivePicker
+        value={draft.objectiveId}
+        area={area}
+        objectives={objectives}
+        loadError={objectivesError}
+        onChange={(id, a) => {
+          set('objectiveId', id);
+          setArea(a);
+        }}
+        onCreated={(o) => setObjectives((list) => [...list, o])}
+      />
 
       <FormMessage text={error} />
       <Button title={submitLabel} onPress={submit} loading={saving} />
@@ -319,97 +379,207 @@ function ReminderField({
   );
 }
 
+/** Lembrar ao longo do dia (missões de contar): intervalo e horário do último lembrete. */
+function RepeatField({
+  start,
+  every,
+  until,
+  onChange,
+  error,
+}: {
+  start: string;
+  every: number | null;
+  until: string | null;
+  onChange: (every: number | null, until: string | null) => void;
+  error?: string;
+}) {
+  const { t } = useT();
+  const [androidOpen, setAndroidOpen] = useState(false);
+  const on = every !== null;
+  const end = parseReminderTime(until ?? DEFAULT_REMINDER_UNTIL);
+  const pickerDate = new Date();
+  pickerDate.setHours(end?.hour ?? 20, end?.minute ?? 0, 0, 0);
+  const times = on
+    ? reminderTimesOfDay({ id: '', title: '', scheduleDays: [], reminderTime: start, reminderEveryMinutes: every, reminderUntil: until })
+    : [];
+
+  function pick(date: Date) {
+    setAndroidOpen(false);
+    onChange(every, formatReminderTime({ hour: date.getHours(), minute: date.getMinutes() }));
+  }
+
+  const label = (m: number) =>
+    m % 60 === 0 ? t('habitForm.repeatHours', { h: m / 60 }) : t('habitForm.repeatHoursHalf', { h: Math.floor(m / 60) });
+
+  return (
+    <View style={styles.group}>
+      <View style={styles.switchRow}>
+        <Ionicons name="repeat" size={18} color={on ? colors.primary : colors.textSecondary} />
+        <Text style={[typography.label, styles.flex]}>{t('habitForm.repeat')}</Text>
+        <Switch
+          value={on}
+          onValueChange={(v) => onChange(v ? 120 : null, v ? (until ?? DEFAULT_REMINDER_UNTIL) : null)}
+          accessibilityLabel={t('habitForm.repeat')}
+          trackColor={{ true: colors.primary, false: colors.surfaceRaised }}
+        />
+      </View>
+      {on && (
+        <>
+          <Chips
+            options={REMINDER_REPEAT_MINUTES.map((m) => ({ value: m, label: label(m) }))}
+            selected={[every]}
+            onToggle={(m) => onChange(m, until ?? DEFAULT_REMINDER_UNTIL)}
+          />
+          <View style={styles.switchRow}>
+            <Text style={[typography.body, styles.flex]}>{t('habitForm.repeatUntil')}</Text>
+            {Platform.OS === 'ios' ? (
+              <DateTimePicker
+                value={pickerDate}
+                mode="time"
+                display="compact"
+                locale="pt-BR"
+                themeVariant="dark"
+                onValueChange={(_e, date) => pick(date)}
+              />
+            ) : (
+              <Pressable
+                onPress={() => setAndroidOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t('habitForm.repeatUntilA11y', { time: until ?? DEFAULT_REMINDER_UNTIL })}
+                style={styles.timeButton}
+              >
+                <Text style={typography.body}>{until ?? DEFAULT_REMINDER_UNTIL}</Text>
+              </Pressable>
+            )}
+          </View>
+          {androidOpen && Platform.OS !== 'ios' && (
+            <DateTimePicker
+              value={pickerDate}
+              mode="time"
+              is24Hour
+              onValueChange={(_e, date) => pick(date)}
+              onDismiss={() => setAndroidOpen(false)}
+            />
+          )}
+          <Text style={typography.caption}>
+            {t('habitForm.repeatSummary', {
+              count: times.length,
+              times: times.map(formatReminderTime).join(', '),
+            })}
+          </Text>
+        </>
+      )}
+      {!on && <Text style={typography.caption}>{t('habitForm.repeatHint')}</Text>}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
 function ObjectivePicker({
   value,
+  area,
+  objectives,
+  loadError,
   onChange,
+  onCreated,
 }: {
   value: string | null;
-  onChange: (id: string | null) => void;
+  area: ObjectiveCategory | null;
+  objectives: readonly ObjectiveRecord[];
+  loadError: string | null;
+  /** Objetivo (ou null) e área escolhidos. */
+  onChange: (id: string | null, area: ObjectiveCategory | null) => void;
+  onCreated: (o: ObjectiveRecord) => void;
 }) {
   const { t, locale } = useT();
   const categoryOptions = useOptions().categories;
-  const [objectives, setObjectives] = useState<ObjectiveRecord[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<ObjectiveCategory>('health');
   const [titleError, setTitleError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    listObjectives().then((r) => {
-      if (!active) return;
-      if (r.error !== null) setLoadError(r.error);
-      else setObjectives(r.data);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const inArea = area ? objectives.filter((o) => o.category === area) : [];
 
   async function create() {
+    if (!area) return;
     const { value: clean, error } = validateObjectiveTitle(title, locale);
     if (error) {
       setTitleError(error);
       return;
     }
     setSaving(true);
-    const r = await createObjective(clean, category);
+    const r = await createObjective(clean, area);
     setSaving(false);
     if (r.error !== null) {
       setTitleError(r.error);
       return;
     }
-    setObjectives((list) => [...list, r.data]);
-    onChange(r.data.id);
+    onCreated(r.data);
+    onChange(r.data.id, area);
     setCreating(false);
     setTitle('');
     setTitleError(null);
   }
 
-  const options = [
-    { value: NO_OBJECTIVE, label: t('habitForm.noObjective') },
-    ...objectives.map((o) => ({ value: o.id, label: o.title })),
-  ];
-
   return (
     <View style={styles.group}>
-      <Text style={typography.label}>{t('habitForm.objective')}</Text>
-      <Text style={typography.caption}>{t('habitForm.objectiveHint')}</Text>
+      <Text style={typography.label}>{t('habitForm.area')}</Text>
+      <Text style={typography.caption}>{t('habitForm.areaHint')}</Text>
       <Chips
-        options={options}
-        selected={[value ?? NO_OBJECTIVE]}
-        onToggle={(id) => onChange(id === NO_OBJECTIVE ? null : id)}
+        options={[{ value: NO_OBJECTIVE, label: t('habitForm.noArea') }, ...categoryOptions]}
+        selected={[area ?? NO_OBJECTIVE]}
+        onToggle={(v) => {
+          const next = v === NO_OBJECTIVE ? null : (v as ObjectiveCategory);
+          // Trocar de área tira o objetivo de outra área.
+          const keep = objectives.find((o) => o.id === value)?.category === next ? value : null;
+          onChange(next ? keep : null, next);
+          setCreating(false);
+        }}
       />
       <FormMessage text={loadError} />
 
-      {creating ? (
+      {area && (
         <View style={styles.panel}>
-          <Field
-            label={t('habitForm.newObjective')}
-            value={title}
-            onChangeText={setTitle}
-            placeholder={t('habitForm.objectivePlaceholder')}
-            maxLength={120}
-            error={titleError}
-          />
-          <Text style={typography.label}>{t('habitForm.category')}</Text>
-          <Chips options={categoryOptions} selected={[category]} onToggle={setCategory} />
-          <Button title={t('habitForm.createObjective')} onPress={create} loading={saving} />
-          <Button
-            title={t('common.cancel')}
-            onPress={() => setCreating(false)}
-            variant="secondary"
-            disabled={saving}
-          />
+          <Text style={typography.label}>{t('habitForm.objectiveOptional')}</Text>
+          {inArea.length > 0 ? (
+            <Chips
+              options={[
+                { value: NO_OBJECTIVE, label: t('habitForm.areaGeneral') },
+                ...inArea.map((o) => ({ value: o.id, label: o.title })),
+              ]}
+              selected={[value ?? NO_OBJECTIVE]}
+              onToggle={(id) => onChange(id === NO_OBJECTIVE ? null : id, area)}
+            />
+          ) : (
+            <Text style={typography.caption}>
+              {t('habitForm.areaAuto', { area: OBJECTIVE_CATEGORY_LABELS[locale][area] })}
+            </Text>
+          )}
+          {creating ? (
+            <>
+              <Field
+                label={t('habitForm.newObjective')}
+                value={title}
+                onChangeText={setTitle}
+                placeholder={t('habitForm.objectivePlaceholder')}
+                maxLength={120}
+                error={titleError}
+              />
+              <Button title={t('habitForm.createObjective')} onPress={create} loading={saving} />
+              <Button
+                title={t('common.cancel')}
+                onPress={() => setCreating(false)}
+                variant="secondary"
+                disabled={saving}
+              />
+            </>
+          ) : (
+            <Button
+              title={t('habitForm.newObjective')}
+              onPress={() => setCreating(true)}
+              variant="secondary"
+            />
+          )}
         </View>
-      ) : (
-        <Button
-          title={t('habitForm.newObjective')}
-          onPress={() => setCreating(true)}
-          variant="secondary"
-        />
       )}
     </View>
   );

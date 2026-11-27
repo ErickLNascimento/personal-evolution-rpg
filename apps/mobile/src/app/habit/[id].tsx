@@ -37,6 +37,8 @@ function toDraft(h: HabitRecord): HabitDraft {
     targetQty: h.targetQty === null ? '' : String(h.targetQty).replace('.', ','),
     unit: h.unit ?? '',
     reminderTime: h.reminderTime,
+    reminderEveryMinutes: h.reminderEveryMinutes,
+    reminderUntil: h.reminderUntil ? h.reminderUntil.slice(0, 5) : null,
   };
 }
 

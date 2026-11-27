@@ -2,6 +2,7 @@ import type { HeroLook } from '@per/domain';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { AuraFx } from './AuraFx';
 import { PIXEL_HERO_ASPECT, PixelHero, type PixelHeroAnim } from './PixelHero';
 import { useT } from '@/i18n';
 
@@ -47,13 +48,25 @@ export function HeroAvatar({
       accessibilityRole="image"
       accessibilityLabel={t('screens.hero')}
     >
-      <PixelHero
-        hero={hero}
-        size={heroWidth}
-        anim={anim}
-        playing={animated || oneShot}
-        onEnd={() => setAnim('idle')}
+      <AuraFx
+        aura={hero.aura}
+        tier={hero.tier}
+        width={heroWidth}
+        height={heroWidth * PIXEL_HERO_ASPECT}
+        boxWidth={size}
+        boxHeight={height}
+        animated={animated}
       />
+      {/* zIndex: o herói fica sempre na frente do efeito da aura. */}
+      <View style={{ zIndex: 1 }}>
+        <PixelHero
+          hero={hero}
+          size={heroWidth}
+          anim={anim}
+          playing={animated || oneShot}
+          onEnd={() => setAnim('idle')}
+        />
+      </View>
     </View>
   );
 }

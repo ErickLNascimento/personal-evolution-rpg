@@ -1,5 +1,6 @@
 import {
   bossForWeek,
+  newHeroItems,
   bossTitle,
   BOSS_WEAKNESS,
   type ObjectiveCategory,
@@ -21,7 +22,7 @@ import {
   type XpTable,
 } from '@per/domain';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -40,7 +41,8 @@ import { useFeature } from '@/features/profile/useFeature';
 import { PromotionBanner } from '@/components/today/PromotionBanner';
 import { BossBanner } from '@/components/challenges/BossCard';
 import { AppTour } from '@/components/tour/AppTour';
-import { markNewsSeen, newsSlides, seenNewsVersion } from '@/lib/whatsNew';
+import { markNewsSeen, seenNewsVersion } from '@/lib/whatsNew';
+import { NewsSheet } from '@/components/tour/NewsSheet';
 import { DayRing } from '@/components/today/DayRing';
 import { DaySwitch } from '@/components/today/DaySwitch';
 import { XpBar } from '@/components/XpBar';
@@ -60,6 +62,12 @@ import { useT } from '@/i18n';
 import { VacationNotice } from '@/components/vacation/VacationNotice';
 import { rankFor, useBossProgress } from '@/features/bosses/api';
 import { AmbushCard } from '@/components/ambush/AmbushCard';
+import { FriendInviteCard } from '@/components/social/FriendInviteCard';
+import { DuoQuestsCard } from '@/components/duo/DuoQuestsCard';
+import { PushPromptCard } from '@/components/push/PushPromptCard';
+import { seenWardrobeLevel } from '@/features/hero/seenItems';
+import { fetchDuoQuests, type DuoQuest } from '@/features/duo/api';
+import { refreshInvites } from '@/features/social/invites';
 import { fetchAmbush } from '@/features/ambush/api';
 
 export default function TodayScreen() {
@@ -152,11 +160,37 @@ function RealToday() {
   const bossRanks = useBossProgress();
   const bossRankNow = rankFor(bossRanks.progress, bossWeek, bossRanks.enabled).rank;
   const ambushOn = useFeature(FEATURES.ambush);
+  const alertsOn = useFeature(FEATURES.friendAlerts);
+  const socialOn = useFeature(FEATURES.social);
+  const invitesOn = alertsOn && socialOn;
+  // Ao voltar para Hoje, confere se chegou convite de amizade.
+  useFocusEffect(
+    useCallback(() => {
+      if (invitesOn) void refreshInvites();
+    }, [invitesOn]),
+  );
   // Fraqueza do chefe: só o selo ×2 nas missões da área (o cartão do chefe não a revela).
   const weaknessOn = useFeature(FEATURES.bossWeakness);
   const weakness = weaknessOn && challengesOn ? (BOSS_WEAKNESS[boss.id] ?? null) : null;
   const loadAmbush = useCallback(() => fetchAmbush(), []);
   const ambush = useFocusLoad<Ambush | null>(loadAmbush, ambushOn);
+  // Missões em equipe: o placar muda a cada missão concluída.
+  const duoOn = useFeature(FEATURES.duoQuests) && socialOn;
+  const pushOn = useFeature(FEATURES.push);
+  // Peças ganhas e ainda não vistas no vestiário (relê ao voltar para Hoje).
+  const [wardrobeSeen, setWardrobeSeen] = useState(1);
+  useFocusEffect(
+    useCallback(() => {
+      if (profile) setWardrobeSeen(seenWardrobeLevel(profile.id));
+    }, [profile]),
+  );
+  const freshItems = newHeroItems(day.level.level, wardrobeSeen).length;
+  const loadDuos = useCallback(() => fetchDuoQuests(), []);
+  const duos = useFocusLoad<DuoQuest[]>(loadDuos, duoOn);
+  const refreshDuos = duos.refresh;
+  useEffect(() => {
+    if (duoOn && day.cheer > 0) refreshDuos();
+  }, [duoOn, day.cheer, refreshDuos]);
 
   // O card do herói encolhe e esmaece ao rolar; a barra compacta assume o lugar dele.
   const heroStyle = useAnimatedStyle(() => ({
@@ -181,12 +215,9 @@ function RealToday() {
         }}
       />
       {news.length > 0 && (
-        <AppTour
+        <NewsSheet
           visible={showNews}
-          hero={hero}
-          slides={newsSlides(news, locale)}
-          heading={t('today.news')}
-          finishLabel={t('today.gotIt')}
+          items={news}
           onClose={() => {
             markNewsSeen();
             setNewsSeen(seenNewsVersion());
@@ -257,6 +288,18 @@ function RealToday() {
                 onPress={() => router.push('/promotion')}
               />
             ) : null}
+            {invitesOn && <FriendInviteCard />}
+            {pushOn && profile && <PushPromptCard userId={profile.id} />}
+            {duoOn && duos.data && (
+              <DuoQuestsCard
+                quests={duos.data}
+                today={today}
+                onChanged={() => {
+                  duos.refresh();
+                  day.refresh();
+                }}
+              />
+            )}
             {shieldSaved > 0 && (
               <FormMessage
                 tone="info"
@@ -288,6 +331,7 @@ function RealToday() {
                       profile?.earnedTitles ?? new Set(),
                     )}
                     cheer={day.cheer}
+                    freshItems={freshItems}
                     aside={<DayRing progress={day.progress} label={ringLabel} />}
                   />
                 </Animated.View>

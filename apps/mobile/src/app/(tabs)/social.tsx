@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   bossText,
+  FEATURES,
   formatSocialCode,
+  sortDuoQuests,
   groupBossState,
   MAX_GROUP_MEMBERS,
   normalizeSocialCode,
@@ -29,6 +31,11 @@ import { Screen } from '@/components/Screen';
 import { FriendRow } from '@/components/social/FriendRow';
 import { PillButton } from '@/components/social/PillButton';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { refreshInvites } from '@/features/social/invites';
+import { DUO_COLOR, DuoQuestRow } from '@/components/duo/DuoQuestRow';
+import { fetchDuoQuests, type DuoQuest } from '@/features/duo/api';
+import { useFeature } from '@/features/profile/useFeature';
+import { useToday } from '@/features/profile/useToday';
 import {
   createGroup,
   fetchFriends,
@@ -59,6 +66,7 @@ interface SocialData {
   me: MySocial;
   friends: FriendsData;
   groups: GroupInfo[];
+  duos: DuoQuest[];
 }
 
 type AddMode = 'code' | 'name';
@@ -68,18 +76,31 @@ export default function SocialScreen() {
   const { t, locale } = useT();
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
+  const duoOn = useFeature(FEATURES.duoQuests);
+  const { today } = useToday();
   const load = useCallback(async (): Promise<Result<SocialData>> => {
     if (!userId) return { data: null, error: tr('social.signedOut') };
-    const [me, friends, groups] = await Promise.all([
+    const [me, friends, groups, duos] = await Promise.all([
       fetchMySocial(userId),
       fetchFriends(),
       fetchGroups(),
+      duoOn ? fetchDuoQuests() : Promise.resolve({ data: [] as DuoQuest[], error: null }),
     ]);
     if (me.error !== null) return me;
     if (friends.error !== null) return friends;
     if (groups.error !== null) return groups;
-    return { data: { me: me.data, friends: friends.data, groups: groups.data }, error: null };
-  }, [userId]);
+    void refreshInvites();
+    return {
+      data: {
+        me: me.data,
+        friends: friends.data,
+        groups: groups.data,
+        // Missões em equipe não derrubam a tela se falharem.
+        duos: duos.error === null ? duos.data : [],
+      },
+      error: null,
+    };
+  }, [userId, duoOn]);
   const screen = useFocusLoad<SocialData>(load, Boolean(userId));
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -103,6 +124,7 @@ export default function SocialScreen() {
     if (message) setNotice(message);
     void Haptics.selectionAsync();
     screen.refresh();
+    void refreshInvites();
     return true;
   }
 
@@ -121,7 +143,7 @@ export default function SocialScreen() {
     );
   }
 
-  const { me, friends, groups } = screen.data;
+  const { me, friends, groups, duos } = screen.data;
   const code = formatSocialCode(me.friendCode);
 
   const doneToday = friends.friends.filter(
@@ -198,6 +220,15 @@ export default function SocialScreen() {
                   t('social.friendInfo', { level: f.level, streak: f.streak }),
                   [
                     { text: t('social.close'), style: 'cancel' },
+                    ...(duoOn
+                      ? [
+                          {
+                            text: t('duo.new'),
+                            onPress: () =>
+                              router.push({ pathname: '/duo-new', params: { friend: f.userId } }),
+                          },
+                        ]
+                      : []),
                     {
                       text: t('social.unfriend'),
                       style: 'destructive',
@@ -231,6 +262,32 @@ export default function SocialScreen() {
           </>
         )}
       </Chapter>
+
+      {duoOn && (
+        <Chapter
+          icon="flag"
+          color={DUO_COLOR}
+          title={t('duo.chapter')}
+          summary={
+            duos.length > 0
+              ? t('duo.chapterSummaryCount', { count: duos.length })
+              : t('duo.chapterSummary')
+          }
+          defaultOpen={duos.length > 0}
+        >
+          {duos.length === 0 && <Text style={typography.caption}>{t('duo.empty')}</Text>}
+          {sortDuoQuests(duos, today).map((q) => (
+            <DuoQuestRow key={q.id} quest={q} today={today} onChanged={screen.refresh} />
+          ))}
+          {friends.friends.length > 0 && (
+            <Button
+              title={t('duo.new')}
+              variant="secondary"
+              onPress={() => router.push('/duo-new')}
+            />
+          )}
+        </Chapter>
+      )}
 
       <Chapter
         icon="shield-half"

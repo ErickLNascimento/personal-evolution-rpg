@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FEATURES, shouldShowRecap } from '@per/domain';
+import { FEATURES, friendAlertBadge, shouldShowRecap } from '@per/domain';
 import { useSyncExternalStore } from 'react';
 import { Tabs } from 'expo-router/js-tabs';
 import { StyleSheet, type ColorValue } from 'react-native';
@@ -7,6 +7,7 @@ import { useFeature } from '@/features/profile/useFeature';
 import { useProfile } from '@/features/profile/useProfile';
 import { useToday } from '@/features/profile/useToday';
 import { seenRecapWeek, subscribeRecapSeen } from '@/features/recap/api';
+import { useInvites } from '@/features/social/invites';
 import { colors } from '@/theme/tokens';
 import { useT } from '@/i18n';
 
@@ -40,6 +41,10 @@ export default function TabsLayout() {
     profile ? seenRecapWeek(profile.id) : null,
   );
   const recapDot = recapOn && profile !== null && shouldShowRecap(today, seen);
+  // Convites de amizade recebidos: contador na Fogueira (e cartão na tela Hoje).
+  const alertsOn = useFeature(FEATURES.friendAlerts);
+  const invites = useInvites(profile?.id ?? null, socialOn && alertsOn).requests.length;
+  const inviteBadge = friendAlertBadge(invites);
   return (
     <Tabs
       screenOptions={{
@@ -77,6 +82,13 @@ export default function TabsLayout() {
           title: t('tabs.social'),
           tabBarIcon: icon('bonfire-outline'),
           href: socialOn ? undefined : null,
+          tabBarBadge: inviteBadge,
+          tabBarBadgeStyle: styles.count,
+          tabBarAccessibilityLabel: inviteBadge
+            ? invites === 1
+              ? t('invites.tabA11yOne', { tab: t('tabs.social') })
+              : t('invites.tabA11y', { tab: t('tabs.social'), count: invites })
+            : undefined,
         }}
       />
       <Tabs.Screen
@@ -96,5 +108,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: colors.xp,
     top: 4,
+  },
+  // Contador de convites, na cor da Fogueira.
+  count: {
+    backgroundColor: '#FB923C',
+    color: colors.background,
+    fontSize: 11,
+    fontWeight: '800',
   },
 });

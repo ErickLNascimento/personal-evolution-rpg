@@ -29,6 +29,14 @@ export const FEATURES = {
   act2: 'feature_act_2',
   /** Lorde do mês: um chefe lendário que dura o mês inteiro. */
   monthlyBoss: 'feature_monthly_boss',
+  /** Aviso de convite de amizade: ponto na Fogueira e cartão na tela Hoje. */
+  friendAlerts: 'feature_friend_alerts',
+  /** Missões em equipe: desafio semanal de dupla entre amigos (Fogueira e tela Hoje). */
+  duoQuests: 'feature_duo_quests',
+  /** Push de verdade: avisos com o app fechado (social, chefes e reengajamento). */
+  push: 'feature_push',
+  /** Lembretes ao longo do dia nas missões de contar (ex.: beber água a cada 2 h). */
+  reminderRepeat: 'feature_reminder_repeat',
   // Recursos anteriores à regra das flags (ligados por padrão; ver LEGACY_FEATURES).
   shop: 'feature_shop',
   challenges: 'feature_challenges',

@@ -2,22 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   formLabel,
   HERO_FORMS,
-  HERO_SLOTS,
-  isUnlocked,
-  itemLabel,
   pathLabel,
   pathMotto,
+  itemLabel,
+  newHeroItems,
   RACES,
   raceDescription,
   raceLabel,
   rarityLabel,
-  slotLabel,
   stageName,
   titleDescription,
   titleHint,
   type HeroForm,
-  type Race,
   type HeroItem,
+  type Race,
   type HeroLook,
   type HeroSlot,
   displayedTitle,
@@ -31,16 +29,35 @@ import {
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Chips } from '@/components/Chips';
 import { Button, FormMessage } from '@/components/Form';
 import { HeroAvatar } from '@/components/hero/HeroAvatar';
 import { PathTree } from '@/components/hero/PathTree';
 import { tierColor } from '@/components/hero/HeroCard';
+import {
+  GOLD,
+  InventoryPicker,
+  Ornament,
+  PreviewNotice,
+  WardrobeStage,
+  WardrobeTabs,
+  type WardrobeTab,
+} from '@/components/hero/Wardrobe';
 import { StackScreen } from '@/components/Screen';
 import { useCelebration } from '@/features/celebration/CelebrationProvider';
+import { markWardrobeSeen, seenWardrobeLevel } from '@/features/hero/seenItems';
 import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/ProfileProvider';
 import { useT } from '@/i18n';
@@ -88,9 +105,77 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
   const raceChanged = race !== initialRace;
   const dirty = JSON.stringify(look) !== JSON.stringify(initial) || titleChanged || raceChanged;
 
+  // Cada escolha faz o herói comemorar no pedestal.
+  const [cheer, setCheer] = useState(0);
+  // Peças liberadas desde a última visita: selo "Novo" até sair do vestiário.
+  const userId = profile?.id ?? null;
+  const [fresh] = useState(() => {
+    const items = userId ? newHeroItems(level, seenWardrobeLevel(userId)) : [];
+    const bySlot = new Map<HeroSlot, Set<string>>();
+    for (const f of items) bySlot.set(f.slot, (bySlot.get(f.slot) ?? new Set()).add(f.id));
+    return bySlot;
+  });
+  useEffect(() => {
+    return () => {
+      if (userId) markWardrobeSeen(userId, level);
+    };
+  }, [userId, level]);
+  const freshIn = (slots: HeroSlot[]) => slots.some((sl) => (fresh.get(sl)?.size ?? 0) > 0);
+  // Peça bloqueada vista no pedestal (não vai para o rascunho nem é salva).
+  const [preview, setPreview] = useState<{ slot: HeroSlot; item: HeroItem } | null>(null);
+  const { width } = useWindowDimensions();
+  const pager = useRef<Animated.ScrollView>(null);
+  const progress = useSharedValue(0);
+  const [tab, setTab] = useState(0);
+  // As abas só montam quando visitadas (cada peça desenha miniaturas do herói).
+  const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([0]));
+
+  const tabs: WardrobeTab[] = [
+    { key: 'hero', icon: 'person', label: t('heroScreen.tabHero') },
+    {
+      key: 'look',
+      icon: 'color-palette',
+      label: t('heroScreen.tabLook'),
+      fresh: freshIn(['skin', 'eyes', 'hair', 'hairColor']),
+    },
+    {
+      key: 'gear',
+      icon: 'shield',
+      label: t('heroScreen.tabGear'),
+      fresh: freshIn(['outfit', 'accessory', 'aura']),
+    },
+    { key: 'title', icon: 'ribbon', label: t('heroScreen.tabTitle') },
+    { key: 'path', icon: 'git-branch', label: t('heroScreen.tabPath') },
+  ];
+
+  function show(i: number) {
+    setTab(i);
+    setVisited((v) => (v.has(i) ? v : new Set(v).add(i)));
+  }
+
+  function selectTab(i: number) {
+    void Haptics.selectionAsync();
+    show(i);
+    pager.current?.scrollTo({ x: i * width, animated: true });
+  }
+
+  const onScroll = useAnimatedScrollHandler((e) => {
+    progress.set(e.contentOffset.x / width);
+  });
+
   function choose(next: Partial<HeroLook>) {
     void Haptics.selectionAsync();
+    setPreview(null);
     setLook((l) => ({ ...l, ...next }));
+    setCheer((c) => c + 1);
+  }
+
+  function showPreview(slot: HeroSlot, item: HeroItem) {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Tocar de novo na mesma peça fecha a prévia.
+    if (preview?.slot === slot && preview.item.id === item.id) return setPreview(null);
+    setPreview({ slot, item });
+    setCheer((c) => c + 1);
   }
 
   async function submit() {
@@ -109,127 +194,176 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
     router.back();
   }
 
+  const owned = profile?.cosmetics ?? new Set<string>();
+  const slotPicker = (slot: HeroSlot) => (
+    <InventoryPicker
+      key={slot}
+      slot={slot}
+      look={{ ...look, race }}
+      value={look[SLOT_KEY[slot]]}
+      level={level}
+      owned={owned}
+      previewing={preview?.slot === slot ? preview.item.id : null}
+      fresh={fresh.get(slot)}
+      onChoose={(id) => choose({ [SLOT_KEY[slot]]: id })}
+      onPreview={(item) => showPreview(slot, item)}
+    />
+  );
+
+  const pages = [
+    // Herói: forma e raça
+    <Fragment key="hero">
+      <Ornament>{t('heroScreen.character')}</Ornament>
+      <View style={styles.forms}>
+        {HERO_FORMS.map((f: HeroForm) => {
+          const active = look.form === f;
+          return (
+            <Pressable
+              key={f}
+              onPress={() => choose({ form: f })}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={formLabel(f, locale)}
+              style={({ pressed }) => [
+                styles.formCard,
+                active && styles.formActive,
+                pressed && styles.pressed,
+              ]}
+            >
+              <HeroAvatar hero={{ ...look, race, form: f, aura: 'nenhuma' }} size={52} />
+              <Text style={typography.body}>{formLabel(f, locale)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Ornament>{t('heroScreen.race')}</Ornament>
+      <Chips
+        options={RACES.map((r) => ({ value: r, label: raceLabel(r, look.form, locale) }))}
+        selected={[race]}
+        onToggle={(r) => {
+          void Haptics.selectionAsync();
+          setRace(r);
+          setCheer((c) => c + 1);
+        }}
+      />
+      <Text style={typography.caption}>
+        {raceDescription(race, locale)} {t('heroScreen.raceHint')}
+      </Text>
+    </Fragment>,
+    // Visual: pele, olhos e cabelo
+    <Fragment key="look">{(['skin', 'eyes', 'hair', 'hairColor'] as HeroSlot[]).map(slotPicker)}</Fragment>,
+    // Equipamento: roupa, acessório e aura
+    <Fragment key="gear">
+      {(['outfit', 'accessory', 'aura'] as HeroSlot[]).map(slotPicker)}
+      <Button
+        title={t('heroScreen.preview', { level: level + 1 })}
+        onPress={() => celebrateLevelUp(level, level + 1)}
+        variant="secondary"
+      />
+    </Fragment>,
+    // Título
+    <TitlePicker
+      key="title"
+      value={title}
+      level={level}
+      earned={earned}
+      form={look.form}
+      onChoose={(id) => {
+        void Haptics.selectionAsync();
+        setTitle(id);
+        setCheer((c) => c + 1);
+      }}
+    />,
+    // Caminho
+    <Fragment key="path">
+      <Ornament>{t('heroScreen.path')}</Ornament>
+      {heroPath?.path ? (
+        <>
+          <Text style={[typography.heading, styles.center]}>{pathLabel(heroPath.path, locale)}</Text>
+          <PathTree state={{ ...heroPath, path: heroPath.path }} form={look.form} />
+        </>
+      ) : (
+        <Text style={typography.body}>{t('heroScreen.noPathYet')}</Text>
+      )}
+      <Button
+        title={heroPath?.path ? t('heroScreen.changePath') : t('heroScreen.choosePath')}
+        onPress={() => router.push('/path')}
+        variant="secondary"
+      />
+    </Fragment>,
+  ];
+
   return (
     <View style={styles.screen}>
-      {/* Herói fixo no topo: cada escolha aparece nele na hora, enquanto as opções rolam embaixo. */}
-      <View style={[styles.stage, { borderColor: frame }]}>
-        <View style={styles.portrait}>
-          <HeroAvatar hero={{ ...look, race }} size={112} animated />
-        </View>
-        <View style={styles.stageInfo}>
-          <Text style={[styles.title, { color: RARITY_COLOR[titleInfo(title).rarity] }]}>
-            {titleName(title, look.form, locale).toUpperCase()}
-          </Text>
-          <Text style={typography.heading}>
-            {heroPath?.path
-              ? stageName(heroPath.path, heroPath.branch, heroPath.stage, look.form, locale)
-              : t('heroScreen.noPath')}
-          </Text>
-          <Text style={typography.caption}>
-            {t('heroScreen.raceLevel', { race: raceLabel(race, look.form, locale), level })}
-          </Text>
-          {heroPath?.path && (
-            <Text style={typography.caption}>{pathMotto(heroPath.path, locale)}</Text>
-          )}
-        </View>
-      </View>
+      {/* Herói fixo no topo: cada escolha aparece nele na hora. */}
+      <WardrobeStage
+        hero={{ ...look, race, ...(preview ? { [SLOT_KEY[preview.slot]]: preview.item.id } : {}) }}
+        notice={
+          preview && (
+            <PreviewNotice
+              text={
+                preview.item.price !== undefined
+                  ? t('heroScreen.previewShop', {
+                      name: itemLabel(preview.slot, preview.item, locale),
+                      price: preview.item.price,
+                    })
+                  : t('heroScreen.previewLevel', {
+                      name: itemLabel(preview.slot, preview.item, locale),
+                      level: preview.item.level,
+                    })
+              }
+              action={preview.item.price !== undefined ? t('heroScreen.previewToShop') : undefined}
+              onAction={() => router.push('/shop')}
+              onClose={() => setPreview(null)}
+            />
+          )
+        }
+        cheer={cheer}
+        frame={frame}
+        title={titleName(title, look.form, locale).toUpperCase()}
+        titleColor={RARITY_COLOR[titleInfo(title).rarity]}
+        subtitle={
+          heroPath?.path
+            ? stageName(heroPath.path, heroPath.branch, heroPath.stage, look.form, locale)
+            : t('heroScreen.noPath')
+        }
+        caption={
+          heroPath?.path
+            ? `${t('heroScreen.raceLevel', { race: raceLabel(race, look.form, locale), level })} · ${pathMotto(heroPath.path, locale)}`
+            : t('heroScreen.raceLevel', { race: raceLabel(race, look.form, locale), level })
+        }
+      />
 
-      <ScrollView
+      <WardrobeTabs tabs={tabs} index={tab} progress={progress} width={width} onSelect={selectTab} />
+
+      {/* Páginas lado a lado: deslizar troca de aba, e o marcador acompanha o dedo. */}
+      <Animated.ScrollView
+        ref={pager}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={(e) => show(Math.round(e.nativeEvent.contentOffset.x / width))}
         style={styles.flex}
-        contentContainerStyle={styles.scroll}
-        automaticallyAdjustKeyboardInsets
-        keyboardShouldPersistTaps="handled"
       >
-        <TitlePicker
-          value={title}
-          level={level}
-          earned={earned}
-          form={look.form}
-          onChoose={(id) => {
-            void Haptics.selectionAsync();
-            setTitle(id);
-          }}
-        />
-
-        <Text style={typography.label}>{t('heroScreen.character')}</Text>
-        <View style={styles.forms}>
-          {HERO_FORMS.map((f: HeroForm) => {
-            const active = look.form === f;
-            return (
-              <Pressable
-                key={f}
-                onPress={() => choose({ form: f })}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={formLabel(f, locale)}
-                style={({ pressed }) => [
-                  styles.formCard,
-                  active && { borderColor: colors.primary },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <HeroAvatar hero={{ ...look, form: f, aura: 'nenhuma' }} size={52} />
-                <Text style={typography.body}>{formLabel(f, locale)}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.slot}>
-          <Text style={typography.label}>{t('heroScreen.race')}</Text>
-          <Chips
-            options={RACES.map((r) => ({ value: r, label: raceLabel(r, look.form, locale) }))}
-            selected={[race]}
-            onToggle={(r) => {
-              void Haptics.selectionAsync();
-              setRace(r);
-            }}
-          />
-          <Text style={typography.caption}>
-            {raceDescription(race, locale)} {t('heroScreen.raceHint')}
-          </Text>
-        </View>
-
-        <View style={styles.slot}>
-          <Text style={typography.label}>{t('heroScreen.path')}</Text>
-          {heroPath?.path ? (
-            <>
-              <Text style={typography.heading}>{pathLabel(heroPath.path, locale)}</Text>
-              <PathTree state={{ ...heroPath, path: heroPath.path }} form={look.form} />
-            </>
-          ) : (
-            <Text style={typography.body}>{t('heroScreen.noPathYet')}</Text>
-          )}
-          <Button
-            title={heroPath?.path ? t('heroScreen.changePath') : t('heroScreen.choosePath')}
-            onPress={() => router.push('/path')}
-            variant="secondary"
-          />
-        </View>
-
-        {(Object.keys(HERO_SLOTS) as HeroSlot[]).map((slot) => (
-          <SlotPicker
-            key={slot}
-            slot={slot}
-            value={look[SLOT_KEY[slot]]}
-            level={level}
-            owned={profile?.cosmetics ?? new Set()}
-            onChoose={(id) => choose({ [SLOT_KEY[slot]]: id })}
-          />
+        {pages.map((page, i) => (
+          <ScrollView
+            key={tabs[i]!.key}
+            style={{ width }}
+            contentContainerStyle={styles.page}
+            keyboardShouldPersistTaps="handled"
+          >
+            {visited.has(i) ? page : <ActivityIndicator color={GOLD} />}
+          </ScrollView>
         ))}
-
-        <Button
-          title={t('heroScreen.preview', { level: level + 1 })}
-          onPress={() => celebrateLevelUp(level, level + 1)}
-          variant="secondary"
-        />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Salvar sempre à mão, sem precisar rolar até o fim. */}
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <FormMessage text={error} />
         <Button
-          title={dirty ? t('heroScreen.save') : t('heroScreen.done')}
+          title={dirty ? t('heroScreen.seal') : t('heroScreen.done')}
           onPress={dirty ? submit : () => router.back()}
           loading={saving}
         />
@@ -261,7 +395,7 @@ function TitlePicker({
 
   return (
     <View style={styles.slot}>
-      <Text style={typography.label}>{t('heroScreen.shownTitle')}</Text>
+      <Ornament>{t('heroScreen.shownTitle')}</Ornament>
       <View style={styles.options}>
         {mine.map((id) => {
           const info = titleInfo(id);
@@ -345,84 +479,12 @@ function TitlePicker({
   );
 }
 
-function SlotPicker({
-  slot,
-  value,
-  level,
-  owned,
-  onChoose,
-}: {
-  slot: HeroSlot;
-  value: string;
-  level: number;
-  /** Cosméticos comprados na Loja. */
-  owned: ReadonlySet<string>;
-  onChoose: (id: string) => void;
-}) {
-  const { t, locale } = useT();
-  const { items } = HERO_SLOTS[slot];
-  const isColor = items.every((i) => i.color) && slot !== 'aura';
-  return (
-    <View style={styles.slot}>
-      <Text style={typography.label}>{slotLabel(slot, locale).toUpperCase()}</Text>
-      <View style={styles.options}>
-        {items.map((item: HeroItem) => {
-          const unlocked = isUnlocked(item, level, owned);
-          const fromShop = item.price !== undefined;
-          const active = item.id === value;
-          const name = itemLabel(slot, item, locale);
-          const a11y = unlocked
-            ? name
-            : fromShop
-              ? t('heroScreen.itemInShop', { name, price: item.price ?? 0 })
-              : t('heroScreen.itemLocked', { name, level: item.level });
-          return (
-            <Pressable
-              key={item.id}
-              onPress={() =>
-                unlocked
-                  ? onChoose(item.id)
-                  : fromShop
-                    ? router.push('/shop')
-                    : Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
-              }
-              accessibilityRole="radio"
-              accessibilityState={{ selected: active, disabled: !unlocked }}
-              accessibilityLabel={a11y}
-              style={({ pressed }) => [
-                isColor ? styles.swatch : styles.chip,
-                isColor && { backgroundColor: item.color },
-                active && styles.active,
-                !unlocked && styles.locked,
-                pressed && styles.pressed,
-              ]}
-            >
-              {!isColor && (
-                <View style={styles.chipRow}>
-                  {item.color && <View style={[styles.dot, { backgroundColor: item.color }]} />}
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {name}
-                  </Text>
-                </View>
-              )}
-              {!unlocked && (
-                <View style={styles.lockBadge}>
-                  <Ionicons name={fromShop ? 'diamond' : 'lock-closed'} size={10} color={colors.text} />
-                  <Text style={styles.lockText}>{fromShop ? item.price : item.level}</Text>
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  scroll: { padding: spacing.lg, gap: spacing.lg },
+  page: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
+  center: { textAlign: 'center' },
+  formActive: { borderColor: GOLD, backgroundColor: '#3A2F1E' },
   stage: {
     flexDirection: 'row',
     alignItems: 'center',

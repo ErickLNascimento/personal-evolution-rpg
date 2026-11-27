@@ -1,15 +1,20 @@
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
 import {
+  addDays,
   isOnVacation,
   MAX_SCHEDULED_REMINDERS,
+  REPEAT_DAYS_AHEAD,
   reminderSchedule,
+  repeatReminderDates,
+  repeatsReminder,
   SMART_NOTIFICATION_SLOTS,
 } from '@per/domain';
 import { Platform } from 'react-native';
 import { listHabits } from '@/features/habits/api';
 import { t } from '@/i18n';
 import { buildSmartNotifications, deviceNow, triggerDate } from '@/lib/smartNotifications';
+import { supabase } from '@/lib/supabase';
 
 const CHANNEL_ID = 'reminders';
 /** Canal dos avisos de streak, missão relâmpago e promoção (desligável à parte no Android). */
@@ -113,6 +118,44 @@ async function runSync(): Promise<SyncResult> {
     });
   }
 
+  // Lembretes ao longo do dia (missões de contar): com data, de hoje a 3 dias, para não tocar
+  // mais no dia em que a meta foi batida. Cada registro e cada volta ao app reagendam.
+  const repeating = onVacation ? [] : habits.data.filter((h) => repeatsReminder(h));
+  let repeatCount = 0;
+  if (repeating.length > 0) {
+    const nowDate = new Date();
+    const { today: localToday, nowMinutes } = deviceNow(nowDate);
+    const done = await doneToday(localToday, repeating.map((h) => h.id));
+    const dates = Array.from({ length: REPEAT_DAYS_AHEAD }, (_, i) => {
+      const date = addDays(localToday, i);
+      return { date, weekday: new Date(`${date}T12:00:00`).getDay() };
+    });
+    const free = Math.max(0, MAX_SCHEDULED_REMINDERS - SMART_NOTIFICATION_SLOTS - reminders.length);
+    const dated = repeatReminderDates(
+      repeating,
+      { date: localToday, hour: Math.floor(nowMinutes / 60), minute: nowMinutes % 60 },
+      done,
+      dates,
+    ).slice(0, free);
+    for (const r of dated) {
+      const hh = String(r.hour).padStart(2, '0');
+      const mm = String(r.minute).padStart(2, '0');
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: r.title,
+          body: t('notifications.repeatBody', { index: r.index, total: r.total }),
+          data: { habitId: r.habitId },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: new Date(`${r.date}T${hh}:${mm}:00`),
+          channelId: CHANNEL_ID,
+        },
+      });
+    }
+    repeatCount = dated.length;
+  }
+
   // Avisos inteligentes: streak em risco, missão relâmpago e promoção.
   const smart = await buildSmartNotifications().catch(() => []);
   const now = Date.now();
@@ -128,5 +171,17 @@ async function runSync(): Promise<SyncResult> {
       },
     });
   }
-  return { scheduled: reminders.length + smart.length, truncated };
+  return { scheduled: reminders.length + repeatCount + smart.length, truncated };
+}
+
+/** Hábitos (dentre `ids`) com a meta de hoje batida, pelos registros do dia. */
+async function doneToday(today: string, ids: readonly string[]): Promise<Set<string>> {
+  if (!supabase || ids.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from('habit_logs')
+    .select('habit_id')
+    .eq('local_date', today)
+    .in('habit_id', [...ids]);
+  if (error || !data) return new Set();
+  return new Set(data.map((r: { habit_id: string }) => r.habit_id));
 }

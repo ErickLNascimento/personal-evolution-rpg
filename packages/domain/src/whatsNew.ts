@@ -4,9 +4,13 @@ import { DEFAULT_LOCALE, type Locale } from './i18n';
  * Novidades: a cada atualização entregue aos usuários (build novo ou EAS Update), acrescente
  * uma entrada no INÍCIO de RELEASE_NOTES com `version` maior que a anterior. Quem abrir o app
  * vê um tour curto só com o que mudou desde a última nota que viu.
+ * Recurso novo vira um slide; correção de bug (`kind: 'fix'`) não ganha slide: entra só numa
+ * lista curta no último slide, com o `text` como nota.
  */
 
 export interface ReleaseNoteItem {
+  /** 'feature' (padrão): ganha um slide. 'fix': só uma linha na lista de correções. */
+  kind?: 'feature' | 'fix';
   /** Nome de um ícone do Ionicons (ex.: 'stats-chart'). */
   icon: string;
   title: string;
@@ -16,7 +20,9 @@ export interface ReleaseNoteItem {
   /** Só aparece com esta feature flag ligada (ver features.ts). */
   flag?: string;
   /** Título e texto em inglês (obrigatórios nas notas novas). */
-  en?: { title: string; text: string };
+  en?: { title: string; text: string; summary?: string };
+  /** Resumo de uma linha para a tela de Novidades (sem ele, o texto aparece cortado). */
+  summary?: string;
 }
 
 export interface ReleaseNote {
@@ -28,6 +34,146 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
+  {
+    version: 15,
+    date: '2026-11-26',
+    items: [
+      {
+        icon: 'sparkles',
+        title: 'Peças novas à vista',
+        text: 'Ao subir de nível, a cena mostra as peças que você ganhou e leva direto ao vestiário, onde elas aparecem com o selo NOVO.',
+        summary: 'Peças ganhas aparecem na subida de nível e com selo NOVO no vestiário.',
+        en: {
+          title: 'New pieces in sight',
+          text: 'When you level up, the scene shows the pieces you earned and takes you straight to the wardrobe, where they carry a NEW badge.',
+          summary: 'Earned pieces show up on level up and with a NEW badge in the wardrobe.',
+        },
+        route: '/hero',
+      },
+      {
+        kind: 'fix',
+        icon: 'newspaper',
+        title: 'Novidades mais curtas',
+        text: 'As novidades agora cabem numa tela só, com um resumo de cada uma.',
+        en: {
+          title: 'Shorter news',
+          text: 'News now fits on a single screen, with a short summary of each item.',
+        },
+      },
+      {
+        kind: 'fix',
+        icon: 'compass',
+        title: 'Área da vida na missão',
+        text: 'Ao criar uma missão, as 8 áreas da vida aparecem sempre; os objetivos ficam como opção dentro de cada área.',
+        en: {
+          title: 'Area of life on missions',
+          text: 'When creating a mission, all 8 areas of life always show; goals are optional within each area.',
+        },
+      },
+    ],
+  },
+  {
+    version: 14,
+    date: '2026-11-26',
+    items: [
+      {
+        icon: 'notifications',
+        flag: 'feature_push',
+        title: 'Avisos com o app fechado',
+        text: 'Saiba na hora quando um amigo te chamar, um chefe novo chegar ou um prêmio estiver esperando. Escolha o que receber em Perfil → Avisos no celular; nunca entre 22h e 8h.',
+        summary: 'Convites, chefe novo e prêmios chegam mesmo com o app fechado.',
+        en: {
+          title: 'Notifications when the app is closed',
+          text: 'Know right away when a friend invites you, a new boss arrives or a reward is waiting. Choose what you get in Profile → Phone notifications; never between 10 PM and 8 AM.',
+          summary: 'Invites, new bosses and rewards reach you even with the app closed.',
+        },
+        route: '/profile',
+      },
+      {
+        icon: 'water',
+        flag: 'feature_reminder_repeat',
+        title: 'Lembretes ao longo do dia',
+        text: 'Missões de contar, como beber 8 copos de água, podem lembrar de hora em hora ou a cada 2, 3 ou 4 horas. Quando você bate a meta, os lembretes do dia param.',
+        summary: 'Missões de contar, como beber água, lembram várias vezes ao dia.',
+        en: {
+          title: 'Reminders throughout the day',
+          text: 'Count missions, like drinking 8 glasses of water, can remind you every hour or every 2, 3 or 4 hours. Once you hit the goal, the day\'s reminders stop.',
+          summary: 'Count missions, like drinking water, remind you several times a day.',
+        },
+        route: '/habits',
+      },
+    ],
+  },
+  {
+    version: 13,
+    date: '2026-11-26',
+    items: [
+      {
+        icon: 'flag',
+        flag: 'feature_duo_quests',
+        title: 'Missões em equipe',
+        text: 'Chame um amigo na Fogueira para um desafio da semana: cada um faz suas missões numa área da vida, e quando os dois batem a meta, os dois ganham Cristais.',
+        summary: 'Desafie um amigo na Fogueira: os dois batem a meta e ganham Cristais.',
+        en: {
+          title: 'Team quests',
+          text: 'Invite a friend at the Campfire to a weekly challenge: each of you does your own missions in an area of life, and when both reach the goal, both earn Crystals.',
+          summary: 'Challenge a friend at the Campfire: both reach the goal and earn Crystals.',
+        },
+        route: '/social',
+      },
+      {
+        icon: 'shirt',
+        title: 'Vestiário do herói',
+        text: 'Seu herói agora fica num pedestal entre tochas, e as escolhas ficam em abas: deslize entre Herói, Visual, Equipamento, Título e Caminho, e veja cada peça no próprio herói antes de escolher.',
+        summary: 'Seu herói num pedestal, com abas e prévia de cada peça.',
+        en: {
+          title: 'Hero wardrobe',
+          text: 'Your hero now stands on a pedestal between torches, and the choices live in tabs: swipe between Hero, Looks, Gear, Title and Path, and see each piece on your hero before picking.',
+          summary: 'Your hero on a pedestal, with tabs and a preview of every piece.',
+        },
+        route: '/hero',
+      },
+      {
+        kind: 'fix',
+        icon: 'skull',
+        title: 'Chefes sempre à vista',
+        text: 'Se a imagem de um chefe falhar ao carregar, o app tenta de novo sozinho, sem deixar o quadro vazio.',
+        en: {
+          title: 'Bosses always in sight',
+          text: 'If a boss image fails to load, the app retries on its own instead of leaving the frame empty.',
+        },
+      },
+    ],
+  },
+  {
+    version: 12,
+    date: '2026-11-25',
+    items: [
+      {
+        icon: 'mail-unread',
+        flag: 'feature_friend_alerts',
+        title: 'Convites à vista',
+        text: 'Quando alguém te convida para a Fogueira, um número aparece na aba e o convite surge na tela Hoje: aceite ou recuse ali mesmo.',
+        summary: 'Convites de amizade aparecem na aba Fogueira e na tela Hoje.',
+        en: {
+          title: 'Invites in sight',
+          text: 'When someone invites you to the Campfire, a number shows up on the tab and the invite appears on Today: accept or decline right there.',
+          summary: 'Friend invites show up on the Campfire tab and on Today.',
+        },
+        route: '/social',
+      },
+      {
+        kind: 'fix',
+        icon: 'phone-portrait',
+        title: 'Teclado no Android',
+        text: 'No Android, o teclado não cobre mais os campos de texto, como a busca de amigos.',
+        en: {
+          title: 'Keyboard on Android',
+          text: 'On Android, the keyboard no longer covers text fields, like the friend search.',
+        },
+      },
+    ],
+  },
   {
     version: 11,
     date: '2026-12-07',
@@ -180,12 +326,13 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     date: '2026-11-30',
     items: [
       {
+        kind: 'fix',
         icon: 'skull',
         title: 'Chefes à vista',
-        text: 'Os monstros do chefe da semana e o Oráculo agora são desenhados do mesmo jeito que o seu herói, e não somem mais da tela.',
+        text: 'Os monstros do chefe da semana e o Oráculo não somem mais da tela.',
         en: {
           title: 'Bosses in sight',
-          text: 'The weekly boss monsters and the Oracle are now drawn the same way as your hero, so they no longer disappear from the screen.',
+          text: 'The weekly boss monsters and the Oracle no longer disappear from the screen.',
         },
         route: '/challenges',
       },
@@ -406,4 +553,21 @@ export function releaseItemText(
   locale: Locale = DEFAULT_LOCALE,
 ): { title: string; text: string } {
   return locale === 'en' && item.en ? item.en : { title: item.title, text: item.text };
+}
+
+/** Separa os itens em recursos novos (slides) e correções (lista no último slide). */
+export function splitReleaseItems(items: readonly ReleaseNoteItem[]): {
+  features: ReleaseNoteItem[];
+  fixes: ReleaseNoteItem[];
+} {
+  return {
+    features: items.filter((i) => i.kind !== 'fix'),
+    fixes: items.filter((i) => i.kind === 'fix'),
+  };
+}
+
+/** Resumo curto do item (uma linha), no idioma; sem resumo, o texto inteiro. */
+export function releaseItemSummary(item: ReleaseNoteItem, locale: Locale = DEFAULT_LOCALE): string {
+  if (locale === 'en' && item.en) return item.en.summary ?? item.en.text;
+  return item.summary ?? item.text;
 }

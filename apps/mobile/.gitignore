@@ -4,3 +4,5 @@
 
 expo-env.d.ts
 # @end expo-cli
+# Firebase (Android): fica fora do repositório público; no EAS vem da variável GOOGLE_SERVICES_JSON.
+google-services.json

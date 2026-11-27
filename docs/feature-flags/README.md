@@ -84,6 +84,72 @@ update public.app_settings set value = ('2026-12-07'::date - date '1970-01-01') 
 update public.app_settings set value = 1 where key = 'feature_act_2';
 ```
 
+### Lembretes ao longo do dia: `feature_reminder_repeat`
+
+Nas missões de contar (ex.: 8 copos de água), o lembrete pode se repetir a cada 1h, 1h30, 2h, 3h ou
+4h, do horário do lembrete até o último (padrão 20h), no máximo 12 por dia. São notificações locais
+agendadas com data para os próximos 3 dias e reagendadas a cada registro e ao abrir o app: no dia em
+que a meta é batida, os restantes não tocam. Colunas `habits.reminder_every_minutes` e
+`habits.reminder_until`. Desligada, a opção some do formulário (quem já tem repetição pode
+desligá-la) e gravar ou mudar a repetição recusa com `PR050` (gatilho na tabela). **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_reminder_repeat';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_reminder_repeat';
+```
+
+### Push de verdade: `feature_push`
+
+Avisos com o app fechado (plano completo em `docs/push/README.md`): Fogueira (convites, missões em
+equipe, vitórias do bando), Chefes e eventos (chefe novo, prêmio esperando, emboscada, último dia do
+Lorde) e Reengajamento (3+ dias sem missão, no máximo 1 por semana). Silêncio das 22h às 8h no fuso
+da pessoa e no máximo 3 avisos de chefes + reengajamento por dia. Envio pela Edge Function
+`push-dispatch` (pg_cron a cada 5 min). No Android, exige o APK com Firebase. Desligada, o app não
+pede permissão nem registra o aparelho, nada entra na fila e `register_push_token`,
+`unregister_push_token` e `set_push_settings` recusam com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_push';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_push';
+```
+
+### Missões em equipe: `feature_duo_quests`
+
+Na Fogueira (e no menu de um amigo), um amigo convida outro para um desafio da semana (segunda a
+domingo de quem convida): cada um faz 3, 5 ou 7 missões numa área da vida, ou em qualquer área. Os
+dois precisam bater a meta; então cada um resgata 30, 50 ou 80 Cristais, até 7 dias depois do fim da
+semana. Até 3 por pessoa por semana, uma por dupla. O parceiro vê só quantas missões você fez, nunca
+os nomes dos hábitos. Aparece também na tela Hoje (convite, placar e resgate). Tabela `duo_quests`.
+Desligada, nada aparece, `my_duo_quests` devolve lista vazia e `create_duo_quest`,
+`respond_duo_quest`, `cancel_duo_quest` e `claim_duo_quest` recusam com `PR050`. **Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_duo_quests';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_duo_quests';
+```
+
+### Aviso de convite de amizade: `feature_friend_alerts`
+
+Pedidos de amizade recebidos aparecem sem abrir a Fogueira: um contador na aba Fogueira e um
+cartão na tela Hoje com Aceitar, Recusar e Depois ("Depois" tira o convite de Hoje; o contador
+continua). O app confere ao abrir, ao voltar para ele e ao entrar em Hoje ou na Fogueira; não é
+notificação push. Só leitura (`incoming_friend_requests`); aceitar e recusar continuam em
+`respond_friend_request`. Desligada, nada aparece e `incoming_friend_requests` devolve lista vazia.
+**Começa desligada.**
+
+```sql
+-- ligar
+update public.app_settings set value = 1 where key = 'feature_friend_alerts';
+-- desligar
+update public.app_settings set value = 0 where key = 'feature_friend_alerts';
+```
+
 ### Lorde do mês: `feature_monthly_boss`
 
 Em Desafios, um chefe do rodízio na forma lendária (dourado) fica o mês inteiro: vida de 70% das

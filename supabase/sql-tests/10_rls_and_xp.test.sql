@@ -2308,6 +2308,473 @@ end $$;
 reset role;
 update public.app_settings set value = 0 where key = 'feature_monthly_boss';
 
+-- ── Aviso de convite de amizade ─────────────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_friend_alerts') = 0,
+    'aviso de convite começa desligado');
+end $$;
+-- Lia pede Juca de novo (desfizeram a amizade nos testes do Social)
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform public.send_friend_request(p_user => 'bbbbbbbb-1111-1111-1111-111111111111');
+end $$;
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.incoming_friend_requests() = '[]'::jsonb, 'desligado: sem aviso de convite');
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_friend_alerts';
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  r := public.incoming_friend_requests();
+  perform pg_temp.check(jsonb_array_length(r) = 1 and r->0->'user'->>'display_name' = 'Lia'
+    and r->0 ? 'request_id' and not (r::text like '%"streak"%'), 'ligado: Juca vê o convite de Lia, só o cartão curto');
+end $$;
+-- quem pediu não vê o próprio pedido como recebido; outra pessoa também não
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.incoming_friend_requests() = '[]'::jsonb, 'pedido enviado não aparece como recebido');
+end $$;
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.incoming_friend_requests() = '[]'::jsonb, 'convite de outra pessoa não aparece');
+end $$;
+-- aceitar some com o aviso
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform public.respond_friend_request((public.incoming_friend_requests()->0->>'request_id')::uuid, true);
+  perform pg_temp.check(public.incoming_friend_requests() = '[]'::jsonb, 'convite aceito sai do aviso');
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_friend_alerts';
+
+-- ── Missões em equipe ───────────────────────────────────────
+-- Lia e Juca são amigos (testes do aviso de convite); Vera não é amiga de Lia.
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_duo_quests') = 0,
+    'missões em equipe começam desligadas');
+  perform pg_temp.check(public.duo_reward(3) = 30 and public.duo_reward(5) = 50 and public.duo_reward(7) = 80,
+    'mesmos prêmios do app');
+end $$;
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check(public.my_duo_quests() = '[]'::jsonb, 'desligado: lista vazia');
+  begin
+    perform public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', 'personal_growth', 3);
+    raise exception 'FALHOU: criou missão em equipe com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_duo_quests';
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  begin
+    perform public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', 'personal_growth', 4);
+    raise exception 'FALHOU: aceitou meta 4';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', 'magia', 3);
+    raise exception 'FALHOU: aceitou área inválida';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.create_duo_quest('eeeeeeee-1111-1111-1111-111111111111', null, 3);
+    raise exception 'FALHOU: convidou quem não é amigo';
+  exception when sqlstate 'PR070' then null;
+  end;
+  r := public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', 'personal_growth', 3);
+  perform set_config('test.duo_id', r->>'id', false);
+  begin
+    perform public.create_duo_quest('bbbbbbbb-1111-1111-1111-111111111111', null, 5);
+    raise exception 'FALHOU: duas missões da mesma dupla na semana';
+  exception when sqlstate 'PR072' then null;
+  end;
+  begin
+    insert into public.duo_quests (week_start, inviter, partner, target)
+    values (date_trunc('week', pg_temp.today())::date, 'cccccccc-1111-1111-1111-111111111111',
+            'bbbbbbbb-1111-1111-1111-111111111111', 3);
+    raise exception 'FALHOU: app criou missão em equipe direto';
+  exception when insufficient_privilege then null;
+  end;
+  r := public.my_duo_quests();
+  perform pg_temp.check(jsonb_array_length(r) = 1 and r->0->>'status' = 'pending'
+    and (r->0->>'i_invited')::boolean and r->0->'partner'->>'display_name' = 'Juca'
+    and (r->0->>'reward')::int = 30 and not (r::text like '%"streak"%'),
+    'Lia vê o convite enviado, só com o cartão curto de Juca');
+  begin
+    perform public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: resgatou convite ainda não aceito';
+  exception when no_data_found then null;
+  end;
+  begin
+    perform public.respond_duo_quest(current_setting('test.duo_id')::uuid, true);
+    raise exception 'FALHOU: quem convidou aceitou o próprio convite';
+  exception when no_data_found then null;
+  end;
+end $$;
+-- Mel não vê a missão da dupla
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.my_duo_quests() = '[]'::jsonb and (select count(*) from public.duo_quests) = 0,
+    'RLS: missão em equipe só para a dupla');
+end $$;
+-- Juca aceita; ninguém fez nada ainda
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  perform public.respond_duo_quest(current_setting('test.duo_id')::uuid, true);
+  r := public.my_duo_quests();
+  perform pg_temp.check(r->0->>'status' = 'active' and not (r->0->>'i_invited')::boolean
+    and r->0->'partner'->>'display_name' = 'Lia' and (r->0->>'my_done')::int = 0,
+    'Juca aceita e vê Lia como parceira');
+  begin
+    perform public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: resgatou sem cumprir';
+  exception when sqlstate 'PR073' then null;
+  end;
+end $$;
+-- Cada um faz 3 missões de Crescimento pessoal hoje; Juca faz mais 1 (o placar para na meta)
+reset role;
+do $$
+declare
+  u uuid;
+  o uuid;
+  h uuid;
+  k integer;
+begin
+  foreach u in array array['cccccccc-1111-1111-1111-111111111111', 'bbbbbbbb-1111-1111-1111-111111111111']::uuid[] loop
+    insert into public.objectives (user_id, title, category) values (u, 'Crescer junto', 'personal_growth')
+    returning id into o;
+    for k in 1 .. (case when u = 'bbbbbbbb-1111-1111-1111-111111111111' then 4 else 3 end) loop
+      insert into public.habits (user_id, title, start_date, objective_id)
+      values (u, 'Dupla ' || k, pg_temp.today() - 1, o) returning id into h;
+      insert into public.habit_logs (user_id, habit_id, local_date) values (u, h, public.user_today(u));
+    end loop;
+  end loop;
+end $$;
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$
+declare r jsonb;
+begin
+  r := public.my_duo_quests();
+  perform pg_temp.check((r->0->>'my_done')::int = 3 and (r->0->>'partner_done')::int = 3,
+    'placar dos dois, parado na meta');
+  perform pg_temp.check(not (r::text like '%Dupla%'), 'nomes dos hábitos do parceiro não aparecem');
+  r := public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+  perform pg_temp.check((r->>'coins_awarded')::int = 30, 'Lia resgata 30 Cristais');
+  r := public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+  perform pg_temp.check((r->>'coins_awarded')::int = 0, 'resgatar de novo não paga outra vez');
+  perform pg_temp.check((public.my_duo_quests()->0->>'claimed')::boolean, 'aparece como resgatada');
+end $$;
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  perform pg_temp.check(not (public.my_duo_quests()->0->>'claimed')::boolean, 'o resgate de Lia não conta para Juca');
+  r := public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+  perform pg_temp.check((r->>'coins_awarded')::int = 30, 'Juca resgata o próprio prêmio');
+end $$;
+-- Lia convida Mel: Mel recusa; a recusa não bloqueia um novo convite, que Lia cancela
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.create_duo_quest('dddddddd-1111-1111-1111-111111111111', null, 5);
+  perform set_config('test.duo_mel', r->>'id', false);
+end $$;
+select set_config('request.jwt.claim.sub', 'dddddddd-1111-1111-1111-111111111111', true);
+do $$ begin
+  perform pg_temp.check(public.my_duo_quests()->0->>'status' = 'pending', 'Mel recebe o convite');
+  perform public.respond_duo_quest(current_setting('test.duo_mel')::uuid, false);
+  perform pg_temp.check(public.my_duo_quests() = '[]'::jsonb, 'recusado some da lista');
+end $$;
+select set_config('request.jwt.claim.sub', 'cccccccc-1111-1111-1111-111111111111', true);
+do $$
+declare r jsonb;
+begin
+  r := public.create_duo_quest('dddddddd-1111-1111-1111-111111111111', 'health', 7);
+  begin
+    perform public.cancel_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: cancelou missão já aceita';
+  exception when no_data_found then null;
+  end;
+  perform public.cancel_duo_quest((r->>'id')::uuid);
+  perform pg_temp.check(jsonb_array_length(public.my_duo_quests()) = 1, 'convite cancelado some; fica a missão com Juca');
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_duo_quests';
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-1111-1111-1111-111111111111', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.claim_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: resgatou com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.respond_duo_quest(current_setting('test.duo_id')::uuid, false);
+    raise exception 'FALHOU: respondeu com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.cancel_duo_quest(current_setting('test.duo_id')::uuid);
+    raise exception 'FALHOU: cancelou com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+
+-- ── Push de verdade ─────────────────────────────────────────
+-- Ana e Bia, no fuso UTC (as horas dos testes ficam previsíveis).
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('f1000000-0000-0000-0000-000000000001', 'ana@teste.dev', '{"display_name":"Ana"}'),
+  ('f1000000-0000-0000-0000-000000000002', 'bia@teste.dev', '{"display_name":"Bia"}');
+update public.profiles set timezone = 'UTC', display_name = case id
+    when 'f1000000-0000-0000-0000-000000000001' then 'Ana' else 'Bia' end
+where id in ('f1000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000002');
+select set_config('test.noon', ((date_trunc('day', now() at time zone 'UTC') + interval '12 hours') at time zone 'UTC')::text, false);
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_push') = 0, 'push começa desligado');
+  perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'social', 'teste:desligado', 'a', 'b', 'c', 'd');
+  perform pg_temp.check(not exists (select 1 from public.push_outbox), 'desligado: nada entra na fila');
+  perform pg_temp.check(not exists (select 1 from public.push_claim_batch(100, current_setting('test.noon')::timestamptz)),
+    'desligado: lote vazio');
+end $$;
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.register_push_token('ExponentPushToken[ana-1]', 'android', 'pt-BR');
+    raise exception 'FALHOU: registrou aparelho com o push desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_push';
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.register_push_token('qualquer-coisa', 'android', 'pt-BR');
+    raise exception 'FALHOU: aceitou token inválido';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.register_push_token('ExponentPushToken[ana-1]', 'windows', 'pt-BR');
+    raise exception 'FALHOU: aceitou plataforma inválida';
+  exception when invalid_parameter_value then null;
+  end;
+  perform public.register_push_token('ExponentPushToken[ana-1]', 'android', 'pt-BR');
+  perform public.register_push_token('ExponentPushToken[ana-en]', 'android', 'en');
+  perform public.register_push_token('ExponentPushToken[ana-1]', 'android', 'pt-BR'); -- de novo: sem repetir
+  perform pg_temp.check((select count(*) from public.push_tokens) = 2, 'Ana vê os dois aparelhos dela');
+  perform pg_temp.check((select social and bosses and reengage from public.push_settings), 'preferências nascem ligadas');
+  begin
+    insert into public.push_tokens (token, user_id, platform)
+    values ('ExponentPushToken[x]', 'f1000000-0000-0000-0000-000000000001', 'android');
+    raise exception 'FALHOU: app gravou token direto';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.push_outbox;
+    raise exception 'FALHOU: app leu a fila de avisos';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.push_claim_batch(10);
+    raise exception 'FALHOU: app pegou o lote de envio';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+-- Bia não vê os aparelhos de Ana e convida Ana para a Fogueira (pelo código, lido antes)
+reset role;
+select set_config('test.ana_code', (select friend_code from public.profiles where id = 'f1000000-0000-0000-0000-000000000001'), false);
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000002', true);
+set local role authenticated;
+do $$ begin
+  perform pg_temp.check((select count(*) from public.push_tokens) = 0, 'RLS: aparelhos só do dono');
+  perform public.send_friend_request(current_setting('test.ana_code'));
+end $$;
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+do $$ begin
+  perform public.respond_friend_request((public.my_friends()->'incoming'->0->>'request_id')::uuid, true);
+end $$;
+reset role;
+do $$
+declare
+  noon timestamptz := current_setting('test.noon')::timestamptz;
+  n integer;
+begin
+  perform pg_temp.check(exists (select 1 from public.push_outbox
+    where user_id = 'f1000000-0000-0000-0000-000000000001' and dedupe_key like 'friend_req:%'
+      and category = 'social' and body_pt like 'Bia%'), 'convite de amizade entra na fila de Ana');
+  perform pg_temp.check(exists (select 1 from public.push_outbox
+    where user_id = 'f1000000-0000-0000-0000-000000000002' and dedupe_key like 'friend_ok:%'), 'aceite entra na fila de Bia');
+  update public.push_outbox set send_after = noon - interval '1 minute';
+  create temp table lote on commit drop as select * from public.push_claim_batch(100, noon);
+  perform pg_temp.check((select count(*) from lote) = 2, 'um envio por aparelho de Ana');
+  perform pg_temp.check(exists (select 1 from lote where token = 'ExponentPushToken[ana-1]' and title = 'Convite para a Fogueira'),
+    'aparelho em português recebe o texto em português');
+  perform pg_temp.check(exists (select 1 from lote where token = 'ExponentPushToken[ana-en]' and title = 'Campfire invite'),
+    'aparelho em inglês recebe o texto em inglês');
+  perform pg_temp.check((select reason from public.push_outbox where user_id = 'f1000000-0000-0000-0000-000000000002') = 'no_token',
+    'sem aparelho: descartado');
+  perform pg_temp.check(not exists (select 1 from public.push_claim_batch(100, noon)), 'não envia duas vezes');
+  perform public.push_report(
+    p_sent => array(select distinct outbox_id from lote),
+    p_tickets => '[{"ticket_id":"t-1","token":"ExponentPushToken[ana-1]"}]'::jsonb,
+    p_bad_tokens => array['ExponentPushToken[ana-en]']);
+  perform pg_temp.check((select status from public.push_outbox where dedupe_key like 'friend_req:%') = 'sent', 'marcado como enviado');
+  perform pg_temp.check(exists (select 1 from public.push_tickets where ticket_id = 't-1'), 'recibo guardado para conferir');
+  perform pg_temp.check(not exists (select 1 from public.push_tokens where token = 'ExponentPushToken[ana-en]'),
+    'aparelho que saiu é apagado');
+
+  -- silêncio: às 23h espera até as 8h do dia seguinte
+  perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'bosses', 'teste:noite', 't', 'b', 't', 'b',
+    null, noon - interval '1 minute');
+  perform pg_temp.check(not exists (select 1 from public.push_claim_batch(100, noon + interval '11 hours')), 'às 23h não envia');
+  perform pg_temp.check((select send_after from public.push_outbox where dedupe_key = 'teste:noite')
+    = noon + interval '20 hours', 'fica para as 8h do dia seguinte');
+
+  -- limite: no máximo 3 de chefes por dia
+  for n in 1 .. 4 loop
+    perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'bosses', 'teste:chefe' || n, 't', 'b', 't', 'b',
+      null, noon - interval '1 minute');
+  end loop;
+  perform pg_temp.check((select count(*) from public.push_claim_batch(100, noon)) = 3, 'três avisos de chefe no dia');
+  perform pg_temp.check((select reason from public.push_outbox where dedupe_key = 'teste:chefe4') = 'cap', 'o quarto passa do limite');
+
+  -- velho demais
+  perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'social', 'teste:velho', 't', 'b', 't', 'b',
+    null, noon - interval '1 minute');
+  update public.push_outbox set created_at = noon - interval '3 days' where dedupe_key = 'teste:velho';
+  perform public.push_claim_batch(100, noon);
+  perform pg_temp.check((select reason from public.push_outbox where dedupe_key = 'teste:velho') = 'stale', 'velho é descartado');
+end $$;
+-- preferência: Ana desliga os avisos sociais
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+do $$ begin
+  perform public.set_push_settings(false, true, true);
+end $$;
+reset role;
+do $$
+declare noon timestamptz := current_setting('test.noon')::timestamptz;
+begin
+  perform public.push_enqueue('f1000000-0000-0000-0000-000000000001', 'social', 'teste:pref', 't', 'b', 't', 'b',
+    null, noon - interval '1 minute');
+  perform public.push_claim_batch(100, noon);
+  perform pg_temp.check((select reason from public.push_outbox where dedupe_key = 'teste:pref') = 'prefs',
+    'categoria desligada é descartada');
+end $$;
+-- reengajamento: Ana tem um hábito e a última missão foi há 5 dias
+reset role;
+do $$
+declare
+  v_today date := (now() at time zone 'UTC')::date;
+  h uuid;
+  n integer;
+begin
+  insert into public.habits (user_id, title, start_date)
+  values ('f1000000-0000-0000-0000-000000000001', 'Ler', v_today - 10) returning id into h;
+  insert into public.habit_logs (user_id, habit_id, local_date)
+  values ('f1000000-0000-0000-0000-000000000001', h, v_today - 5);
+  perform pg_temp.check(public.push_enqueue_scheduled((v_today + time '23:00') at time zone 'UTC') = 0, 'à noite a varredura não põe nada');
+  perform public.push_enqueue_scheduled((v_today + time '19:00') at time zone 'UTC');
+  perform pg_temp.check(exists (select 1 from public.push_outbox
+    where user_id = 'f1000000-0000-0000-0000-000000000001' and category = 'reengage'), 'reengajamento depois de 3 dias sem missão');
+  select count(*) into n from public.push_outbox;
+  perform public.push_enqueue_scheduled((v_today + time '19:30') at time zone 'UTC');
+  perform pg_temp.check((select count(*) from public.push_outbox) = n, 'varrer de novo não repete avisos');
+end $$;
+update public.app_settings set value = 0 where key = 'feature_push';
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.set_push_settings(true, true, true);
+    raise exception 'FALHOU: mudou preferências com o push desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+  begin
+    perform public.unregister_push_token('ExponentPushToken[ana-1]');
+    raise exception 'FALHOU: removeu aparelho com o push desligado';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+
+-- ── Lembretes ao longo do dia ───────────────────────────────
+reset role;
+do $$ begin
+  perform pg_temp.check((select value from public.app_settings where key = 'feature_reminder_repeat') = 0,
+    'lembretes repetidos começam desligados');
+end $$;
+select set_config('request.jwt.claim.sub', 'f1000000-0000-0000-0000-000000000001', true);
+set local role authenticated;
+do $$ begin
+  begin
+    insert into public.habits (user_id, title, kind, target_qty, start_date, reminder_time, reminder_every_minutes, reminder_until)
+    values ('f1000000-0000-0000-0000-000000000001', 'Água', 'count', 8, pg_temp.today(), '08:00', 60, '20:00');
+    raise exception 'FALHOU: gravou repetição com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 1 where key = 'feature_reminder_repeat';
+set local role authenticated;
+do $$
+declare h uuid;
+begin
+  insert into public.habits (user_id, title, kind, target_qty, start_date, reminder_time, reminder_every_minutes, reminder_until)
+  values ('f1000000-0000-0000-0000-000000000001', 'Água', 'count', 8, pg_temp.today(), '08:00', 60, '20:00')
+  returning id into h;
+  perform set_config('test.water', h::text, false);
+  begin
+    update public.habits set reminder_every_minutes = 45 where id = h;
+    raise exception 'FALHOU: aceitou intervalo de 45 min';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.habits set reminder_until = '07:00' where id = h;
+    raise exception 'FALHOU: fim antes do primeiro lembrete';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.habits set reminder_until = null where id = h;
+    raise exception 'FALHOU: intervalo sem fim';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role;
+update public.app_settings set value = 0 where key = 'feature_reminder_repeat';
+set local role authenticated;
+do $$ begin
+  -- desligada: o hábito que já repete continua editável em outros campos
+  update public.habits set title = 'Beber água' where id = current_setting('test.water')::uuid;
+  begin
+    update public.habits set reminder_every_minutes = 120 where id = current_setting('test.water')::uuid;
+    raise exception 'FALHOU: mudou a repetição com a flag desligada';
+  exception when sqlstate 'PR050' then null;
+  end;
+  -- tirar a repetição sempre pode
+  update public.habits set reminder_every_minutes = null, reminder_until = null
+  where id = current_setting('test.water')::uuid;
+end $$;
+reset role;
+
 -- Excluir a conta apaga tudo em cascata, mesmo hábitos com registros
 reset role;
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';

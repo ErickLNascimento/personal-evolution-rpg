@@ -4,7 +4,7 @@
  */
 import { addDays, compareLocalDates, type LocalDate } from './dates';
 import { DEFAULT_LOCALE, type Bilingual, type Locale } from './i18n';
-import { formatReminderTime, parseReminderTime } from './reminders';
+import { formatReminderTime, parseReminderTime, REMINDER_REPEAT_MINUTES } from './reminders';
 import { ALL_DAYS } from './schedule';
 import type { Difficulty } from './xp';
 
@@ -55,6 +55,10 @@ export const OBJECTIVE_CATEGORIES = [
 ] as const;
 
 export type ObjectiveCategory = (typeof OBJECTIVE_CATEGORIES)[number];
+
+export function isObjectiveCategory(value: unknown): value is ObjectiveCategory {
+  return typeof value === 'string' && (OBJECTIVE_CATEGORIES as readonly string[]).includes(value);
+}
 
 export const OBJECTIVE_CATEGORY_LABELS: Bilingual<Record<ObjectiveCategory, string>> = {
   'pt-BR': {
@@ -126,6 +130,7 @@ const FORM_MESSAGES = {
     countRequired: 'Informe quantas vezes por dia (ex.: 8).',
     unitNeedsTarget: 'Informe a meta para usar uma unidade.',
     badTime: 'Horário inválido.',
+    repeatAfter: 'O fim da repetição precisa ser depois do primeiro lembrete.',
     objectiveTitle: 'Dê um nome ao objetivo.',
   },
   en: {
@@ -137,6 +142,7 @@ const FORM_MESSAGES = {
     countRequired: 'Say how many times per day (e.g. 8).',
     unitNeedsTarget: 'Set a target to use a unit.',
     badTime: 'Invalid time.',
+    repeatAfter: 'The repeat must end after the first reminder.',
     objectiveTitle: 'Give the goal a name.',
   },
 } as const;
@@ -153,6 +159,9 @@ export interface HabitDraft {
   unit: string;
   /** Horário do lembrete ("08:30"), ou `null`/ausente para sem lembrete. */
   reminderTime?: string | null;
+  /** Repetir ao longo do dia (só missões de contar): intervalo em minutos e fim ("20:00"). */
+  reminderEveryMinutes?: number | null;
+  reminderUntil?: string | null;
 }
 
 export interface HabitInput {
@@ -165,10 +174,12 @@ export interface HabitInput {
   unit: string | null;
   /** "HH:MM" ou `null`. */
   reminderTime: string | null;
+  reminderEveryMinutes: number | null;
+  reminderUntil: string | null;
 }
 
 export type HabitDraftErrors = Partial<
-  Record<'title' | 'scheduleDays' | 'targetQty' | 'unit' | 'reminderTime', string>
+  Record<'title' | 'scheduleDays' | 'targetQty' | 'unit' | 'reminderTime' | 'reminderUntil', string>
 >;
 
 /** Valida e converte o formulário de hábito. Mensagens em português. */
@@ -209,6 +220,20 @@ export function validateHabitDraft(
     else reminderTime = formatReminderTime(t);
   }
 
+  // Repetição: só em missão de contar, com lembrete, intervalo válido e fim depois do início.
+  let reminderEveryMinutes: number | null = null;
+  let reminderUntil: string | null = null;
+  if (kind === 'count' && reminderTime && draft.reminderEveryMinutes && draft.reminderUntil) {
+    const until = parseReminderTime(draft.reminderUntil);
+    const every = draft.reminderEveryMinutes;
+    if (!until) errors.reminderUntil = m.badTime;
+    else if (formatReminderTime(until) <= reminderTime) errors.reminderUntil = m.repeatAfter;
+    else if ((REMINDER_REPEAT_MINUTES as readonly number[]).includes(every)) {
+      reminderEveryMinutes = every;
+      reminderUntil = formatReminderTime(until);
+    }
+  }
+
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return {
     ok: true,
@@ -221,6 +246,8 @@ export function validateHabitDraft(
       targetQty,
       unit: targetQty === null || !unitText ? null : unitText,
       reminderTime,
+      reminderEveryMinutes,
+      reminderUntil,
     },
   };
 }

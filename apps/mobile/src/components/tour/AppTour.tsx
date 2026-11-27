@@ -21,6 +21,8 @@ export interface TourSlide {
   text: string;
   /** Mostra "Ver agora", que fecha o tour e abre esta tela. */
   route?: string;
+  /** Lista curta de correções (Novidades: só no último slide). */
+  notes?: readonly string[];
 }
 
 /** Tour padrão: textos vêm do dicionário (tour.s1Title, tour.s1Text, …). */
@@ -128,6 +130,17 @@ export function AppTour({
               {slide.title}
             </Text>
             <Text style={[typography.body, styles.center]}>{slide.text}</Text>
+            {slide.notes && slide.notes.length > 0 && (
+              <View style={styles.notes} accessible accessibilityLabel={`${t('tour.fixes')}: ${slide.notes.join('. ')}`}>
+                <Text style={styles.notesTitle}>{t('tour.fixes')}</Text>
+                {slide.notes.map((note, i) => (
+                  <View key={i} style={styles.noteRow}>
+                    <Text style={typography.caption}>•</Text>
+                    <Text style={[typography.caption, styles.noteText]}>{note}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </Animated.View>
 
           <View
@@ -186,6 +199,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   center: { textAlign: 'center' },
+  notes: {
+    alignSelf: 'stretch',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  notesTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 1.2, color: colors.textSecondary },
+  noteRow: { flexDirection: 'row', gap: spacing.sm },
+  noteText: { flex: 1 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xs },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.surfaceRaised },
   dotActive: { width: 22, backgroundColor: colors.primary },
