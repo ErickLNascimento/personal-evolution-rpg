@@ -77,3 +77,14 @@ describe('novidades e correções', () => {
       for (const i of n.items.filter((x) => x.kind === 'fix')) expect(i.text.length).toBeLessThanOrEqual(120);
   });
 });
+
+describe('resumo das novidades', () => {
+  test('recursos novos (da versão 12 em diante) têm resumo curto nos dois idiomas', () => {
+    for (const n of RELEASE_NOTES.filter((x) => x.version >= 12))
+      for (const i of n.items.filter((x) => x.kind !== 'fix')) {
+        expect(i.summary?.length ?? 0).toBeGreaterThan(0);
+        expect((i.summary ?? '').length).toBeLessThanOrEqual(90);
+        expect((i.en?.summary ?? '').length).toBeGreaterThan(0);
+      }
+  });
+});

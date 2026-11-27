@@ -1,5 +1,6 @@
 import {
   bossForWeek,
+  newHeroItems,
   bossTitle,
   BOSS_WEAKNESS,
   type ObjectiveCategory,
@@ -40,7 +41,8 @@ import { useFeature } from '@/features/profile/useFeature';
 import { PromotionBanner } from '@/components/today/PromotionBanner';
 import { BossBanner } from '@/components/challenges/BossCard';
 import { AppTour } from '@/components/tour/AppTour';
-import { markNewsSeen, newsSlides, seenNewsVersion } from '@/lib/whatsNew';
+import { markNewsSeen, seenNewsVersion } from '@/lib/whatsNew';
+import { NewsSheet } from '@/components/tour/NewsSheet';
 import { DayRing } from '@/components/today/DayRing';
 import { DaySwitch } from '@/components/today/DaySwitch';
 import { XpBar } from '@/components/XpBar';
@@ -63,6 +65,7 @@ import { AmbushCard } from '@/components/ambush/AmbushCard';
 import { FriendInviteCard } from '@/components/social/FriendInviteCard';
 import { DuoQuestsCard } from '@/components/duo/DuoQuestsCard';
 import { PushPromptCard } from '@/components/push/PushPromptCard';
+import { seenWardrobeLevel } from '@/features/hero/seenItems';
 import { fetchDuoQuests, type DuoQuest } from '@/features/duo/api';
 import { refreshInvites } from '@/features/social/invites';
 import { fetchAmbush } from '@/features/ambush/api';
@@ -174,6 +177,14 @@ function RealToday() {
   // Missões em equipe: o placar muda a cada missão concluída.
   const duoOn = useFeature(FEATURES.duoQuests) && socialOn;
   const pushOn = useFeature(FEATURES.push);
+  // Peças ganhas e ainda não vistas no vestiário (relê ao voltar para Hoje).
+  const [wardrobeSeen, setWardrobeSeen] = useState(1);
+  useFocusEffect(
+    useCallback(() => {
+      if (profile) setWardrobeSeen(seenWardrobeLevel(profile.id));
+    }, [profile]),
+  );
+  const freshItems = newHeroItems(day.level.level, wardrobeSeen).length;
   const loadDuos = useCallback(() => fetchDuoQuests(), []);
   const duos = useFocusLoad<DuoQuest[]>(loadDuos, duoOn);
   const refreshDuos = duos.refresh;
@@ -204,12 +215,9 @@ function RealToday() {
         }}
       />
       {news.length > 0 && (
-        <AppTour
+        <NewsSheet
           visible={showNews}
-          hero={hero}
-          slides={newsSlides(news, locale)}
-          heading={t('today.news')}
-          finishLabel={t('today.gotIt')}
+          items={news}
           onClose={() => {
             markNewsSeen();
             setNewsSeen(seenNewsVersion());
@@ -323,6 +331,7 @@ function RealToday() {
                       profile?.earnedTitles ?? new Set(),
                     )}
                     cheer={day.cheer}
+                    freshItems={freshItems}
                     aside={<DayRing progress={day.progress} label={ringLabel} />}
                   />
                 </Animated.View>

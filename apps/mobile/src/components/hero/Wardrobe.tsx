@@ -147,6 +147,8 @@ export interface WardrobeTab {
   key: string;
   icon: IconName;
   label: string;
+  /** Tem peça nova nesta aba. */
+  fresh?: boolean;
 }
 
 /**
@@ -166,6 +168,7 @@ export function WardrobeTabs({
   width: number;
   onSelect: (i: number) => void;
 }) {
+  const { t } = useT();
   const tabWidth = width / tabs.length;
   const marker = useAnimatedStyle(() => ({
     transform: [
@@ -191,7 +194,10 @@ export function WardrobeTabs({
             accessibilityLabel={tab.label}
             style={[styles.tab, { width: tabWidth }]}
           >
-            <Ionicons name={tab.icon} size={20} color={active ? GOLD : colors.textSecondary} />
+            <View>
+              <Ionicons name={tab.icon} size={20} color={active ? GOLD : colors.textSecondary} />
+              {tab.fresh && <View style={styles.tabDot} accessibilityLabel={t('heroScreen.newItems')} />}
+            </View>
             <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={1}>
               {tab.label}
             </Text>
@@ -230,9 +236,12 @@ export function InventoryPicker({
   level,
   owned,
   previewing,
+  fresh,
   onChoose,
   onPreview,
 }: {
+  /** Peças liberadas desde a última visita: selo "Novo". */
+  fresh?: ReadonlySet<string>;
   slot: HeroSlot;
   look: HeroLook;
   value: string;
@@ -258,7 +267,9 @@ export function InventoryPicker({
           const active = item.id === value;
           const name = itemLabel(slot, item, locale);
           const a11y = unlocked
-            ? name
+            ? fresh?.has(item.id)
+              ? `${name}, ${t('heroScreen.new')}`
+              : name
             : fromShop
               ? t('heroScreen.itemInShop', { name, price: item.price ?? 0 })
               : t('heroScreen.itemLocked', { name, level: item.level });
@@ -285,6 +296,11 @@ export function InventoryPicker({
                   </View>
                 )}
               </View>
+              {unlocked && fresh?.has(item.id) && (
+                <View style={styles.newBadge}>
+                  <Text style={styles.newText}>{t('heroScreen.new')}</Text>
+                </View>
+              )}
               {!unlocked && (
                 <View style={styles.lockBadge}>
                   <Ionicons
@@ -465,5 +481,24 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   lockText: { fontSize: 10, fontWeight: '800', color: colors.text },
+  newBadge: {
+    position: 'absolute',
+    left: -6,
+    top: -7,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radius.pill,
+    backgroundColor: GOLD,
+  },
+  newText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.6, color: '#1C1A23' },
+  tabDot: {
+    position: 'absolute',
+    right: -4,
+    top: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: GOLD,
+  },
   itemName: { ...typography.caption, textAlign: 'center', color: colors.text },
 });

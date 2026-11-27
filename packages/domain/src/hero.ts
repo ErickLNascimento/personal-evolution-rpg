@@ -359,6 +359,20 @@ export function unlocksBetween(
   return out.sort((a, b) => a.level - b.level || a.label.localeCompare(b.label));
 }
 
+/**
+ * Peças liberadas por nível desde a última visita ao vestiário (`seenLevel`) até o nível atual:
+ * ganham o selo "Novo". As da Loja ficam de fora (são compradas, não ganhas).
+ */
+export function newHeroItems(level: number, seenLevel: number): { slot: HeroSlot; id: string }[] {
+  const out: { slot: HeroSlot; id: string }[] = [];
+  for (const slot of Object.keys(HERO_SLOTS) as HeroSlot[]) {
+    for (const item of HERO_SLOTS[slot].items) {
+      if (item.price === undefined && item.level > seenLevel && item.level <= level) out.push({ slot, id: item.id });
+    }
+  }
+  return out;
+}
+
 /** Próximo desbloqueio depois do nível atual, para mostrar "No nível N: …". */
 export function nextUnlock(level: number, form: HeroForm = 'masculino', locale: Locale = DEFAULT_LOCALE): Unlock | null {
   for (let target = level + 1; target <= level + 50; target++) {

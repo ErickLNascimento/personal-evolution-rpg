@@ -5,6 +5,7 @@ import {
   pathLabel,
   pathMotto,
   itemLabel,
+  newHeroItems,
   RACES,
   raceDescription,
   raceLabel,
@@ -28,7 +29,7 @@ import {
 } from '@per/domain';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -56,6 +57,7 @@ import {
 } from '@/components/hero/Wardrobe';
 import { StackScreen } from '@/components/Screen';
 import { useCelebration } from '@/features/celebration/CelebrationProvider';
+import { markWardrobeSeen, seenWardrobeLevel } from '@/features/hero/seenItems';
 import { useHero } from '@/features/hero/useHero';
 import { useProfile } from '@/features/profile/ProfileProvider';
 import { useT } from '@/i18n';
@@ -105,6 +107,20 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
 
   // Cada escolha faz o herói comemorar no pedestal.
   const [cheer, setCheer] = useState(0);
+  // Peças liberadas desde a última visita: selo "Novo" até sair do vestiário.
+  const userId = profile?.id ?? null;
+  const [fresh] = useState(() => {
+    const items = userId ? newHeroItems(level, seenWardrobeLevel(userId)) : [];
+    const bySlot = new Map<HeroSlot, Set<string>>();
+    for (const f of items) bySlot.set(f.slot, (bySlot.get(f.slot) ?? new Set()).add(f.id));
+    return bySlot;
+  });
+  useEffect(() => {
+    return () => {
+      if (userId) markWardrobeSeen(userId, level);
+    };
+  }, [userId, level]);
+  const freshIn = (slots: HeroSlot[]) => slots.some((sl) => (fresh.get(sl)?.size ?? 0) > 0);
   // Peça bloqueada vista no pedestal (não vai para o rascunho nem é salva).
   const [preview, setPreview] = useState<{ slot: HeroSlot; item: HeroItem } | null>(null);
   const { width } = useWindowDimensions();
@@ -116,8 +132,18 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
 
   const tabs: WardrobeTab[] = [
     { key: 'hero', icon: 'person', label: t('heroScreen.tabHero') },
-    { key: 'look', icon: 'color-palette', label: t('heroScreen.tabLook') },
-    { key: 'gear', icon: 'shield', label: t('heroScreen.tabGear') },
+    {
+      key: 'look',
+      icon: 'color-palette',
+      label: t('heroScreen.tabLook'),
+      fresh: freshIn(['skin', 'eyes', 'hair', 'hairColor']),
+    },
+    {
+      key: 'gear',
+      icon: 'shield',
+      label: t('heroScreen.tabGear'),
+      fresh: freshIn(['outfit', 'accessory', 'aura']),
+    },
     { key: 'title', icon: 'ribbon', label: t('heroScreen.tabTitle') },
     { key: 'path', icon: 'git-branch', label: t('heroScreen.tabPath') },
   ];
@@ -178,6 +204,7 @@ function HeroEditor({ initial, level }: { initial: HeroLook; level: number }) {
       level={level}
       owned={owned}
       previewing={preview?.slot === slot ? preview.item.id : null}
+      fresh={fresh.get(slot)}
       onChoose={(id) => choose({ [SLOT_KEY[slot]]: id })}
       onPreview={(item) => showPreview(slot, item)}
     />

@@ -73,6 +73,8 @@ const pt = {
     flashBonus: '+{xp} XP · +{crystals} Cristais',
   },
   hero: {
+    freshOne: '✦ 1 peça nova no vestiário',
+    freshMany: '✦ {count} peças novas no vestiário',
     create: 'Criar seu herói',
     a11y: 'Seu herói, {title}, nível {level}. Toque para personalizar.',
     noName: 'Herói sem nome',
@@ -620,6 +622,8 @@ const pt = {
     failed: 'Não foi possível enviar. Tente de novo.',
   },
   heroScreen: {
+    new: 'NOVO',
+    newItems: 'Peças novas',
     previewShop: 'Prévia: {name} · {price} 💎 na Loja',
     previewLevel: 'Prévia: {name} · libera no nível {level}',
     previewToShop: 'Ver na Loja',
@@ -717,6 +721,8 @@ const pt = {
     short: 'Nv {level} · {missions} missões',
   },
   levelUp: {
+    newPieces: '{count} PEÇAS NOVAS NO VESTIÁRIO',
+    openWardrobe: 'Ver no vestiário',
     headline: 'SUBIU DE NÍVEL!',
     newTitle: 'Novo título:',
     unlocked: 'Desbloqueado — {label}',
@@ -1097,6 +1103,10 @@ const pt = {
     promptNo: 'Agora não',
     errorLoad: 'Não foi possível carregar as preferências de aviso.',
     errorSave: 'Não foi possível salvar. Tente de novo.',
+  },
+  news: {
+    title: 'O que chegou',
+    openHint: 'Abre a tela desta novidade.',
   },
 };
 

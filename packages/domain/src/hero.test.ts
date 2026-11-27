@@ -17,6 +17,7 @@ import {
   sanitizeHero,
   unlocksBetween,
   type HeroSlot,
+  newHeroItems,
 } from './hero';
 
 describe('aparência do herói', () => {
@@ -149,5 +150,14 @@ describe('Cristais estimados de uma missão', () => {
     expect(estimateMissionCrystals('medium', null, 'paladino')).toBe(12); // sem área = Crescimento pessoal
     expect(estimateMissionCrystals('easy', 'wellbeing', 'druida')).toBe(8); // 5 + 1 + 2
     expect(estimateMissionCrystals('hard', 'knowledge', 'necromante')).toBe(18); // 15 + 3
+  });
+});
+
+describe('peças novas no vestiário', () => {
+  test('liberadas entre a última visita e o nível atual, sem as da Loja', () => {
+    const fresh = newHeroItems(5, 1);
+    expect(fresh.some((f) => f.slot === 'aura' && f.id === 'brasa')).toBe(true);
+    expect(fresh.some((f) => f.id.startsWith('loja-'))).toBe(false);
+    expect(newHeroItems(5, 5)).toEqual([]);
   });
 });

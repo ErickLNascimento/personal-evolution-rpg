@@ -73,6 +73,8 @@ const en: Translations = {
     flashBonus: '+{xp} XP · +{crystals} Crystals',
   },
   hero: {
+    freshOne: '✦ 1 new piece in the wardrobe',
+    freshMany: '✦ {count} new pieces in the wardrobe',
     create: 'Create your hero',
     a11y: 'Your hero, {title}, level {level}. Tap to customize.',
     noName: 'Nameless hero',
@@ -619,6 +621,8 @@ const en: Translations = {
     failed: "Couldn't send it. Try again.",
   },
   heroScreen: {
+    new: 'NEW',
+    newItems: 'New pieces',
     previewShop: 'Preview: {name} · {price} 💎 in the Shop',
     previewLevel: 'Preview: {name} · unlocks at level {level}',
     previewToShop: 'Open Shop',
@@ -716,6 +720,8 @@ const en: Translations = {
     short: 'Lv {level} · {missions} missions',
   },
   levelUp: {
+    newPieces: '{count} NEW PIECES IN THE WARDROBE',
+    openWardrobe: 'Open the wardrobe',
     headline: 'LEVEL UP!',
     newTitle: 'New title:',
     unlocked: 'Unlocked — {label}',
@@ -1096,6 +1102,10 @@ const en: Translations = {
     promptNo: 'Not now',
     errorLoad: 'Couldn\'t load notification preferences.',
     errorSave: 'Couldn\'t save. Try again.',
+  },
+  news: {
+    title: "What's new",
+    openHint: 'Opens this feature.',
   },
 };
 

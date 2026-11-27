@@ -21,7 +21,8 @@ import { Chips } from '@/components/Chips';
 import { Button, Field, FormMessage } from '@/components/Form';
 import { Placeholder, Screen } from '@/components/Screen';
 import { AppTour } from '@/components/tour/AppTour';
-import { latestNewsSlides } from '@/lib/whatsNew';
+import { latestNewsItems } from '@/lib/whatsNew';
+import { NewsSheet } from '@/components/tour/NewsSheet';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useHero } from '@/features/hero/useHero';
 import { exportMyData } from '@/features/account/exportData';
@@ -227,12 +228,9 @@ function AccountProfile() {
       </Chapter>
 
       <AppTour visible={tourOpen} hero={hero} onClose={() => setTourOpen(false)} />
-      <AppTour
+      <NewsSheet
         visible={newsOpen}
-        hero={hero}
-        slides={latestNewsSlides(profile.features, locale)}
-        heading={t('today.news')}
-        finishLabel={t('today.gotIt')}
+        items={latestNewsItems(profile.features)}
         onClose={() => setNewsOpen(false)}
       />
 

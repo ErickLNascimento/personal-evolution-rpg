@@ -66,3 +66,8 @@ export function latestNewsSlides(
     locale,
   );
 }
+
+/** Itens da nota mais recente (para rever pelo Perfil), sem os de feature flag desligada. */
+export function latestNewsItems(features: ReadonlySet<string> = new Set()): ReleaseNoteItem[] {
+  return (RELEASE_NOTES[0]?.items ?? []).filter((i) => !i.flag || features.has(i.flag));
+}
